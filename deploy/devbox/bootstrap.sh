@@ -1,47 +1,112 @@
 #!/usr/bin/env bash
 #
-# DevBox 一次性初始化。只需要跑一次（换 DevBox 才需要再跑）。
+# DevBox 一次性初始化。幂等，可以重复跑。
 #
-# 用法：把本文件传到 DevBox 上执行
+# 用法：
 #   scp deploy/devbox/bootstrap.sh devbox:/tmp/
 #   ssh devbox 'bash /tmp/bootstrap.sh'
 #
-# 做三件事：
-#   1. 确保有 JRE 21
-#   2. 建目录结构和 .env 模板
-#   3. 装 entrypoint —— 让 DevBox 容器重启后应用能自己起来
+# ★★ 为什么构建在 DevBox 上做，而不是在 GitHub Actions 上做完再传
+#
+#    最初的方案是 Actions 打包好 jar 再 scp 过来。实测跨境速率 8 KB/s，
+#    130 MB 的 fat jar 要传 4 个多小时 —— GitHub 的 runner 在美欧，
+#    Sealos 在北京，这条链路就是这个量级，不是配置问题。
+#
+#    改成 DevBox 自己构建之后：
+#      跨境的只有源码       1.2 MB，秒级
+#      Maven 依赖走阿里云    实测 20 MB/s
+#      npm 依赖走 npmmirror  境内
+#    Actions 那边只发一条 ssh 命令，几 KB。
+#
+# 做的事（全部幂等）：
+#   1. JDK 21（构建要 JDK 不是 JRE —— javac 在 JDK 里）
+#   2. Maven + Node 22，并配好国内镜像
+#   3. clone 仓库
+#   4. 目录结构和 .env 模板
+#   5. entrypoint —— 让 DevBox 容器重启后应用能自己起来
 #
 set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/devbox/app}"
+SRC_DIR="$APP_DIR/src"
+REPO_URL="${REPO_URL:-https://github.com/yubeining/yuhao_website.git}"
+NODE_VERSION="${NODE_VERSION:-22.9.0}"
 
 log() { echo "[bootstrap] $*"; }
 
-# ---------- 1. JRE ----------
-need_jre=1
-if command -v java >/dev/null 2>&1; then
-    ver="$(java -version 2>&1 | head -1)"
-    log "found: $ver"
-    # 21 及以上都行
-    major="$(java -version 2>&1 | head -1 | sed -n 's/.*version "\([0-9]*\).*/\1/p')"
-    if [ -n "$major" ] && [ "$major" -ge 21 ] 2>/dev/null; then
-        need_jre=0
-    else
-        log "java is older than 21, installing"
-    fi
-fi
+if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
 
-if [ "$need_jre" -eq 1 ]; then
-    log "installing openjdk-21-jre-headless"
-    # ★ 只装 headless。完整 JRE 会拖进一堆 X11 / 字体依赖，
-    #   这是个纯 HTTP 服务，一个都用不上。
-    if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
+# ---------- 1. JDK 21 ----------
+# ★ 要 JDK 不是 JRE —— 在这台机器上编译，javac 只在 JDK 里。
+#   headless 版本：完整 JDK 会拖进 X11 / 字体依赖，纯 HTTP 服务一个都用不上。
+if command -v javac >/dev/null 2>&1 \
+   && javac -version 2>&1 | grep -qE 'javac 2[1-9]|javac [3-9][0-9]'; then
+    log "javac ok: $(javac -version 2>&1)"
+else
+    log "installing openjdk-21-jdk-headless"
     $SUDO apt-get update -qq
-    $SUDO apt-get install -y --no-install-recommends openjdk-21-jre-headless
-    java -version
+    $SUDO apt-get install -y --no-install-recommends openjdk-21-jdk-headless
 fi
 
-# ---------- 2. 目录与配置 ----------
+# ---------- 2. Maven + Node，配国内镜像 ----------
+if command -v mvn >/dev/null 2>&1; then
+    log "maven ok: $(mvn -v 2>/dev/null | head -1)"
+else
+    log "installing maven"
+    $SUDO apt-get install -y --no-install-recommends maven
+fi
+
+# ★ Maven 走阿里云。不配的话依赖从 repo1.maven.org 拉，跨境几十分钟起步；
+#   配了之后实测 20 MB/s。
+mkdir -p "$HOME/.m2"
+if [ ! -f "$HOME/.m2/settings.xml" ]; then
+    cat >"$HOME/.m2/settings.xml" <<'M2EOF'
+<settings xmlns="http://maven.apache.org/SETTINGS/1.0.0">
+  <mirrors>
+    <mirror>
+      <id>aliyun</id>
+      <name>aliyun public</name>
+      <url>https://maven.aliyun.com/repository/public</url>
+      <mirrorOf>central</mirrorOf>
+    </mirror>
+  </mirrors>
+</settings>
+M2EOF
+    log "wrote ~/.m2/settings.xml (aliyun mirror)"
+else
+    log "~/.m2/settings.xml exists, leaving it alone"
+fi
+
+# Node：apt 上是 18（已 EOL 且 vite 6 不支持），所以直接取官方二进制。
+# ★ 从 npmmirror 的 CDN 取而不是 nodejs.org —— 后者跨境同样慢。
+if command -v node >/dev/null 2>&1 && node -v | grep -qE '^v(2[2-9]|[3-9][0-9])'; then
+    log "node ok: $(node -v)"
+else
+    log "installing node v$NODE_VERSION"
+    TARBALL="node-v${NODE_VERSION}-linux-x64.tar.xz"
+    curl -fsSL -o "/tmp/$TARBALL" \
+        "https://cdn.npmmirror.com/binaries/node/v${NODE_VERSION}/${TARBALL}"
+    $SUDO tar -xJf "/tmp/$TARBALL" -C /usr/local --strip-components=1 \
+        --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md
+    rm -f "/tmp/$TARBALL"
+    log "node: $(node -v)  npm: $(npm -v)"
+fi
+
+npm config set registry https://registry.npmmirror.com >/dev/null 2>&1 || true
+log "npm registry: $(npm config get registry)"
+
+# ---------- 3. 源码 ----------
+if [ -d "$SRC_DIR/.git" ]; then
+    log "repo already cloned at $SRC_DIR"
+else
+    log "cloning $REPO_URL"
+    mkdir -p "$(dirname "$SRC_DIR")"
+    # ★ --depth 1：只要最新一次提交。完整历史对构建毫无用处，
+    #   而跨境拉取时它是唯一会随时间变大的部分。
+    git clone --depth 1 "$REPO_URL" "$SRC_DIR"
+fi
+
+# ---------- 4. 目录与配置 ----------
 mkdir -p "$APP_DIR/logs"
 log "app dir: $APP_DIR"
 
@@ -80,9 +145,12 @@ JWT_SECRET=
 DEV_LOGIN_ENABLED=false
 
 # ---------- JVM ----------
-# DevBox 是 4 GiB。MaxRAMPercentage 而不是写死 -Xmx，
-# 换规格时不用改这里，也不会被 OOMKilled 得莫名其妙。
-JAVA_OPTS=-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai
+# ★ 50% 而不是 70%：这台 DevBox 既跑应用又跑构建，只有 4 GiB。
+#   构建时 Maven 要 ~1 GB、npm 要 ~1 GB，而应用还开着。
+#   给应用留 2 GB 上限（这个应用远用不到），剩下的留给构建。
+#   超了会被 OOMKilled —— 容器无日志重启，最难查的一类问题。
+# MaxRAMPercentage 而不是写死 -Xmx：换规格时不用改这里。
+JAVA_OPTS=-XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai
 
 # ---------- 部署 ----------
 # 健康检查等待上限（秒）。★ 迁移在端口打开【之前】执行，
@@ -95,7 +163,7 @@ else
     log ".env already exists, leaving it alone"
 fi
 
-# ---------- 3. 容器重启后自动拉起 ----------
+# ---------- 5. 容器重启后自动拉起 ----------
 # ★ DevBox 是容器不是虚拟机，通常【没有 systemd】。
 #   所以用 Sealos DevBox 约定的 entrypoint.sh 来保证重启后应用能起来。
 #   没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。
@@ -123,5 +191,8 @@ fi
 
 log ""
 log "完成。接下来："
-log "  1. 编辑 $APP_DIR/.env，填数据库和 JWT_SECRET"
+log "  1. 编辑 $APP_DIR/.env，填数据库口令和 JWT_SECRET"
 log "  2. 在 GitHub 上点 Actions → Deploy to Sealos DevBox → Run workflow"
+log ""
+log "手动构建部署（不经过 GitHub）："
+log "  bash $SRC_DIR/deploy/devbox/build.sh"
