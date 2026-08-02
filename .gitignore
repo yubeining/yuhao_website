@@ -1,0 +1,54 @@
+# --- 密钥 / 本地配置 ---
+# ★ 真值只放这里或环境变量，绝不进 git（pre-commit 有密钥扫描闸门）
+**/application-local.yml
+**/application-local.yaml
+.env
+.env.*
+!.env.example
+*-secret.*
+*.pem
+*.p12
+*.jks
+config/*-service-account.json
+
+# --- Java ---
+target/
+*.class
+*.jar
+!**/gradle/wrapper/gradle-wrapper.jar
+.mvn/wrapper/maven-wrapper.jar
+
+# --- Node ---
+node_modules/
+dist/
+out/
+coverage/
+*.tsbuildinfo
+playwright-report/
+test-results/
+
+# --- 前端构建产物 ---
+# ★ portal 的 vite build 直接输出到后端的 static/ —— 那是构建产物，不是源码。
+#   提交它的话，每次 build 都会产生一堆带 hash 的新文件，
+#   review 时被几百 KB 的压缩 JS 淹没，而且必然出现合并冲突。
+#   Dockerfile 里会在打 jar 之前先跑一次 npm run build。
+backend/src/main/resources/static/
+
+# --- IDE ---
+.idea/
+*.iml
+.vscode/
+!.vscode/extensions.json
+
+# --- Python（提交闸门脚本）---
+__pycache__/
+*.pyc
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- 本地临时 ---
+*.log
+tmp/
+.claude/local/

@@ -1,0 +1,11 @@
+#!/bin/sh
+# 强制 <Ticket>, <type>, <describe> 提交消息格式。
+#
+# 薄封装 —— 所有校验逻辑在 scripts/check-commit-msg.sh。
+# 见 CLAUDE.md > 12. 提交与审查。
+#
+# 只在 core.hooksPath 指向 .githooks 时生效 —— 每个 clone / worktree
+# 跑一次 scripts/setup-hooks.sh。永远不用 git commit --no-verify。
+
+repo_root=$(git rev-parse --show-toplevel)
+exec "$repo_root/scripts/check-commit-msg.sh" "$1"

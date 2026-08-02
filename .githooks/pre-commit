@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# 提交前闸门。四道独立检查，按顺序跑，第一个失败就停。
+# 每道闸门只在相关文件被暂存时才真正做事，没有相关改动时是空操作。
+#
+#   1. 迁移文件名 —— database/migrations/ 下的新增/重命名文件必须是
+#      YYYY-MM-DD_NN_slug.sql，日期不得超前，NN 在同日全局唯一。
+#      防的是执行顺序错乱（'-' 0x2D < '.' 0x2E 的字典序陷阱）。
+#
+#   2. 密钥扫描 —— 任何文件的新增行都不得含厂商密钥格式或配置里的硬编码密钥。
+#      密钥进 git 历史就删不掉，只能去供应商侧轮换。
+#
+#   3. 遗留冲突标记 —— 任何文件的新增行都不得含 <<<<<<< / ======= / >>>>>>>。
+#      编译型文件 javac/tsc 会抓，但 .sql / .md / .yml 没人解析。
+#
+#   4. Java 非 ASCII 字符串字面量 —— backend/src/main/java/ 下不得新增。
+#      三语系统，后端只返 i18n code 不返文案。
+#
+# 全部 diff-aware：只卡新增/修改的行，存量代码自动豁免。
+#
+# 新增一道闸门要三处同步：
+#   1) scripts/<gate>.py
+#   2) 本文件（加一个函数 + 底部调用）
+#   3) .github/workflows/code-quality.yml 加一个 step
+#
+# 激活：每个 clone / worktree 跑一次 scripts/setup-hooks.sh
+# 永远不用 git commit --no-verify —— 见 CLAUDE.md > 强制约束
+
+set -u
+
+REPO_ROOT=$(git rev-parse --show-toplevel)
+cd "$REPO_ROOT" || exit 1
+
+FAILED=0
+
+run_gate() {
+    local label="$1"; shift
+    if ! "$@"; then
+        echo "  ↑ 闸门未通过: $label" >&2
+        FAILED=1
+        return 1
+    fi
+    return 0
+}
+
+# --- 1. 迁移文件名 ---
+gate_migration_filename() {
+    git diff --cached --name-only --diff-filter=AR | grep -q '^database/migrations/.*\.sql$' || return 0
+    run_gate "迁移文件名" python3 scripts/check-migration-filename.py
+}
+
+# --- 2. 密钥扫描（任何文件，不能加路径过滤，否则就瞎了）---
+gate_secrets() {
+    git diff --cached --name-only | grep -q . || return 0
+    run_gate "密钥扫描" python3 scripts/check-committed-secrets.py
+}
+
+# --- 3. 遗留冲突标记（任何文件）---
+gate_conflict_markers() {
+    git diff --cached --name-only | grep -q . || return 0
+    run_gate "遗留冲突标记" python3 scripts/check-conflict-markers.py
+}
+
+# --- 4. Java 非 ASCII 字符串字面量 ---
+gate_non_ascii() {
+    git diff --cached --name-only | grep -q '^backend/src/main/java/.*\.java$' || return 0
+    run_gate "Java 非 ASCII 字面量" python3 scripts/check-non-ascii-literals.py
+}
+
+gate_migration_filename
+gate_secrets
+gate_conflict_markers
+gate_non_ascii
+
+if [ "$FAILED" -ne 0 ]; then
+    echo "" >&2
+    echo "提交已阻止。修好上面的问题后重新提交。" >&2
+    echo "不要用 --no-verify 绕过 —— 见 CLAUDE.md > 强制约束。" >&2
+    echo "" >&2
+    exit 1
+fi
+
+exit 0

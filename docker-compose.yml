@@ -1,0 +1,61 @@
+# 本地开发依赖。生产环境用托管服务，不用这个文件。
+#
+# ★ 宿主机端口全部可配置，改 .env 即可（.env 已被 gitignore，见 .env.example）。
+#
+#   为什么不写死：开发机上装了 brew 的 postgresql / 别的项目的 docker-compose
+#   是常态，端口撞车必然发生。而撞车的表现极具误导性 ——
+#
+#     macOS 上 brew 的 postgres 绑 127.0.0.1:5432，docker 绑 *:5432，
+#     两者能同时启动、docker ps 显示一切正常，但 localhost:5432 会优先
+#     命中 brew 那个。于是应用报的是 `role "mfg" does not exist`，
+#     看起来像初始化脚本没跑，实际是连错了库。
+#
+#   端口写死省不下什么，撞一次车能烧掉半天。
+services:
+  postgres:
+    image: postgres:16
+    container_name: mfg-postgres
+    environment:
+      POSTGRES_DB: mfg
+      POSTGRES_USER: mfg
+      POSTGRES_PASSWORD: mfg
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - mfg-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mfg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # 测试专用库。和开发库分开，避免跑测试把开发数据 drop 掉
+  # （测试 profile 是 ddl-auto: create-drop）
+  postgres-test:
+    image: postgres:16
+    container_name: mfg-postgres-test
+    environment:
+      POSTGRES_DB: mfg_test
+      POSTGRES_USER: mfg
+      POSTGRES_PASSWORD: mfg
+    ports:
+      - "${POSTGRES_TEST_PORT:-5433}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mfg"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7
+    container_name: mfg-redis
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  mfg-pgdata:

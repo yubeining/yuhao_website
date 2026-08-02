@@ -1,0 +1,55 @@
+# 测试 profile。
+#
+# ★ 唯一允许 ddl-auto != validate 的地方 —— 测试库由 JPA 实体建，
+#   跑得快且不依赖迁移文件顺序。但这不是"绕过迁移"：
+#   迁移文件的正确性由独立的 migration-regression 测试组验证（跑真实迁移建库）。
+
+spring:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/mfg_test
+    username: ${TEST_DB_USERNAME:mfg}
+    password: ${TEST_DB_PASSWORD:}
+
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        type.preferred_uuid_jdbc_type: VARCHAR
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      database: 15          # 专用 db，每个测试前 flush，避免串味
+
+app:
+  # ★ 测试不带 API 前缀 —— MockMvc 的路径写成 /customer/rfqs 而不是 /api/v1/customer/rfqs。
+  #   生产形状由一个专门的 ApiPrefixContractIT 钉住。
+  api:
+    prefix: ""
+
+  jwt:
+    # ★ 走 ${ENV:默认值} 形式，和其他配置项一致。
+    #   这不只是为了让密钥闸门通过 —— 裸写一个 40 字符的值，
+    #   闸门无法区分「测试占位符」和「有人手滑把生产密钥贴进了测试配置」，
+    #   只能一律拦。而给闸门开测试目录的豁免，等于开了一个专门藏密钥的地方。
+    #   写成 ${ENV:默认值} 之后两个问题一起消失，CI 还能覆盖它。
+    secret: ${TEST_JWT_SECRET:test-only-value-not-a-real-secret-0123456789}
+
+  schema-migrations:
+    enabled: false        # 测试用 JPA 建表，不跑迁移
+
+  storage:
+    provider: memory      # 内存实现，不打真实对象存储
+
+  notification:
+    email:
+      enabled: false
+    wechat:
+      enabled: false
+
+logging:
+  level:
+    com.mfg: DEBUG

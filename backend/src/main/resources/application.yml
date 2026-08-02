@@ -1,0 +1,129 @@
+server:
+  port: 3001
+
+spring:
+  application:
+    name: mfg-backend
+
+  datasource:
+    url: ${DB_URL:jdbc:postgresql://localhost:5432/mfg}
+    username: ${DB_USERNAME:mfg}
+    password: ${DB_PASSWORD:}          # 本地放 application-local.yml，部署走环境变量 / Secret Manager
+    hikari:
+      maximum-pool-size: 20
+      connection-timeout: 30000
+
+  jpa:
+    # ★ validate，永远不是 update / create。schema 由 database/migrations/ 管理，
+    #   Hibernate 从不写 DDL。所有环境一致，没有例外（CLAUDE.md §6）。
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false               # 关掉，否则懒加载会在视图层偷偷发查询
+    properties:
+      hibernate:
+        jdbc.time_zone: UTC
+        # 自定义 @Query 里的 UUID 参数绑定需要这个，否则运行时报类型不匹配
+        type.preferred_uuid_jdbc_type: VARCHAR
+        format_sql: false
+
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 3000
+
+  jackson:
+    # ★ camelCase 到底，不做任何大小写转换（CLAUDE.md §11 C1）
+    #   数据库列名的 snake_case 由 JPA @Column 映射，仅此一处转换
+    default-property-inclusion: non_null
+    serialization:
+      write-dates-as-timestamps: false
+      fail-on-empty-beans: false
+    deserialization:
+      fail-on-unknown-properties: false
+
+  servlet:
+    multipart:
+      # 用户上传走直传对象存储，后端不碰字节。
+      # 这里的限制只针对服务端解析类上传（CSV 导入、后台小文件）
+      max-file-size: 20MB
+      max-request-size: 25MB
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: never             # 不对外暴露依赖详情
+
+app:
+  # ★ 全局 API 前缀。在 MVC 层生效，不是 Tomcat context-path。
+  #   任何做路径匹配的地方都从这里读，代码里绝不硬编码（CLAUDE.md §11 C5）
+  api:
+    prefix: /api/v1
+
+  jwt:
+    secret: ${JWT_SECRET:}            # 必填，至少 32 字节；启动时校验，太短直接起不来
+    access-token-ttl-seconds: 7200
+    refresh-token-ttl-seconds: 2592000
+
+  auth:
+    dev-login:
+      # ★★★ 后门。不校验任何凭据就能签出任意端的 token（含 OPERATOR）。
+      #   默认 false —— 只有本地开发显式打开（DEV_LOGIN_ENABLED=true）。
+      #   真实登录做完的那个 PR 里，连同 DevAuthController 一起删掉。
+      enabled: ${DEV_LOGIN_ENABLED:false}
+
+  cache:
+    key-prefix: "mfg:"
+    default-ttl-seconds: 300
+
+  schema-migrations:
+    enabled: true
+    fail-on-drift: true               # 已应用文件被改过 → 启动失败
+
+  storage:
+    # ★ 存储位置全部走配置 —— 将来若欧洲客户要求数据驻留，
+    #   拆区靠改配置而不是改业务代码（设计文档 D1）
+    provider: ${STORAGE_PROVIDER:gcs}
+    private-bucket: ${STORAGE_PRIVATE_BUCKET:mfg-private}
+    public-bucket: ${STORAGE_PUBLIC_BUCKET:mfg-public}
+    signed-url-ttl-seconds: 900       # 15 分钟。图纸签名 URL 要短
+    # 允许上传的类型，按 magic bytes 校验（不信扩展名）
+    allowed-drawing-types: STEP,STP,IGES,IGS,X_T,SLDPRT,DWG,DXF,PDF,ZIP
+    max-drawing-size-mb: 500
+
+  quote:
+    # 报价五道护栏的配置项（设计文档 3 §4）
+    default-validity-days: 15
+    # 汇率 buffer 按有效期分档：天数 → 百分比
+    fx-buffer-tiers:
+      7: 0.010
+      15: 0.020
+      30: 0.030
+    # 审批阈值。金额单位 EUR
+    approval:
+      second-approver-amount-threshold: ${QUOTE_SECOND_APPROVER_THRESHOLD:20000}
+      second-approver-margin-threshold: ${QUOTE_SECOND_APPROVER_MARGIN:0.12}
+      # 毛利为负 → 硬阻断，不允许提交审批
+      block-negative-margin: true
+
+  notification:
+    email:
+      enabled: true
+      from: ${MAIL_FROM:}
+    wechat:
+      # ★ 供应商侧通知的主通道 —— 只发邮件他们不会看（设计文档 1 §3.5）
+      enabled: ${WECHAT_ENABLED:false}
+      corp-id: ${WECHAT_CORP_ID:}
+      corp-secret: ${WECHAT_CORP_SECRET:}
+
+logging:
+  level:
+    root: INFO
+    com.mfg: INFO
+    # 排查 SQL 时临时打开，不要留在生产配置里
+    org.hibernate.SQL: WARN
