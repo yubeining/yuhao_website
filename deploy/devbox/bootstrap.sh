@@ -83,6 +83,11 @@ DEV_LOGIN_ENABLED=false
 # DevBox 是 4 GiB。MaxRAMPercentage 而不是写死 -Xmx，
 # 换规格时不用改这里，也不会被 OOMKilled 得莫名其妙。
 JAVA_OPTS=-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai
+
+# ---------- 部署 ----------
+# 健康检查等待上限（秒）。★ 迁移在端口打开【之前】执行，
+# 所以带大迁移的那次发布要先把这个值调大，否则会被误判成启动失败而触发回滚。
+HEALTH_TIMEOUT=120
 ENVEOF
     chmod 600 "$APP_DIR/.env"
     log "created $APP_DIR/.env  ← ★ 现在去把里面的占位符填掉"

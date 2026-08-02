@@ -29,6 +29,19 @@ DevBox:8080 ──▶ https://mhswbrrnpspx.sealosbja.site
 
 应用没有数据库起不来 —— `SchemaMigrationRunner` 在 JPA 初始化之前就要连库。
 
+### ★ 为什么是独立实例，不和应用挤在 DevBox 里
+
+| 理由 | 说明 |
+|---|---|
+| 生命周期不同 | 应用要频繁重新部署，数据库不能跟着重启 |
+| DevBox 会被暂停 / 重建 | 它本质是开发环境，重建一次数据就没了 |
+| 资源 | DevBox 只有 2C/4G，PG + Redis + JVM 挤一起互相抢 |
+| 备份 / 监控 / 扩容 | 托管实例自带，自己跑容器全都没有 |
+
+对本系统还有一条更硬的：`file_access_log`（图纸访问全审计）是
+**跟欧洲客户签保密协议时的交付物**，客户会问「我的图纸泄露了你们能查到谁看过吗」。
+它不能放在一个「重建就清空」的地方。
+
 打开 Sealos 桌面 → **数据库**（Database）→ 新建：
 
 ### PostgreSQL
@@ -44,11 +57,57 @@ DevBox:8080 ──▶ https://mhswbrrnpspx.sealosbja.site
 - 内网地址（形如 `yuhao-pg-postgresql.ns-aprx7mvw.svc`）和端口 `5432`
 - 用户名、密码
 
-然后**建业务库**（默认库通常是 `postgres`，别直接用）。在实例的终端里执行：
+然后**建业务库**（默认库通常是 `postgres`，那是维护库，别直接拿来放业务数据）。
+在实例的终端里执行：
 
 ```sql
 CREATE DATABASE mfg;
 ```
+
+> **★ 这是唯一一次手工 SQL。建表、加列、加索引全部自动，见下面一节。**
+>
+> 只有这一步没法自动：JDBC 连的就是 `mfg` 库，它不存在就连不上，无法自举。
+> 如果 Sealos 创建实例时允许指定初始库名，直接填 `mfg`，这一步也省了。
+
+### 建表不用管 —— 迁移是自动的
+
+`SchemaMigrationRunner` 在**每次应用启动时**扫 `database/migrations/`，
+按文件名字典序应用所有还没跑过的文件，并按 `(文件名, 内容 SHA-256)` 记账。
+
+所以加一张表的完整流程是：
+
+```
+写 database/migrations/2026-08-15_01_add-inspection-report.sql
+  → git push
+  → 点 Actions 部署
+  → 应用启动时自动应用，日志里能看到 "applying migration: ..."
+```
+
+不需要连生产库、不需要跑任何 SQL。日志形态：
+
+```
+首次      applying migration: 2026-08-02_01_platform-core.sql
+          ... applied 4 migration(s), 4 total on record
+无新增时   schema up to date, 4 migration(s) on record
+```
+
+多实例并发启动由 `pg_advisory_lock` 保证只有一个在跑，其余排队后发现已应用直接放行。
+
+### ★★ 但是：数据库改动不会随 jar 回滚
+
+部署失败时 `deploy.sh` 会把 **jar** 回滚到上一版，
+**但迁移已经执行了，schema 不会退回去**。结果是「旧代码 + 新 schema」。
+
+加列这种向后兼容的改动无所谓；**删列 / 列改名 / 加 NOT NULL 会让回滚后的旧版本直接炸** ——
+你以为回滚救回来了，其实服务还是挂的。
+
+所以破坏性变更必须拆成两次发布（扩展-收缩）。
+规则和判断方法写在 [`../CLAUDE.md`](../CLAUDE.md) §6「迁移必须向后兼容一个版本」，
+**动 schema 之前先看那一节**。
+
+> 另外：迁移在**端口打开之前**执行。大迁移会拉长启动时间，
+> 超过 `deploy.sh` 的 `HEALTH_TIMEOUT`（默认 120 秒）会被误判成启动失败而触发回滚。
+> 预计耗时长的迁移，部署前先把这个值调大。
 
 ### Redis
 
