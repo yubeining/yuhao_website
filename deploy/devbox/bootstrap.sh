@@ -36,6 +36,36 @@ log() { echo "[bootstrap] $*"; }
 
 if command -v sudo >/dev/null 2>&1; then SUDO=sudo; else SUDO=; fi
 
+# ---------- 0. apt 换国内源 ----------
+# ★ Sealos 的 Ubuntu 镜像默认用 archive.ubuntu.com，从北京拉是跨境的。
+#   实测：装一个 82 MB 的 JDK 跑了 7 分钟还没完，中途 SSH 都被断了两次；
+#   换清华源之后同一个包几十秒。
+#
+#   这和 Maven / npm 换镜像是同一件事 —— 这台机器上【所有】默认指向境外的
+#   包管理器都要换，否则每次都会在某个意想不到的地方卡住，
+#   而卡住的表现（连接超时 / 传输极慢）看不出是源的问题。
+UBUNTU_SOURCES=/etc/apt/sources.list.d/ubuntu.sources
+if [ -f "$UBUNTU_SOURCES" ] && grep -q "archive.ubuntu.com" "$UBUNTU_SOURCES"; then
+    log "switching apt to tsinghua mirror"
+    $SUDO cp -n "$UBUNTU_SOURCES" "$UBUNTU_SOURCES.bak"
+    $SUDO sed -i \
+        -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' \
+        -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' \
+        "$UBUNTU_SOURCES"
+    $SUDO apt-get update -qq
+elif [ -f /etc/apt/sources.list ] && grep -q "archive.ubuntu.com" /etc/apt/sources.list; then
+    # 老格式（22.04 及以前）
+    log "switching apt to tsinghua mirror (legacy sources.list)"
+    $SUDO cp -n /etc/apt/sources.list /etc/apt/sources.list.bak
+    $SUDO sed -i \
+        -e 's|http://archive.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' \
+        -e 's|http://security.ubuntu.com/ubuntu/|https://mirrors.tuna.tsinghua.edu.cn/ubuntu/|' \
+        /etc/apt/sources.list
+    $SUDO apt-get update -qq
+else
+    log "apt sources already look fine"
+fi
+
 # ---------- 1. JDK 21 ----------
 # ★ 要 JDK 不是 JRE —— 在这台机器上编译，javac 只在 JDK 里。
 #   headless 版本：完整 JDK 会拖进 X11 / 字体依赖，纯 HTTP 服务一个都用不上。
@@ -78,15 +108,23 @@ else
 fi
 
 # Node：apt 上是 18（已 EOL 且 vite 6 不支持），所以直接取官方二进制。
-# ★ 从 npmmirror 的 CDN 取而不是 nodejs.org —— 后者跨境同样慢。
+# ★ 走清华镜像 —— 实测 54 MB/s，npmmirror 是 17 MB/s，nodejs.org 跨境更慢。
+#
+# ★★ 用 .tar.gz 不用 .tar.xz。
+#    xz 压得更小，但这台 DevBox 上【没有装 xz】，tar -xJf 会报
+#    "xz: Cannot exec: No such file or directory" 然后脚本直接退出。
+#    为省 5 MB 传输量而引入一个额外的系统依赖不划算 —— 尤其是在
+#    这个依赖缺失时，报错信息指向 tar 而不是指向"少装了个包"。
 if command -v node >/dev/null 2>&1 && node -v | grep -qE '^v(2[2-9]|[3-9][0-9])'; then
     log "node ok: $(node -v)"
 else
     log "installing node v$NODE_VERSION"
-    TARBALL="node-v${NODE_VERSION}-linux-x64.tar.xz"
+    TARBALL="node-v${NODE_VERSION}-linux-x64.tar.gz"
     curl -fsSL -o "/tmp/$TARBALL" \
+        "https://mirrors.tuna.tsinghua.edu.cn/nodejs-release/v${NODE_VERSION}/${TARBALL}" \
+      || curl -fsSL -o "/tmp/$TARBALL" \
         "https://cdn.npmmirror.com/binaries/node/v${NODE_VERSION}/${TARBALL}"
-    $SUDO tar -xJf "/tmp/$TARBALL" -C /usr/local --strip-components=1 \
+    $SUDO tar -xzf "/tmp/$TARBALL" -C /usr/local --strip-components=1 \
         --exclude=CHANGELOG.md --exclude=LICENSE --exclude=README.md
     rm -f "/tmp/$TARBALL"
     log "node: $(node -v)  npm: $(npm -v)"
