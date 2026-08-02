@@ -119,6 +119,25 @@ CREATE DATABASE mfg;
 
 同样记下内网地址、端口 `6379`、密码。
 
+> **★ Redis 不是可选的 —— 没有它部署会失败。**
+>
+> actuator 的 `RedisHealthIndicator` 会把 Redis 状态汇总进 `/actuator/health`，
+> 而 `deploy.sh` 正是拿这个端点判断部署成不成功。实测：
+>
+> ```
+> Redis 正常   /actuator/health  200  {"status":"UP"}
+> Redis 停掉   /actuator/health  503  {"status":"DOWN"}
+> ```
+>
+> 表现会非常迷惑：**应用其实起来了，业务接口也正常**
+> （`/api/v1/public/ping` 照样 200），但健康检查不过 →
+> 自动回滚 → Actions 报红。日志里看不到任何启动异常。
+>
+> 现在系统还没有真正用到 Redis（缓存不强制、定时任务还没写），
+> 但它已经在健康检查链路里了。要么先建好，要么去掉 Redis 健康指示器 ——
+> **不要选后者**：定时任务的分布式锁马上就要用它，
+> 那时候 Redis 挂了必须让部署失败，而不是带着"锁失效"上线。
+
 > **为什么必须用内网地址**：外网地址要过公网、有额外延迟和流量费，
 > 而且把数据库暴露在公网上是没必要的风险。DevBox 和数据库在同一个
 > namespace（`ns-aprx7mvw`）里，内网直连即可。
