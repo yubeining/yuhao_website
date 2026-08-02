@@ -143,8 +143,19 @@ public class SchemaMigrationRunner {
     }
 
     /**
-     * 保护：迁移表为空但库里已有其他表 = 这是迁移体系引入之前的库。
+     * 保护：迁移表为空但库里已有<b>真实的表</b> = 这是迁移体系引入之前的库。
      * 直接跑迁移会撞已存在的对象。
+     *
+     * <p><b>★ 必须过滤 {@code table_type = 'BASE TABLE'}。</b>
+     *
+     * <p>{@code information_schema.tables} <b>把视图也算进去</b>。而托管数据库
+     * 几乎都会往每个新库的 {@code public} schema 里装监控扩展的视图 ——
+     * Sealos 的 PostgreSQL 装了 {@code pg_stat_statements} 和 {@code pg_stat_kcache}，
+     * 一个刚 {@code CREATE DATABASE} 出来的空库里就已经有 4 个这样的视图。
+     *
+     * <p>不过滤类型的话，<b>全新的空库会被误判成"迁移体系引入之前的老库"</b>，
+     * 应用拒绝启动。而这个误判发生在第一次部署 —— 最没有参照物、
+     * 最容易怀疑成别的问题的时候，报错还指向一个需要人工介入的补救流程。
      */
     private void guardPreExistingDatabase(Connection conn) throws SQLException {
         try (Statement st = conn.createStatement()) {
@@ -156,14 +167,19 @@ public class SchemaMigrationRunner {
             }
             try (ResultSet rs = st.executeQuery(
                     "SELECT count(*) FROM information_schema.tables "
-                    + "WHERE table_schema = 'public' AND table_name <> 'schema_migrations'")) {
+                    + "WHERE table_schema = 'public' AND table_type = 'BASE TABLE' "
+                    + "AND table_name <> 'schema_migrations'")) {
                 rs.next();
                 if (rs.getLong(1) > 0) {
                     throw new IllegalStateException(
                             "schema_migrations is empty but the database already contains "
-                            + rs.getLong(1) + " table(s). This looks like a pre-existing database. "
-                            + "Run scripts/bootstrap-schema-migrations.sh first to record current "
-                            + "migrations as applied without running them.");
+                            + rs.getLong(1) + " table(s). This looks like a database that predates "
+                            + "the migration runner. Applying migrations now would collide with "
+                            + "objects that already exist. Either point the app at an empty "
+                            + "database, or record the existing migrations as applied without "
+                            + "running them: for each file in database/migrations, insert a row "
+                            + "into schema_migrations with its filename and the SHA-256 of its "
+                            + "exact contents.");
                 }
             }
         }
