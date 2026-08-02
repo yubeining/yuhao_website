@@ -188,7 +188,15 @@ DEV_LOGIN_ENABLED=false
 #   给应用留 2 GB 上限（这个应用远用不到），剩下的留给构建。
 #   超了会被 OOMKilled —— 容器无日志重启，最难查的一类问题。
 # MaxRAMPercentage 而不是写死 -Xmx：换规格时不用改这里。
-JAVA_OPTS=-XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai
+#
+# ★★ 引号不能省 —— 值里有空格。
+#    deploy.sh 用 `set -a; . .env` 加载本文件，那是 shell 求值不是 ini 解析：
+#    不加引号时 bash 只把第一段当赋值，后面几段当【命令】执行，报
+#    "-XX:+ExitOnOutOfMemoryError: command not found"，
+#    而 set -e 会让整个部署在这里直接中止。
+#    更隐蔽的是即使没有 set -e，JAVA_OPTS 也只剩第一个参数，
+#    堆上限配置静默丢失。凡是值里可能有空格的，一律加引号。
+JAVA_OPTS="-XX:MaxRAMPercentage=50 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai"
 
 # ---------- 部署 ----------
 # 健康检查等待上限（秒）。★ 迁移在端口打开【之前】执行，
