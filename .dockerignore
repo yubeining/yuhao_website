@@ -1,0 +1,42 @@
+# 构建上下文排除清单。
+#
+# ★ 这个文件的收益不只是"快一点"：
+#   node_modules 有几万个小文件，不排除的话每次 docker build 光传上下文就要几十秒，
+#   而且 host 上的 node_modules 是 macOS 平台编译的，混进 linux 镜像会出现
+#   "找不到原生模块" 这类极难排查的错误。
+
+# 依赖与构建产物 —— 镜像里全部重新构建
+**/node_modules
+**/target
+**/dist
+**/.next
+portal/tsconfig.tsbuildinfo
+
+# ★ 前端构建产物。镜像内由 portal-build 阶段重新生成。
+#   不排除的话，host 上一份陈旧的 static/ 会覆盖掉镜像里刚构建的那份 ——
+#   表现为"改了前端代码，部署上去还是旧页面"。
+backend/src/main/resources/static
+
+# 密钥与本地配置
+.env
+.env.*
+!.env.example
+**/application-local.yml
+*.pem
+*.p12
+*.jks
+
+# 版本控制与开发工具
+.git
+.gitignore
+.githooks
+.idea
+.vscode
+**/.DS_Store
+**/__pycache__
+
+# 文档 —— 不进运行时镜像
+docs
+changelog
+*.md
+!README.md

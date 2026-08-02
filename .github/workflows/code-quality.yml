@@ -13,7 +13,10 @@ on:
   pull_request:
     branches: [main, dev]
   push:
-    branches: [dev]
+    # ★ main 必须在列表里。原本只有 dev —— 意味着直接推 main 时
+    #   一道闸门都不跑。团队只有一两个人、习惯直接推 main 的阶段，
+    #   这等于整套 CI 形同虚设，而且没有任何迹象提示你它没跑。
+    branches: [main, dev]
 
 jobs:
   # ---- 无路径过滤的闸门：任何文件都要扫 ----
@@ -159,18 +162,27 @@ jobs:
           done
 
   frontend:
-    name: 前端类型检查 + 单测
+    name: 前端类型检查 + 构建
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: portal/package-lock.json
       - working-directory: portal
         run: npm ci
       - working-directory: portal
         run: npm run type-check
+      # ★ 构建也要跑，不能只做类型检查。
+      #   vite 用 esbuild 转译，【不做类型检查】；反过来 tsc --noEmit 也发现不了
+      #   打包期才暴露的问题（比如动态 import 路径写错）。两个都跑才有覆盖。
       - working-directory: portal
-        run: npm test
+        run: npm run build
+
+      # ★ 这里【没有】npm test。
+      #   原本写的是 `npm test`，但 package.json 里根本没有 test 脚本 ——
+      #   这一步会以 "Missing script: test" 失败，而失败信息看起来像环境问题。
+      #   前端还没有测试运行器，与其放一个假装通过的空脚本掩盖这件事，
+      #   不如把它明确留空。装了 vitest 之后把这一步加回来。

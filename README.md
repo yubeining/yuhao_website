@@ -22,6 +22,10 @@
 ├── site/                  公司官网（SSG，独立部署，尚未开始）
 ├── database/
 │   └── migrations/        手写迁移，开机自动应用
+├── deploy/                部署到 Sealos 的配置与脚本
+│   ├── README.md          ★ 部署指南：建库 → 初始化 DevBox → 配 Secrets → 点 Actions
+│   └── devbox/            bootstrap.sh（一次性）+ deploy.sh（每次部署）
+├── Dockerfile             前后端单一镜像（三阶段构建）
 ├── scripts/               提交闸门 + 运维脚本
 ├── .githooks/             commit-msg + pre-commit
 └── changelog/             每个分支一个变更记录文件夹
@@ -107,6 +111,35 @@ curl localhost:3001/actuator/health        # {"status":"UP"}
 
 ---
 
+## 部署
+
+**完整步骤见 [`deploy/README.md`](./deploy/README.md)。**一句话版本：
+
+> GitHub → Actions → **Deploy to Sealos DevBox** → Run workflow
+
+它会构建前端、打成单个 jar（前端在 jar 里）、scp 到 Sealos DevBox、
+健康检查不过自动回滚上一版。
+
+**只有手动触发，没有 push 自动部署** —— 部署是决定，不是副作用。
+
+首次部署前必须先做三件事（`deploy/README.md` 有详细步骤）：
+
+1. 在 Sealos 建 PostgreSQL 16 + Redis，并 `CREATE DATABASE mfg`
+2. 在 DevBox 上跑一次 `deploy/devbox/bootstrap.sh`，然后填 `/home/devbox/app/.env`
+3. 在 GitHub 配 `DEVBOX_SSH_KEY` / `DEVBOX_HOST` / `DEVBOX_PORT` / `DEVBOX_USER`
+
+> **★ `.env` 里的 `DEV_LOGIN_ENABLED` 必须是 `false`。**
+> 它是不校验凭据就能签 OPERATOR token 的后门，生产打开等于把内部后台完全公开。
+
+本地也可以用 Docker 跑完整镜像：
+
+```bash
+docker build -t yuhao .
+docker run -p 8080:8080 --env-file .env yuhao
+```
+
+---
+
 ## 三个端
 
 | 端 | 路径前缀 | 受众 | 登录方式（规划） |
@@ -164,5 +197,5 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 - 对象存储接入、图纸脱敏 / 水印、`file_access_log` 落库
 - 定时任务（报价过期扫描、汇率同步…）—— 每一个都要按条目加 Redis 锁
 - 任何测试。`src/test/` 下只有一个 `application-test.yml`
-- Dockerfile 和部署配置
 - `site/` 官网
+- 零停机部署。DevBox 单实例，部署期间有几十秒不可用

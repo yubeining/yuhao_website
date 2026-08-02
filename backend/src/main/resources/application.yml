@@ -1,9 +1,19 @@
 server:
-  port: 3001
+  # 本地 3001；容器里由 SERVER_PORT 覆盖（Sealos DevBox 对外暴露 8080）。
+  # ★ 不要写死 —— 换个托管平台就是换个端口，而端口错了的表现是
+  #   "容器起来了但访问不通"，日志里一切正常，最容易怀疑到别的地方去。
+  port: ${SERVER_PORT:3001}
+
+  shutdown: graceful
 
 spring:
   application:
     name: mfg-backend
+
+  lifecycle:
+    # 收到 SIGTERM 后先停止接收新请求，给在途请求 20 秒收尾。
+    # 滚动更新时没有这个，正在提交的报价会直接连接中断。
+    timeout-per-shutdown-phase: 20s
 
   datasource:
     url: ${DB_URL:jdbc:postgresql://localhost:5432/mfg}

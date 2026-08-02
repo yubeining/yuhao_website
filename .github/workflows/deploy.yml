@@ -1,0 +1,154 @@
+name: Deploy to Sealos DevBox
+
+# 手动触发：GitHub → Actions → Deploy to Sealos DevBox → Run workflow
+#
+# ★ 只有 workflow_dispatch，没有 push 触发 —— 部署是【决定】不是【副作用】。
+#   自动部署 main 意味着任何一次手滑推送都会直接进生产。等有了预发环境
+#   和一套能挡住回归的测试之后，再考虑自动化。
+#
+# 流程：
+#   构建前端 → 构建 jar → scp 到 DevBox → 远端 deploy.sh（含健康检查和自动回滚）
+#
+# ★ 本 workflow 从不接触数据库口令 / JWT_SECRET。
+#   那些值只存在于 DevBox 上的 /home/devbox/app/.env。
+#   GitHub 这边只有一把 SSH 私钥 —— 泄露的爆炸半径小得多。
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: '要部署的分支或 commit（默认 main）'
+        required: false
+        default: 'main'
+
+# ★ 同一时间只允许一个部署在跑。
+#   两个 deploy 并行会互相覆盖 jar，且回滚逻辑会拿到错的"上一版"。
+concurrency:
+  group: deploy-devbox
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: 构建并部署
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      # ---------- 构建 ----------
+      - name: 装 Node 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: portal/package-lock.json
+
+      - name: 构建前端
+        working-directory: portal
+        # npm run build = tsc -b && vite build
+        # ★ 类型检查是构建的一部分。类型错了就不该部署。
+        run: |
+          npm ci
+          npm run build
+
+      - name: 装 JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: 打包
+        working-directory: backend
+        # 前端产物已经在 src/main/resources/static/ 里，会一起进 jar
+        run: mvn -B clean package -DskipTests
+
+      - name: 确认 jar 里带上了前端
+        # ★ 这一步存在的理由：如果 vite 的 outDir 被改坏、或者 .gitignore
+        #   把 static/ 挡掉导致构建顺序出错，jar 照样能打出来，
+        #   部署也会"成功"，只是打开网页是一片空白 —— 而后端日志毫无异常。
+        #   在这里炸掉，比在生产上排查白屏便宜得多。
+        run: |
+          JAR=$(ls backend/target/*.jar | head -1)
+          echo "jar: $JAR"
+          if ! unzip -l "$JAR" | grep -q 'BOOT-INF/classes/static/index.html'; then
+            echo "::error::jar 里没有 static/index.html —— 前端产物没进去"
+            unzip -l "$JAR" | grep -c 'BOOT-INF/classes/static/' || true
+            exit 1
+          fi
+          if ! unzip -l "$JAR" | grep -q 'BOOT-INF/classes/db/migrations/.*\.sql'; then
+            echo "::error::jar 里没有迁移文件 —— SchemaMigrationRunner 会一条都不跑"
+            exit 1
+          fi
+          echo "static 和 migrations 都在 jar 里"
+          cp "$JAR" app.jar
+
+      # ---------- 部署 ----------
+      # ★ 环境变量一律用 DEVBOX_ 前缀。
+      #   最初写成 USER / HOST / PORT，其中 USER 会覆盖 runner 上的标准
+      #   USER 变量 —— 覆盖本身能工作，但任何一个子进程读 $USER 拿到的都是
+      #   远端用户名，这类污染出问题时极难联想到是 workflow 改的。
+      - name: 配置 SSH
+        env:
+          DEVBOX_SSH_KEY: ${{ secrets.DEVBOX_SSH_KEY }}
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_KNOWN_HOSTS: ${{ secrets.DEVBOX_KNOWN_HOSTS }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DEVBOX_SSH_KEY:-}" ] || [ -z "${DEVBOX_HOST:-}" ]; then
+            echo "::error::缺少 DEVBOX_SSH_KEY 或 DEVBOX_HOST secret，见 deploy/README.md 第 3 步"
+            exit 1
+          fi
+          mkdir -p ~/.ssh && chmod 700 ~/.ssh
+          printf '%s\n' "$DEVBOX_SSH_KEY" > ~/.ssh/devbox
+          chmod 600 ~/.ssh/devbox
+
+          if [ -n "${DEVBOX_KNOWN_HOSTS:-}" ]; then
+            # ★ 首选：主机公钥固定在 secret 里，能防中间人
+            printf '%s\n' "$DEVBOX_KNOWN_HOSTS" > ~/.ssh/known_hosts
+            echo "使用固定的 known_hosts"
+          else
+            # 退路：每次现扫。方便，但无法验证对方身份 ——
+            # 有人劫持了 DNS 或网络，私钥就直接送到对方手里了。
+            ssh-keyscan -p "${DEVBOX_PORT:-22}" -H "$DEVBOX_HOST" > ~/.ssh/known_hosts 2>/dev/null
+            echo "::warning::未设置 DEVBOX_KNOWN_HOSTS，本次现扫主机公钥（无法防中间人）"
+            echo "把下面这些行存成 DEVBOX_KNOWN_HOSTS secret 即可固定："
+            cat ~/.ssh/known_hosts
+          fi
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: 传输
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
+          TARGET="${DEVBOX_USER:-devbox}@${DEVBOX_HOST}"
+          P="${DEVBOX_PORT:-22}"
+          ssh -i ~/.ssh/devbox -p "$P" "$TARGET" 'mkdir -p /home/devbox/app/logs'
+          scp -i ~/.ssh/devbox -P "$P" app.jar               "$TARGET:/home/devbox/app/app.jar.new"
+          scp -i ~/.ssh/devbox -P "$P" deploy/devbox/deploy.sh "$TARGET:/home/devbox/app/deploy.sh"
+
+      - name: 执行部署（含健康检查与自动回滚）
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
+          ssh -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
+            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
+            'bash /home/devbox/app/deploy.sh'
+
+      - name: 清理凭据
+        # ★ always()：前面任何一步失败都要清。
+        #   runner 是一次性的，但显式清掉是习惯问题 —— 哪天换成
+        #   self-hosted runner，忘了清就是把私钥留在了别人机器上。
+        if: always()
+        run: rm -f ~/.ssh/devbox
