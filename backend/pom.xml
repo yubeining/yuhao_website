@@ -22,6 +22,12 @@
         <!-- 迁移回归测试组：跑真实迁移文件建库，验证迁移本身的正确性。
              默认排除（慢），CI 里单独一个 job 跑。 -->
         <failsafe.excludedGroups>migration-regression</failsafe.excludedGroups>
+
+        <!-- 部署脚本构建时用 -Dgit.commit=xxxx 覆盖（见 deploy/devbox/build.sh）。
+             ★ 必须有默认值：本地 mvn package / IDE 里跑不会带这个参数，
+             没默认值时 build-info 会把字面量占位符写进产物。
+             ★ 本注释里不能出现连续两个减号，XML 规范不允许。 -->
+        <git.commit>unknown</git.commit>
     </properties>
 
     <dependencies>
@@ -135,6 +141,20 @@
             <plugin>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <!-- 生成 META-INF/build-info.properties，喂给 BuildProperties bean。
+                         ★ 为什么需要：部署之后没有任何办法知道线上跑的是哪个版本。
+                         "改完部署了但没生效" 是最常见的误判之一 ——
+                         有了 commit 号，curl 一下 /public/ping 就能证伪。 -->
+                    <execution>
+                        <goals><goal>build-info</goal></goals>
+                        <configuration>
+                            <additionalProperties>
+                                <commit>${git.commit}</commit>
+                            </additionalProperties>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
 
             <!-- 把 database/migrations/ 拷进 classpath，供 SchemaMigrationRunner 读取 -->

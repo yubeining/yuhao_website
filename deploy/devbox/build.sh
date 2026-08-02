@@ -64,7 +64,10 @@ npm run build
 # ---------- 3. 后端 ----------
 log "building backend"
 cd "$SRC_DIR/backend"
-mvn -B -q clean package -DskipTests
+# ★ 把 commit 号打进 jar（build-info.properties），部署后能 curl /public/ping 查出来。
+#   没有它，「改了并且部署了但没生效」就是个无法证伪的问题。
+COMMIT="$(git -C "$SRC_DIR" rev-parse --short HEAD)"
+mvn -B -q clean package -DskipTests "-Dgit.commit=$COMMIT"
 
 # ---------- 4. 校验产物 ----------
 # ★ 检查 target/classes 而不是解压 jar —— DevBox 上没有 unzip，
