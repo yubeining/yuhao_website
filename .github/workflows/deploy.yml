@@ -43,6 +43,14 @@ jobs:
     timeout-minutes: 30
 
     steps:
+      # 仓库是私有的，但 Actions 自带的 GITHUB_TOKEN 有读权限，checkout 照常可用。
+      # ★ 这一步是 rsync 的数据来源 —— 没有它 runner 上是空目录，
+      #   rsync --delete 会把 DevBox 上的源码【全部删光】。
+      - name: 检出源码
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
       # ★ 环境变量一律用 DEVBOX_ 前缀。
       #   写成 USER / HOST / PORT 的话，USER 会覆盖 runner 上的标准 USER 变量 ——
       #   覆盖本身能工作，但任何子进程读 $USER 拿到的都是远端用户名，
@@ -77,33 +85,45 @@ jobs:
           fi
           chmod 600 ~/.ssh/known_hosts
 
-      # ★★ 源码同步在这里做，不在 build.sh 里做。
+      # ★★ 源码由本 workflow 推给 DevBox，DevBox 不再自己去 GitHub 拉。
       #
-      #    build.sh 原本自己 git reset，然后立刻执行刚被覆盖掉的自己 ——
-      #    为了避免 bash 边执行边读导致的语法错乱，它会先把自己拷到 /tmp 再 exec。
-      #    代价是：【对 build.sh 自身的修改永远晚一个版本生效】，
-      #    因为这一轮跑的是上一版的副本。而且完全静默 —— 部署显示成功，
-      #    你以为新逻辑生效了，实际上下次才生效。真踩过一次。
+      #    仓库转私有之后 DevBox 匿名 clone 失败（could not read Username）。
+      #    可以给它配 deploy key，但那需要在 GitHub 上加一把公钥；
+      #    这里选择让 Actions 直接把源码送过去 —— Actions 本来就有仓库读权限。
       #
-      #    放在 workflow 里就没有这个问题：workflow 文件由 GitHub 在触发时
-      #    从目标分支读取，永远是最新的，而且它同步完之后 build.sh 才被调用，
-      #    不存在"自己覆盖自己"。
-      - name: 同步源码
+      #    ★ 用 rsync 不用 scp+tar：
+      #      - 增量。首次 0.59 MB，之后每次只传改动的几 KB
+      #        （跨境链路实测 8 KB/s，每一 KB 都算数）
+      #      - --delete 能把仓库里已删除的文件同步删掉。
+      #        scp 覆盖式传输做不到这点，会留下"仓库里明明删了却还在编译"的幽灵文件
+      #      - 被 --exclude 的路径不会被 --delete 删除，所以 node_modules
+      #        和 target 这两个构建缓存能留下来（重装一次要多花好几分钟）
+      #
+      #    ★ 同步在 build.sh 被调用【之前】完成，所以对 build.sh 自身的修改
+      #      当次就生效。早先 build.sh 自己拉代码再执行刚被覆盖的自己，
+      #      对它自身的改动永远晚一个版本生效，而且完全静默 —— 踩过一次。
+      - name: 推送源码到 DevBox
         env:
           DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
           DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
           DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
-          REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
-          ssh -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
-            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
-            "set -e
-             cd /home/devbox/app/src
-             git fetch --depth 1 origin '${REF:-main}'
-             git reset --hard 'origin/${REF:-main}'
-             git clean -fd -e node_modules -e target
-             echo \"now at \$(git rev-parse --short HEAD) \$(git log -1 --pretty=%s)\""
+          # ★ --delete 的保险丝。checkout 失败或路径不对时 runner 上会是空目录，
+          #   那样 rsync --delete 会把 DevBox 上的源码全部删光 ——
+          #   下一步构建才报错，而报错内容是"找不到 pom.xml"，
+          #   完全看不出真实原因是同步把远端清空了。
+          test -f backend/pom.xml && test -f portal/package.json \
+            || { echo "::error::runner 上没有源码，中止（避免 rsync --delete 清空远端）"; exit 1; }
+
+          rsync -az --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='target' \
+            --exclude='backend/src/main/resources/static' \
+            -e "ssh -i ~/.ssh/devbox -p ${DEVBOX_PORT:-22}" \
+            ./ "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}:/home/devbox/app/src/"
+          echo "源码已同步"
 
       - name: 在 DevBox 上构建并部署
         env:
@@ -112,11 +132,15 @@ jobs:
           DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
         run: |
           set -euo pipefail
+          # ★ commit 从这里传进去。DevBox 上已经没有 .git，
+          #   build.sh 无法自己读 —— 而留一个过时的 .git 让它读到错误的 commit，
+          #   比返回 unknown 危险得多。
+          COMMIT="$(echo '${{ github.sha }}' | cut -c1-7)"
           # -tt 强制分配伪终端，这样远端脚本的输出能实时回流到 Actions 日志，
           # 而不是攒到结束才一次性吐出来 —— 构建要几分钟，中途看不到进度很难受。
           ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
             "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
-            "bash /home/devbox/app/src/deploy/devbox/build.sh"
+            "MFG_COMMIT='$COMMIT' bash /home/devbox/app/src/deploy/devbox/build.sh"
 
       - name: 清理凭据
         # ★ always()：前面任何一步失败都要清。
