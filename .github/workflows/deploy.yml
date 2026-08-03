@@ -51,6 +51,13 @@ jobs:
         with:
           ref: ${{ inputs.ref }}
 
+      # ★ 统一在这里算一次短 commit，后面所有步骤共用。
+      #   各步骤各算各的话，只要有一步的截取长度不一样，
+      #   最后"核对线上版本"就会永远不通过 —— 而且看起来像部署失败。
+      #   取 github.sha 而不是 git rev-parse：不依赖 checkout 的 fetch 深度。
+      - name: 计算版本号
+        run: echo "COMMIT=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_ENV"
+
       # ★ 环境变量一律用 DEVBOX_ 前缀。
       #   写成 USER / HOST / PORT 的话，USER 会覆盖 runner 上的标准 USER 变量 ——
       #   覆盖本身能工作，但任何子进程读 $USER 拿到的都是远端用户名，
@@ -125,22 +132,73 @@ jobs:
             ./ "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}:/home/devbox/app/src/"
           echo "源码已同步"
 
-      - name: 在 DevBox 上构建并部署
+      # ★ 构建拆成 前端 / 后端 / 上线 三步，而不是一步跑到底。
+      #   Actions 的日志按 step 折叠：拆开之后每一步的耗时和成败在界面上
+      #   一目了然，出问题时不用翻整段日志数时间戳去判断是哪个环节慢/挂了。
+      #   代价是多两次 SSH 握手（各约 1 秒），完全可以接受。
+      - name: 构建前端（DevBox）
         env:
           DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
           DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
           DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
         run: |
           set -euo pipefail
-          # ★ commit 从这里传进去。DevBox 上已经没有 .git，
-          #   build.sh 无法自己读 —— 而留一个过时的 .git 让它读到错误的 commit，
-          #   比返回 unknown 危险得多。
-          COMMIT="$(echo '${{ github.sha }}' | cut -c1-7)"
-          # -tt 强制分配伪终端，这样远端脚本的输出能实时回流到 Actions 日志，
-          # 而不是攒到结束才一次性吐出来 —— 构建要几分钟，中途看不到进度很难受。
+          # -tt 强制分配伪终端，让远端输出实时回流到 Actions 日志，
+          # 而不是攒到结束才一次性吐出来。
           ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
             "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
-            "MFG_COMMIT='$COMMIT' bash /home/devbox/app/src/deploy/devbox/build.sh"
+            "MFG_COMMIT='${{ env.COMMIT }}' bash /home/devbox/app/src/deploy/devbox/build.sh portal"
+
+      - name: 构建后端（DevBox）
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
+          ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
+            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
+            "MFG_COMMIT='${{ env.COMMIT }}' bash /home/devbox/app/src/deploy/devbox/build.sh backend"
+
+      - name: 上线（健康检查 + 失败自动回滚）
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
+          ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
+            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
+            "bash /home/devbox/app/src/deploy/devbox/deploy.sh"
+
+      # 部署完直接核对线上跑的是不是这次的 commit。
+      # ★ 不能只信"上一步没报错"：deploy.sh 在回滚成功时也会以非 0 退出，
+      #   但更隐蔽的情况是构建产物根本没换成新的 —— 那种情况一切都是绿的。
+      - name: 核对线上版本
+        env:
+          PUBLIC_URL: ${{ vars.PUBLIC_URL || 'https://mhswbrrnpspx.sealosbja.site' }}
+        run: |
+          set -euo pipefail
+          LIVE="$(curl -fsS --max-time 30 "$PUBLIC_URL/api/v1/public/ping" \
+                  | sed -n 's/.*"commit":"\([^"]*\)".*/\1/p')"
+          echo "期望 ${{ env.COMMIT }} / 线上 $LIVE"
+          {
+            echo "### 部署结果"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| commit | \`${{ env.COMMIT }}\` |"
+            echo "| 线上版本 | \`$LIVE\` |"
+            echo "| 地址 | $PUBLIC_URL |"
+          } >> "$GITHUB_STEP_SUMMARY"
+          if [ "$LIVE" != "${{ env.COMMIT }}" ]; then
+            echo "::error::线上版本是 $LIVE，不是本次的 ${{ env.COMMIT }}"
+            echo "" >> "$GITHUB_STEP_SUMMARY"
+            echo "❌ **版本不一致 —— 本次改动没有生效**" >> "$GITHUB_STEP_SUMMARY"
+            exit 1
+          fi
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "✅ 线上版本与本次构建一致" >> "$GITHUB_STEP_SUMMARY"
 
       - name: 清理凭据
         # ★ always()：前面任何一步失败都要清。
