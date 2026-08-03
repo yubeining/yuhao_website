@@ -3,460 +3,468 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="Precision CNC machining, Swiss-type turning, aluminium die casting, sheet metal and finishing from a 15,000 m2 plant in Jiangsu, China. ISO 9001, 13485, 14001 and 45001 certified.">
-<!-- 演示稿：内容未定稿、客户 logo 未确认授权，先禁止收录 -->
+<title>SONNENSCHEIN Machinery — Custom CNC Parts, Prototype to Production</title>
+<meta name="description" content="Upload a drawing and get a quote. CNC machining, Swiss-type turning, aluminium die casting, sheet metal and finishing from one ISO 9001 and ISO 13485 certified plant in Jiangsu, China.">
+<!-- 演示稿：文案未定稿、客户 logo 授权未确认，先禁止收录 -->
 <meta name="robots" content="noindex,nofollow">
 <meta property="og:title" content="SONNENSCHEIN Machinery">
-<meta property="og:description" content="Precision parts held to 0.01 mm, from prototype to series production.">
-<title>SONNENSCHEIN Machinery — Precision CNC Manufacturing</title>
+<meta property="og:description" content="Custom CNC parts, prototype to production. ISO 9001 · 13485 · 14001 · 45001.">
 <style>
 /* ============================================================
-   SONNENSCHEIN — 首页设计稿
-   调色全部取自公司自有照片：
-     ground  机床内腔阴影（偏蓝的黑）
-     accent  冷却液喷嘴的橙，同时是现有汇报稿里的品牌橙
-     gauge   冷却液管的蓝，只用于量测类元素
+   SONNENSCHEIN 官网 — 对标 Xometry / Protolabs
+   白底、深蓝主色、圆角、大留白、零件棚拍打头。
    ============================================================ */
 :root{
-  --ground:#0A0D11;
-  --surface:#121821;
-  --surface-2:#182130;
-  --rule:#222E3B;
-  --ink:#E9EDF3;
-  --ink-dim:#8A98A9;
-  --ink-faint:#5A6675;
-  --accent:#E8622C;
-  --accent-soft:rgba(232,98,44,.14);
-  --gauge:#6FA8C7;
-  --photo-fit:brightness(.92) contrast(1.06) saturate(.9);
-  --card-shadow:none;
-  color-scheme:dark;
+  --bg:#FFFFFF;
+  --bg-alt:#F5F8FC;
+  --bg-deep:#0B1B33;
+  --line:#E2E9F2;
+  --ink:#0B1B33;
+  --ink-2:#3D5068;
+  --ink-3:#6C7F96;
+  --brand:#0B5CD5;
+  --brand-dark:#0846A6;
+  --brand-tint:#EAF1FD;
+  --ok:#0E8A5F;
+  --radius:10px;
+  --radius-lg:16px;
+  --shadow:0 1px 2px rgba(11,27,51,.05),0 10px 30px rgba(11,27,51,.06);
+  --shadow-lg:0 2px 6px rgba(11,27,51,.06),0 24px 56px rgba(11,27,51,.10);
 }
-:root[data-theme="light"]{
-  --ground:#F2F4F7;
-  --surface:#FFFFFF;
-  --surface-2:#E8ECF1;
-  --rule:#D3DAE3;
-  --ink:#111820;
-  --ink-dim:#55606E;
-  --ink-faint:#8996A5;
-  --accent:#C4491A;
-  --accent-soft:rgba(196,73,26,.10);
-  --gauge:#2F6B92;
-  --photo-fit:none;
-  --card-shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
-  color-scheme:light;
-}
-@media (prefers-color-scheme:light){
-  :root:not([data-theme="dark"]){
-    --ground:#F2F4F7; --surface:#FFFFFF; --surface-2:#E8ECF1; --rule:#D3DAE3;
-    --ink:#111820; --ink-dim:#55606E; --ink-faint:#8996A5;
-    --accent:#C4491A; --accent-soft:rgba(196,73,26,.10); --gauge:#2F6B92;
-    --photo-fit:none;
-    --card-shadow:0 1px 2px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
-    color-scheme:light;
-  }
-}
-
 *{box-sizing:border-box}
+html{scroll-behavior:smooth}
 body{
-  margin:0;background:var(--ground);color:var(--ink);
-  font-family:"Helvetica Neue",Helvetica,Arial,"PingFang SC","Hiragino Sans GB",sans-serif;
+  margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,
+    "PingFang SC","Hiragino Sans GB",sans-serif;
   font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased;
-}
-.mono{
-  font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;
-  font-variant-numeric:tabular-nums;
 }
 img{max-width:100%;display:block}
 a{color:inherit;text-decoration:none}
-:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+:focus-visible{outline:2px solid var(--brand);outline-offset:3px;border-radius:4px}
+.mono{font-family:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,monospace;font-variant-numeric:tabular-nums}
+.wrap{max-width:1180px;margin:0 auto;padding:0 28px}
+@media(max-width:700px){.wrap{padding:0 18px}}
 
-.wrap{max-width:1200px;margin:0 auto;padding:0 32px}
-@media(max-width:720px){.wrap{padding:0 20px}}
-
-/* --- 左侧光栅尺：整页的结构骨架 --- */
-.scale{
-  position:fixed;left:0;top:0;bottom:0;width:56px;z-index:5;
-  border-right:1px solid var(--rule);
-  background:linear-gradient(to bottom,transparent,var(--surface) 60%,transparent);
-  background-size:1px 100%;background-repeat:no-repeat;background-position:0 0;
-  display:flex;flex-direction:column;justify-content:space-between;
-  padding:96px 0 32px;pointer-events:none;
-}
-.scale i{
-  display:block;height:1px;background:var(--rule);margin-left:auto;width:10px;
-}
-.scale i.major{width:22px;background:var(--ink-faint)}
-@media(max-width:980px){.scale{display:none}}
-
-/* --- 导航 --- */
-header{
-  position:sticky;top:0;z-index:10;background:color-mix(in srgb,var(--ground) 88%,transparent);
-  backdrop-filter:blur(12px);border-bottom:1px solid var(--rule);
-}
-.nav{display:flex;align-items:center;gap:36px;height:68px}
-.brand{display:flex;flex-direction:column;line-height:1.15;margin-right:auto}
-.brand b{font-size:15px;letter-spacing:.22em;font-weight:700}
-.brand span{font-size:10px;letter-spacing:.16em;color:var(--ink-faint)}
-.nav a.link{font-size:13.5px;color:var(--ink-dim);letter-spacing:.02em}
-.nav a.link:hover{color:var(--ink)}
-@media(max-width:860px){.nav a.link{display:none}}
+/* ---------- 按钮 ---------- */
 .btn{
-  display:inline-flex;align-items:center;gap:10px;
-  background:var(--accent);color:#fff;padding:11px 20px;
-  font-size:13.5px;font-weight:600;letter-spacing:.03em;border:0;cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;gap:9px;
+  background:var(--brand);color:#fff;border:1px solid var(--brand);
+  padding:13px 24px;border-radius:var(--radius);
+  font-size:15px;font-weight:600;cursor:pointer;
+  transition:background .15s,border-color .15s;
 }
-.btn:hover{filter:brightness(1.08)}
-.btn.ghost{background:transparent;color:var(--ink);border:1px solid var(--rule)}
-.btn.ghost:hover{border-color:var(--ink-dim);filter:none}
+.btn:hover{background:var(--brand-dark);border-color:var(--brand-dark)}
+.btn.alt{background:#fff;color:var(--brand);border-color:#C9D9F2}
+.btn.alt:hover{background:var(--brand-tint);border-color:var(--brand)}
+.btn.lg{padding:15px 30px;font-size:16px}
 
-/* --- Hero --- */
-.hero{position:relative;min-height:640px;display:flex;align-items:flex-end;overflow:hidden}
-.hero-photo{position:absolute;inset:0}
-.hero-photo img{width:100%;height:100%;object-fit:cover;filter:var(--photo-fit)}
-.hero-veil{
-  position:absolute;inset:0;
-  background:linear-gradient(100deg,var(--ground) 4%,color-mix(in srgb,var(--ground) 72%,transparent) 46%,transparent 88%);
-}
-:root[data-theme="light"] .hero-veil,
-@media (prefers-color-scheme:light){}
-.hero-inner{position:relative;padding:120px 0 56px;max-width:760px}
-.eyebrow{
-  font-size:11px;letter-spacing:.2em;color:var(--gauge);text-transform:uppercase;
-  display:flex;align-items:center;gap:12px;margin-bottom:26px;
-}
-.eyebrow::before{content:"";width:28px;height:1px;background:var(--gauge)}
+/* ---------- 导航 ---------- */
+header{position:sticky;top:0;z-index:40;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line)}
+.nav{display:flex;align-items:center;gap:32px;height:72px}
+.logo{margin-right:auto;display:flex;flex-direction:column;line-height:1.15}
+.logo b{font-size:16.5px;font-weight:800;letter-spacing:.14em}
+.logo span{font-size:10px;letter-spacing:.14em;color:var(--ink-3)}
+.nav .l{font-size:15px;color:var(--ink-2);font-weight:500}
+.nav .l:hover{color:var(--brand)}
+@media(max-width:900px){.nav .l{display:none}}
+
+/* ---------- Hero ---------- */
+.hero{padding:74px 0 64px;background:linear-gradient(180deg,#F7FAFE 0%,#FFFFFF 100%);border-bottom:1px solid var(--line)}
+.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:56px;align-items:center}
+@media(max-width:900px){.hero-grid{grid-template-columns:1fr;gap:36px}}
 h1{
-  font-size:clamp(38px,5.6vw,68px);line-height:1.03;margin:0 0 22px;
-  font-weight:700;letter-spacing:-.028em;text-wrap:balance;
+  font-size:clamp(34px,4.8vw,54px);line-height:1.08;margin:0 0 20px;
+  font-weight:800;letter-spacing:-.028em;text-wrap:balance;
 }
-h1 em{font-style:normal;color:var(--accent)}
-.lede{font-size:17.5px;color:var(--ink-dim);max-width:56ch;margin:0 0 34px}
-.hero-cta{display:flex;gap:14px;flex-wrap:wrap}
+.hero p.sub{font-size:18px;color:var(--ink-2);margin:0 0 30px;max-width:52ch}
+.hero-btns{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:22px}
+.fmts{font-size:12.5px;color:var(--ink-3)}
+.fmts b{color:var(--ink-2);font-weight:600}
+.hero-figure{border-radius:var(--radius-lg);overflow:hidden;box-shadow:var(--shadow-lg);background:#fff}
+.hero-figure img{width:100%;aspect-ratio:4/3;object-fit:cover}
 
-/* --- 尺寸标注式数据条 --- */
-.dims{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);background:var(--surface)}
-.dims-grid{display:grid;grid-template-columns:repeat(4,1fr)}
-@media(max-width:780px){.dims-grid{grid-template-columns:repeat(2,1fr)}}
-.dim{padding:30px 28px 26px;border-left:1px solid var(--rule);position:relative}
-.dim:first-child{border-left:0}
-/* 延伸线 + 箭头，像图纸上的尺寸标注 */
-.dim::before{
-  content:"";position:absolute;left:28px;right:28px;top:22px;height:1px;background:var(--rule);
-}
-.dim::after{
-  content:"";position:absolute;left:28px;top:19px;width:7px;height:7px;
-  border-left:1px solid var(--gauge);border-bottom:1px solid var(--gauge);transform:rotate(45deg);
-}
-.dim b{display:block;font-size:34px;font-weight:600;letter-spacing:-.02em;line-height:1.1}
-.dim b sub{font-size:15px;font-weight:400;color:var(--ink-dim);vertical-align:baseline;margin-left:3px}
-.dim span{display:block;font-size:11.5px;letter-spacing:.13em;text-transform:uppercase;color:var(--ink-faint);margin-top:8px}
+/* ---------- 认证条 ---------- */
+.strip{background:var(--bg);border-bottom:1px solid var(--line);padding:20px 0}
+.strip-in{display:flex;align-items:center;justify-content:center;gap:10px 30px;flex-wrap:wrap;font-size:14px;color:var(--ink-2)}
+.strip-in b{font-weight:700;color:var(--ink)}
+.strip-in .sep{color:var(--line)}
+@media(max-width:700px){.strip-in .sep{display:none}}
 
-/* --- 认证条 --- */
-.certs{padding:26px 0;border-bottom:1px solid var(--rule)}
-.certs-row{display:flex;align-items:center;gap:14px 34px;flex-wrap:wrap}
-.certs-label{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint)}
-.cert{
-  display:inline-flex;align-items:baseline;gap:8px;font-size:13.5px;
-  padding:5px 12px;border:1px solid var(--rule);
-}
-.cert b{font-weight:600}
-.cert span{color:var(--ink-faint);font-size:11.5px}
+/* ---------- 客户 logo ---------- */
+.clients{padding:44px 0;background:var(--bg)}
+.clients h3{text-align:center;font-size:13px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:0 0 26px}
+.client-row{display:grid;grid-template-columns:repeat(9,1fr);gap:22px;align-items:center}
+@media(max-width:980px){.client-row{grid-template-columns:repeat(5,1fr);gap:26px}}
+@media(max-width:560px){.client-row{grid-template-columns:repeat(3,1fr)}}
+.client-row img{max-height:34px;width:auto;margin:0 auto;object-fit:contain;filter:grayscale(1);opacity:.55;transition:opacity .18s,filter .18s}
+.client-row img:hover{filter:none;opacity:1}
 
-/* --- 通用区块 --- */
-section{padding:96px 0;border-bottom:1px solid var(--rule)}
-.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:32px;margin-bottom:44px;flex-wrap:wrap}
-.sec-index{font-size:11px;letter-spacing:.2em;color:var(--ink-faint)}
-h2{font-size:clamp(26px,3.2vw,38px);line-height:1.12;margin:10px 0 0;font-weight:700;letter-spacing:-.022em;text-wrap:balance}
-.sec-note{font-size:15px;color:var(--ink-dim);max-width:44ch}
+/* ---------- 通用区块 ---------- */
+section{padding:84px 0}
+section.alt{background:var(--bg-alt);border-top:1px solid var(--line);border-bottom:1px solid var(--line)}
+.head{max-width:720px;margin:0 0 44px}
+.head.center{margin:0 auto 44px;text-align:center}
+.kicker{font-size:12.5px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brand);margin-bottom:12px}
+h2{font-size:clamp(27px,3.4vw,40px);line-height:1.14;margin:0;font-weight:800;letter-spacing:-.022em;text-wrap:balance}
+.head p{font-size:17px;color:var(--ink-2);margin:14px 0 0}
 
-/* --- 能力：分类标签 + 图 --- */
-.tabs{display:flex;gap:0;border-bottom:1px solid var(--rule);margin-bottom:0;overflow-x:auto}
+/* ---------- 价值主张 ---------- */
+.values{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:980px){.values{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.values{grid-template-columns:1fr}}
+.value{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px 24px 28px}
+.value .n{width:34px;height:34px;border-radius:9px;background:var(--brand-tint);color:var(--brand);
+  display:grid;place-items:center;font-size:14px;font-weight:700;margin-bottom:16px}
+.value b{display:block;font-size:17px;font-weight:700;margin-bottom:8px}
+.value span{font-size:14.5px;color:var(--ink-2)}
+
+/* ---------- 能力 tabs ---------- */
+.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:28px}
 .tab{
-  background:none;border:0;border-bottom:2px solid transparent;color:var(--ink-dim);
-  padding:14px 22px 13px;font-size:13.5px;letter-spacing:.02em;cursor:pointer;white-space:nowrap;
-  font-family:inherit;
+  border:1px solid var(--line);background:#fff;border-radius:999px;
+  padding:9px 18px;font-size:14.5px;font-weight:600;color:var(--ink-2);cursor:pointer;font-family:inherit;
+  transition:background .15s,color .15s,border-color .15s;
 }
-.tab:hover{color:var(--ink)}
-.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
-.panel{display:none;padding-top:40px}
-.panel[data-open="true"]{display:grid;grid-template-columns:1.15fr 1fr;gap:48px;align-items:center}
-@media(max-width:880px){.panel[data-open="true"]{grid-template-columns:1fr;gap:28px}}
-.panel figure{margin:0;background:var(--surface);border:1px solid var(--rule);box-shadow:var(--card-shadow)}
-.panel figure img{width:100%;aspect-ratio:16/10;object-fit:cover;filter:var(--photo-fit)}
-.panel h3{font-size:24px;margin:0 0 14px;font-weight:600;letter-spacing:-.015em}
-.panel p{color:var(--ink-dim);margin:0 0 22px;font-size:15.5px}
-.speclist{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
-.speclist li{display:flex;justify-content:space-between;gap:20px;padding:11px 0;border-bottom:1px solid var(--rule);font-size:13.5px}
-.speclist dt,.speclist .k{color:var(--ink-faint)}
-.speclist .v{color:var(--ink);text-align:right}
+.tab:hover{border-color:#BFD3F0;color:var(--brand)}
+.tab[aria-selected="true"]{background:var(--brand);border-color:var(--brand);color:#fff}
+.panel{display:none}
+.panel[data-open]{display:grid;grid-template-columns:1fr 1fr;gap:44px;align-items:center;
+  background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:28px;box-shadow:var(--shadow)}
+@media(max-width:900px){.panel[data-open]{grid-template-columns:1fr;gap:24px;padding:20px}}
+.panel img{width:100%;aspect-ratio:16/11;object-fit:cover;border-radius:var(--radius)}
+.panel h3{font-size:23px;margin:0 0 12px;font-weight:700;letter-spacing:-.015em}
+.panel p{color:var(--ink-2);margin:0 0 20px;font-size:15.5px}
+.spec{list-style:none;margin:0;padding:0}
+.spec li{display:flex;justify-content:space-between;gap:18px;padding:10px 0;border-top:1px solid var(--line);font-size:14.5px}
+.spec .k{color:var(--ink-3)}
+.spec .v{font-weight:600;text-align:right}
 
-/* --- 量测 --- */
-.measure{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
-@media(max-width:880px){.measure{grid-template-columns:1fr;gap:30px}}
-.measure figure{margin:0;border:1px solid var(--rule);background:var(--surface);box-shadow:var(--card-shadow)}
-.measure figure img{width:100%;aspect-ratio:4/3;object-fit:cover;filter:var(--photo-fit)}
-.steps{list-style:none;margin:22px 0 0;padding:0;counter-reset:s}
-.steps li{
-  padding:0 0 20px 40px;position:relative;color:var(--ink-dim);font-size:15px;
-  border-left:1px solid var(--rule);margin-left:8px;
+/* ---------- 零件画廊 ---------- */
+.gallery{display:grid;grid-template-columns:repeat(4,1fr);gap:16px}
+@media(max-width:980px){.gallery{grid-template-columns:repeat(2,1fr)}}
+.gallery figure{margin:0;background:#fff;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
+.gallery img{width:100%;aspect-ratio:4/3;object-fit:cover;transition:transform .3s}
+.gallery figure:hover img{transform:scale(1.04)}
+.gallery figcaption{font-size:13px;color:var(--ink-3);padding:11px 14px;border-top:1px solid var(--line)}
+
+/* ---------- 流程 ---------- */
+.steps{display:grid;grid-template-columns:repeat(4,1fr);gap:0}
+@media(max-width:900px){.steps{grid-template-columns:1fr}}
+.step{padding:0 26px;border-left:1px solid var(--line)}
+.step:first-child{border-left:0;padding-left:0}
+@media(max-width:900px){
+  .step{border-left:0;border-top:1px solid var(--line);padding:22px 0 0;margin-top:22px}
+  .step:first-child{border-top:0;margin-top:0;padding-top:0}
 }
-.steps li:last-child{border-left-color:transparent;padding-bottom:0}
-.steps li::before{
-  counter-increment:s;content:counter(s,decimal-leading-zero);
-  position:absolute;left:-9px;top:0;width:18px;height:18px;
-  background:var(--ground);color:var(--gauge);font-size:9.5px;line-height:18px;text-align:center;
-  font-family:ui-monospace,"SF Mono",Menlo,monospace;
-}
-.steps b{color:var(--ink);font-weight:600;display:block;font-size:15.5px;margin-bottom:2px}
+.step .num{display:inline-grid;place-items:center;width:30px;height:30px;border-radius:50%;
+  background:var(--brand);color:#fff;font-size:13px;font-weight:700;margin-bottom:14px}
+.step b{display:block;font-size:16.5px;font-weight:700;margin-bottom:7px}
+.step span{font-size:14.5px;color:var(--ink-2)}
 
-/* --- 客户 --- */
-.logos{display:grid;grid-template-columns:repeat(5,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
-@media(max-width:900px){.logos{grid-template-columns:repeat(3,1fr)}}
-@media(max-width:560px){.logos{grid-template-columns:repeat(2,1fr)}}
-.logos div{background:var(--surface);display:grid;place-items:center;padding:26px 20px;min-height:104px}
-.logos img{
-  max-height:40px;width:auto;object-fit:contain;
-  filter:grayscale(1) brightness(1.9) contrast(.85);opacity:.62;transition:opacity .2s,filter .2s;
-}
-:root[data-theme="light"] .logos img{filter:grayscale(1) contrast(1.05);opacity:.66}
-.logos div:hover img{opacity:1;filter:none}
+/* ---------- 数据 ---------- */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:820px){.stats{grid-template-columns:repeat(2,1fr)}}
+.stat{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px 24px;text-align:center}
+.stat b{display:block;font-size:36px;font-weight:800;letter-spacing:-.02em;line-height:1.1;color:var(--brand)}
+.stat span{display:block;font-size:13.5px;color:var(--ink-2);margin-top:8px}
 
-/* --- 行业 --- */
-.inds{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);border:1px solid var(--rule)}
-@media(max-width:820px){.inds{grid-template-columns:repeat(2,1fr)}}
-.ind{background:var(--surface);padding:28px 24px 30px}
-.ind b{display:block;font-size:16px;font-weight:600;margin-bottom:8px}
-.ind span{font-size:13.5px;color:var(--ink-dim)}
-.ind i{display:block;font-style:normal;font-size:10.5px;letter-spacing:.14em;color:var(--gauge);margin-bottom:14px}
+/* ---------- 质量 ---------- */
+.quality{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+@media(max-width:900px){.quality{grid-template-columns:1fr;gap:28px}}
+.quality img{width:100%;aspect-ratio:4/3;object-fit:cover;border-radius:var(--radius-lg);box-shadow:var(--shadow)}
+.quality .lede{font-size:17px;color:var(--ink-2);margin:14px 0 0}
+.checks{list-style:none;margin:22px 0 0;padding:0}
+.checks li{display:flex;gap:12px;padding:11px 0;font-size:15.5px;color:var(--ink-2);border-bottom:1px solid var(--line)}
+.checks li::before{content:"";flex:0 0 20px;height:20px;margin-top:2px;border-radius:50%;
+  background:var(--ok) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20'%3E%3Cpath d='M5.5 10.5l3 3 6-7' stroke='white' stroke-width='2.2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") center/16px no-repeat}
+.checks b{color:var(--ink)}
 
-/* --- CTA --- */
-.cta{background:var(--surface-2);border-bottom:1px solid var(--rule)}
-.cta-grid{display:grid;grid-template-columns:1.1fr .9fr;gap:56px;align-items:center;padding:80px 0}
-@media(max-width:880px){.cta-grid{grid-template-columns:1fr;gap:32px;padding:56px 0}}
-.cta h2{margin-bottom:14px}
-.cta p{color:var(--ink-dim);margin:0 0 26px;font-size:16px}
-.dropzone{border:1px dashed var(--rule);padding:34px 28px;background:var(--surface)}
-.dropzone .fmt{font-size:12px;color:var(--ink-faint);margin-top:14px}
-.dropzone .big{font-size:15.5px;color:var(--ink);margin-bottom:6px}
-.dropzone small{color:var(--ink-dim);font-size:13.5px}
+/* ---------- 行业 ---------- */
+.inds{display:grid;grid-template-columns:repeat(4,1fr);gap:20px}
+@media(max-width:900px){.inds{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:520px){.inds{grid-template-columns:1fr}}
+.ind{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:24px}
+.ind b{display:block;font-size:17px;font-weight:700;margin-bottom:8px}
+.ind span.d{font-size:14.5px;color:var(--ink-2)}
+.ind .tag{display:inline-block;font-size:11.5px;font-weight:700;letter-spacing:.06em;
+  color:var(--brand);background:var(--brand-tint);border-radius:5px;padding:3px 9px;margin-bottom:14px}
 
-/* --- 页脚 --- */
-footer{padding:56px 0 40px;font-size:13.5px;color:var(--ink-dim)}
-.foot{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:40px}
-@media(max-width:780px){.foot{grid-template-columns:1fr;gap:26px}}
-.foot h4{font-size:11px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 14px;font-weight:600}
+/* ---------- CTA ---------- */
+.cta{background:var(--bg-deep);color:#fff;padding:76px 0}
+.cta h2{color:#fff}
+.cta-grid{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:center}
+@media(max-width:900px){.cta-grid{grid-template-columns:1fr;gap:30px}}
+.cta p{color:#B9C7DA;font-size:17px;margin:14px 0 28px}
+.upload{background:rgba(255,255,255,.05);border:1.5px dashed rgba(255,255,255,.28);border-radius:var(--radius-lg);padding:38px 30px;text-align:center}
+.upload .ic{font-size:26px;margin-bottom:10px;color:#8FA3BC}
+.upload b{display:block;font-size:17px;margin-bottom:6px}
+.upload small{color:#B9C7DA;font-size:14px}
+.upload .f{margin-top:16px;font-size:12px;color:#8FA3BC}
+
+/* ---------- 页脚 ---------- */
+footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);border-top:1px solid var(--line)}
+.foot{display:grid;grid-template-columns:1.5fr 1fr 1fr;gap:36px}
+@media(max-width:780px){.foot{grid-template-columns:1fr;gap:24px}}
+.foot h4{font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin:0 0 12px;font-weight:700}
 .foot p{margin:0 0 6px}
-.foot a:hover{color:var(--ink)}
-.legal{margin-top:40px;padding-top:22px;border-top:1px solid var(--rule);display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap;font-size:12.5px;color:var(--ink-faint)}
+.foot a:hover{color:var(--brand)}
+.legal{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
 
-@media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
 <body>
 
-
-<div class="scale" aria-hidden="true">
-  <i class="major"></i><i></i><i></i><i></i><i class="major"></i><i></i><i></i><i></i>
-  <i class="major"></i><i></i><i></i><i></i><i class="major"></i><i></i><i></i><i></i>
-  <i class="major"></i>
-</div>
-
 <header>
   <div class="wrap nav">
-    <a class="brand" href="#top">
-      <b>SONNENSCHEIN</b>
-      <span class="mono">MACHINERY · SINCE 2009</span>
-    </a>
-    <a class="link" href="#capabilities">Capabilities</a>
-    <a class="link" href="#quality">Quality</a>
-    <a class="link" href="#clients">Clients</a>
-    <a class="link" href="#contact">Contact</a>
+    <a class="logo" href="#top"><b>SONNENSCHEIN</b><span>MACHINERY · SINCE 2009</span></a>
+    <a class="l" href="#capabilities">Capabilities</a>
+    <a class="l" href="#parts">Parts</a>
+    <a class="l" href="#quality">Quality</a>
+    <a class="l" href="#process">How it works</a>
     <a class="btn" href="#quote">Request a Quote</a>
   </div>
 </header>
 
 <div class="hero" id="top">
-  <div class="hero-photo"><img src="./assets/hero.jpg" alt="Five-axis machining centre trunnion table and spindle"></div>
-  <div class="hero-veil"></div>
-  <div class="wrap hero-inner">
-    <div class="eyebrow mono">Jiangsu, China · Delivering to Europe</div>
-    <h1>Precision parts, held to <em>±0.01&nbsp;mm</em>, from prototype to series.</h1>
-    <p class="lede">Five-axis machining, Swiss-type turning, die casting, sheet metal and finishing under one roof — with on-machine measurement and CMM verification on every job.</p>
-    <div class="hero-cta">
-      <a class="btn" href="#quote">Request a Quote</a>
-      <a class="btn ghost" href="#capabilities">See our capabilities</a>
+  <div class="wrap hero-grid">
+    <div>
+      <h1>Custom CNC parts, from prototype to production.</h1>
+      <p class="sub">Send us your drawing and we come back with a price and a lead time. Machining, casting, sheet metal, welding and finishing all happen in one ISO 13485 certified plant.</p>
+      <div class="hero-btns">
+        <a class="btn lg" href="#quote">Request a Quote</a>
+        <a class="btn alt lg" href="#capabilities">See capabilities</a>
+      </div>
+      <p class="fmts"><b>Accepted files:</b> <span class="mono">STEP · STP · IGES · X_T · SLDPRT · DWG · DXF · PDF · ZIP</span></p>
+    </div>
+    <div class="hero-figure">
+      <img src="./assets/part1.jpg" alt="Precision machined aluminium housing" width="1000" height="750">
     </div>
   </div>
 </div>
 
-<div class="dims">
-  <div class="wrap dims-grid">
-    <div class="dim"><b class="mono">60<sub>+</sub></b><span class="mono">CNC machines</span></div>
-    <div class="dim"><b class="mono">10<sub>+</sub></b><span class="mono">Swiss-type lathes</span></div>
-    <div class="dim"><b class="mono">15,000<sub>m²</sub></b><span class="mono">Factory floor</span></div>
-    <div class="dim"><b class="mono">2009</b><span class="mono">Manufacturing since</span></div>
+<div class="strip">
+  <div class="wrap strip-in">
+    <b>ISO 9001:2015</b><span class="sep">|</span>
+    <b>ISO 13485:2016</b><span class="sep">|</span>
+    <b>ISO 14001</b><span class="sep">|</span>
+    <b>ISO 45001</b>
   </div>
 </div>
 
-<div class="certs">
-  <div class="wrap certs-row">
-    <span class="certs-label mono">Certified to</span>
-    <span class="cert"><b class="mono">ISO 9001</b><span>Quality</span></span>
-    <span class="cert"><b class="mono">ISO 13485</b><span>Medical devices</span></span>
-    <span class="cert"><b class="mono">ISO 14001</b><span>Environment</span></span>
-    <span class="cert"><b class="mono">ISO 45001</b><span>Health &amp; safety</span></span>
+<div class="clients">
+  <div class="wrap">
+    <h3>Companies we manufacture for</h3>
+    <div class="client-row">
+      <img src="./assets/logo1.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo2.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo3.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo4.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo5.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo6.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo7.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo8.jpg" alt="Client logo" loading="lazy">
+      <img src="./assets/logo9.jpg" alt="Client logo" loading="lazy">
+    </div>
   </div>
 </div>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="head center">
+      <div class="kicker">Why manufacturers work with us</div>
+      <h2>One supplier, from the first sample to the ten thousandth part.</h2>
+    </div>
+    <div class="values">
+      <div class="value">
+        <div class="n">1</div><b>One plant, five processes</b>
+        <span>Machining, casting, forming, joining and finishing under one roof — no coordinating four vendors, and no finger-pointing when a dimension drifts.</span>
+      </div>
+      <div class="value">
+        <div class="n">2</div><b>Prototype and series on the same machines</b>
+        <span>The sample you approve is made on the equipment that will run the series, so what you qualify is what you receive.</span>
+      </div>
+      <div class="value">
+        <div class="n">3</div><b>A quality system built for medical</b>
+        <span>ISO 13485 was audited against medical device requirements. The same documentation discipline applies to every order we take.</span>
+      </div>
+      <div class="value">
+        <div class="n">4</div><b>Your drawings stay yours</b>
+        <span>NDA on request before review, controlled internal access, and a record of who opened which revision and when.</span>
+      </div>
+    </div>
+  </div>
+</section>
 
 <section id="capabilities">
   <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <div class="sec-index mono">01 — CAPABILITIES</div>
-        <h2>Five processes, one supplier, one point of contact.</h2>
-      </div>
-      <p class="sec-note">Machining, casting, forming, joining and finishing happen in the same plant — so tolerances are held across process boundaries instead of across suppliers.</p>
+    <div class="head">
+      <div class="kicker">Capabilities</div>
+      <h2>Five manufacturing processes, one point of contact.</h2>
+      <p>60+ CNC machines and 10+ Swiss-type lathes across a 15,000 m² plant in Jiangsu, China.</p>
     </div>
 
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true"  aria-controls="p1" id="t1">CNC Machining</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p2" id="t2">Swiss-Type Turning</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p3" id="t3">Aluminium Die Casting</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p4" id="t4">Sheet Metal</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p5" id="t5">Welding</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="p6" id="t6">Surface Finishing</button>
+      <button class="tab" role="tab" aria-selected="true"  aria-controls="c1">CNC Machining</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c2">Swiss-Type Turning</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c3">Aluminium Die Casting</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c4">Sheet Metal</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c5">Welding</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c6">Surface Finishing</button>
     </div>
 
-    <div class="panel" id="p1" role="tabpanel" aria-labelledby="t1" data-open="true">
-      <figure><img src="./assets/cnc.jpg" alt="Five-axis machining centre with on-machine probing"></figure>
+    <div class="panel" id="c1" role="tabpanel" data-open>
+      <img src="./assets/cnc.jpg" alt="Five-axis machining centre" loading="lazy">
       <div>
         <h3>CNC Machining</h3>
-        <p>Over 60 machines including five-axis centres and mill-turn cells. Complex geometry is finished in one setup, which removes the stack-up error that repeated re-fixturing introduces.</p>
-        <ul class="speclist">
-          <li><span class="k">Machines</span><span class="v mono">60+ incl. 5-axis, mill-turn</span></li>
-          <li><span class="k">Typical tolerance</span><span class="v mono">±0.01 mm</span></li>
-          <li><span class="k">In-process control</span><span class="v mono">On-machine measurement</span></li>
-          <li><span class="k">Volumes</span><span class="v mono">1 piece → series</span></li>
+        <p>Over 60 machines including five-axis centres and mill-turn cells. Complex geometry is finished in fewer setups, which is where repeat-fixturing error normally creeps in.</p>
+        <ul class="spec">
+          <li><span class="k">Machines</span><span class="v">60+ incl. 5-axis, mill-turn</span></li>
+          <li><span class="k">In-process control</span><span class="v">On-machine measurement</span></li>
+          <li><span class="k">Materials</span><span class="v">Aluminium · steel · stainless</span></li>
+          <li><span class="k">Volume</span><span class="v">1 piece to series</span></li>
         </ul>
       </div>
     </div>
 
-    <div class="panel" id="p2" role="tabpanel" aria-labelledby="t2">
-      <figure><img src="./assets/swiss.jpg" alt="Swiss-type lathe workshop"></figure>
+    <div class="panel" id="c2" role="tabpanel">
+      <img src="./assets/swiss.jpg" alt="Swiss-type lathe workshop" loading="lazy">
       <div>
         <h3>Swiss-Type Turning</h3>
-        <p>More than ten multi-axis sliding-headstock lathes for small, slender, high-count parts — the geometry where a standard lathe loses accuracy as the part deflects.</p>
-        <ul class="speclist">
-          <li><span class="k">Machines</span><span class="v mono">10+ multi-axis</span></li>
-          <li><span class="k">Best for</span><span class="v mono">Small precision components</span></li>
-          <li><span class="k">Batch</span><span class="v mono">High-count series</span></li>
+        <p>More than ten multi-axis sliding-headstock lathes for small, slender, high-count parts — the geometry where a conventional lathe loses accuracy as the workpiece deflects.</p>
+        <ul class="spec">
+          <li><span class="k">Machines</span><span class="v">10+ multi-axis</span></li>
+          <li><span class="k">Best for</span><span class="v">Small precision components</span></li>
+          <li><span class="k">Volume</span><span class="v">High-count series</span></li>
         </ul>
       </div>
     </div>
 
-    <div class="panel" id="p3" role="tabpanel" aria-labelledby="t3">
-      <figure><img src="./assets/cast.jpg" alt="Aluminium die casting"></figure>
+    <div class="panel" id="c3" role="tabpanel">
+      <img src="./assets/cast.jpg" alt="Aluminium die casting" loading="lazy">
       <div>
         <h3>Aluminium Die Casting</h3>
-        <p>Established tooling and process control for dimensionally stable aluminium castings, machined in-house afterwards so the casting and the finished part come from one supplier.</p>
-        <ul class="speclist">
-          <li><span class="k">Material</span><span class="v mono">Aluminium alloys</span></li>
-          <li><span class="k">Tooling</span><span class="v mono">In-house die support</span></li>
-          <li><span class="k">Post-process</span><span class="v mono">CNC machined in-house</span></li>
+        <p>Established tooling and process control for dimensionally stable aluminium castings — then machined in the same plant, so the casting and the finished part come from one supplier.</p>
+        <ul class="spec">
+          <li><span class="k">Material</span><span class="v">Aluminium alloys</span></li>
+          <li><span class="k">Tooling</span><span class="v">In-house die support</span></li>
+          <li><span class="k">Post-process</span><span class="v">CNC machined in-house</span></li>
         </ul>
       </div>
     </div>
 
-    <div class="panel" id="p4" role="tabpanel" aria-labelledby="t4">
-      <figure><img src="./assets/sheet.jpg" alt="Flexible sheet metal line"></figure>
+    <div class="panel" id="c4" role="tabpanel">
+      <img src="./assets/sheet.jpg" alt="Flexible sheet metal line" loading="lazy">
       <div>
         <h3>Sheet Metal Fabrication</h3>
-        <p>A flexible sheet metal line covering cutting, forming and bending — suited to enclosures and brackets that accompany machined assemblies.</p>
-        <ul class="speclist">
-          <li><span class="k">Line</span><span class="v mono">Flexible, automated</span></li>
-          <li><span class="k">Operations</span><span class="v mono">Cut · form · bend</span></li>
+        <p>A flexible sheet metal line covering cutting, forming and bending — for the enclosures and brackets that ship alongside machined assemblies.</p>
+        <ul class="spec">
+          <li><span class="k">Line</span><span class="v">Flexible, automated</span></li>
+          <li><span class="k">Operations</span><span class="v">Cut · form · bend</span></li>
         </ul>
       </div>
     </div>
 
-    <div class="panel" id="p5" role="tabpanel" aria-labelledby="t5">
-      <figure><img src="./assets/weld.jpg" alt="Robotic welding cell"></figure>
+    <div class="panel" id="c5" role="tabpanel">
+      <img src="./assets/weld.jpg" alt="Robotic welding cell" loading="lazy">
       <div>
         <h3>Welding</h3>
-        <p>Robotic welding and weld repair. Automating the joint keeps heat input and bead geometry consistent from the first part to the last, which is where manual welding drifts.</p>
-        <ul class="speclist">
-          <li><span class="k">Process</span><span class="v mono">Robotic welding</span></li>
-          <li><span class="k">Also</span><span class="v mono">Weld repair</span></li>
+        <p>Robotic welding and weld repair. Automating the joint keeps the bead consistent from the first part to the last — the point where manual welding tends to drift.</p>
+        <ul class="spec">
+          <li><span class="k">Process</span><span class="v">Robotic welding</span></li>
+          <li><span class="k">Also</span><span class="v">Weld repair</span></li>
         </ul>
       </div>
     </div>
 
-    <div class="panel" id="p6" role="tabpanel" aria-labelledby="t6">
-      <figure><img src="./assets/finish.jpg" alt="Automated powder coating line"></figure>
+    <div class="panel" id="c6" role="tabpanel">
+      <img src="./assets/finish.jpg" alt="Automated powder coating line" loading="lazy">
       <div>
         <h3>Surface Finishing</h3>
-        <p>An automated powder coating line plus supporting surface treatments, applied in-house so finished parts ship without an extra vendor in the chain.</p>
-        <ul class="speclist">
-          <li><span class="k">Line</span><span class="v mono">Automated powder coating</span></li>
-          <li><span class="k">Handover</span><span class="v mono">No external finisher</span></li>
+        <p>An automated powder coating line and supporting surface treatments, applied in-house so finished parts ship without another vendor in the chain.</p>
+        <ul class="spec">
+          <li><span class="k">Line</span><span class="v">Automated powder coating</span></li>
+          <li><span class="k">Handover</span><span class="v">No external finisher</span></li>
         </ul>
       </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="parts">
+  <div class="wrap">
+    <div class="head center">
+      <div class="kicker">Parts we make</div>
+      <h2>Machined, cast and finished in our own plant.</h2>
+    </div>
+    <div class="gallery">
+      <figure><img src="./assets/part2.jpg" alt="Machined aluminium component" loading="lazy"><figcaption>Machined aluminium housing</figcaption></figure>
+      <figure><img src="./assets/part3.jpg" alt="Precision turned component" loading="lazy"><figcaption>Precision turned component</figcaption></figure>
+      <figure><img src="./assets/part4.jpg" alt="Die cast and machined part" loading="lazy"><figcaption>Die cast, machined in-house</figcaption></figure>
+      <figure><img src="./assets/part5.jpg" alt="Finished assembly component" loading="lazy"><figcaption>Finished assembly component</figcaption></figure>
+      <figure><img src="./assets/part6.jpg" alt="Multi-feature machined part" loading="lazy"><figcaption>Multi-feature machined part</figcaption></figure>
+      <figure><img src="./assets/part7.jpg" alt="Surface treated component" loading="lazy"><figcaption>Surface treated component</figcaption></figure>
+      <figure><img src="./assets/part8.jpg" alt="Structural machined part" loading="lazy"><figcaption>Structural machined part</figcaption></figure>
+      <figure><img src="./assets/part1.jpg" alt="Precision aluminium housing" loading="lazy"><figcaption>Precision aluminium housing</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section id="process">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">How it works</div>
+      <h2>From your drawing to parts on your dock.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="num">1</div><b>Send your drawing</b><span>2D drawing or 3D model, with quantity and material. We sign an NDA first if you would like one.</span></div>
+      <div class="step"><div class="num">2</div><b>Review and quote</b><span>Our engineers review manufacturability and come back with a price and a lead time.</span></div>
+      <div class="step"><div class="num">3</div><b>Production</b><span>Machining, casting, forming, welding and finishing, scheduled across our own plant.</span></div>
+      <div class="step"><div class="num">4</div><b>Inspection and delivery</b><span>Measured, documented and packed, then shipped to your site in Europe.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt">
+  <div class="wrap">
+    <div class="stats">
+      <div class="stat"><b class="mono">60+</b><span>CNC machines</span></div>
+      <div class="stat"><b class="mono">10+</b><span>Swiss-type lathes</span></div>
+      <div class="stat"><b class="mono">15,000</b><span>m² plant floor</span></div>
+      <div class="stat"><b class="mono">2009</b><span>Manufacturing since</span></div>
     </div>
   </div>
 </section>
 
 <section id="quality">
-  <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <div class="sec-index mono">02 — MEASUREMENT</div>
-        <h2>Every part is measured, and every measurement is traceable.</h2>
-      </div>
-      <p class="sec-note">ISO 13485 means the quality system was audited against medical device requirements — the documentation discipline applies to all our work, not only medical parts.</p>
-    </div>
-    <div class="measure">
-      <figure><img src="./assets/cmm.jpg" alt="Coordinate measuring machine in the inspection room"></figure>
-      <div>
-        <h3 style="font-size:22px;margin:0 0 4px;font-weight:600;">From incoming material to final report</h3>
-        <ol class="steps">
-          <li><b>Incoming material check</b>Certificates verified and recorded against the batch.</li>
-          <li><b>On-machine measurement</b>Features probed in the fixture, before the part is released.</li>
-          <li><b>CMM verification</b>Coordinate measuring machine in a dedicated inspection room.</li>
-          <li><b>Documented handover</b>Every step recorded, so any dimension can be traced back.</li>
-        </ol>
-      </div>
+  <div class="wrap quality">
+    <img src="./assets/cmm.jpg" alt="Coordinate measuring machine in the inspection room" loading="lazy">
+    <div>
+      <div class="kicker">Quality</div>
+      <h2>Measured, recorded, traceable.</h2>
+      <p class="lede">ISO 13485 means our quality system was audited against medical device requirements. That documentation discipline applies to every order, not only medical parts.</p>
+      <ul class="checks">
+        <li><span><b>Incoming material check.</b> Certificates verified and recorded against the batch.</span></li>
+        <li><span><b>On-machine measurement.</b> Features probed in the fixture, before the part is released.</span></li>
+        <li><span><b>CMM verification.</b> Coordinate measuring machine in a dedicated inspection room.</span></li>
+        <li><span><b>Documented handover.</b> Every step recorded, so any dimension can be traced back.</span></li>
+      </ul>
     </div>
   </div>
 </section>
 
-<section id="clients">
+<section class="alt">
   <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <div class="sec-index mono">03 — CLIENTS</div>
-        <h2>Trusted by manufacturers who audit their suppliers.</h2>
-      </div>
-      <p class="sec-note">Including medical device manufacturers, whose supplier requirements are the reason we hold ISO 13485.</p>
-    </div>
-    <div class="logos"><div><img src="./assets/logo1.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo2.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo3.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo4.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo5.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo6.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo7.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo8.jpg" alt="Client logo" loading="lazy"></div><div><img src="./assets/logo9.jpg" alt="Client logo" loading="lazy"></div></div>
-  </div>
-</section>
-
-<section id="industries">
-  <div class="wrap">
-    <div class="sec-head">
-      <div>
-        <div class="sec-index mono">04 — INDUSTRIES</div>
-        <h2>Where our parts end up.</h2>
-      </div>
+    <div class="head center">
+      <div class="kicker">Industries</div>
+      <h2>Where our parts end up.</h2>
     </div>
     <div class="inds">
-      <div class="ind"><i class="mono">ISO 13485</i><b>Medical devices</b><span>Audited quality system, full traceability, controlled documentation.</span></div>
-      <div class="ind"><i class="mono">SERIES</i><b>Automotive</b><span>Repeatable series production with stable process capability.</span></div>
-      <div class="ind"><i class="mono">MIXED</i><b>Industrial equipment</b><span>Machined, cast, formed and finished assemblies from one plant.</span></div>
-      <div class="ind"><i class="mono">LOW VOLUME</i><b>Prototyping</b><span>Single pieces and pilot runs on the same machines as production.</span></div>
+      <div class="ind"><span class="tag">ISO 13485</span><b>Medical devices</b><span class="d">Audited quality system, controlled documentation, full traceability.</span></div>
+      <div class="ind"><span class="tag">SERIES</span><b>Automotive</b><span class="d">Repeatable series production with stable process control.</span></div>
+      <div class="ind"><span class="tag">MIXED PROCESS</span><b>Industrial equipment</b><span class="d">Machined, cast, formed and finished assemblies from one plant.</span></div>
+      <div class="ind"><span class="tag">LOW VOLUME</span><b>Prototyping</b><span class="d">Single pieces and pilot runs on the same machines as production.</span></div>
     </div>
   </div>
 </section>
@@ -464,27 +472,27 @@ footer{padding:56px 0 40px;font-size:13.5px;color:var(--ink-dim)}
 <div class="cta" id="quote">
   <div class="wrap cta-grid">
     <div>
-      <div class="sec-index mono">05 — GET STARTED</div>
       <h2>Send us a drawing. We will come back with a price and a lead time.</h2>
-      <p>Upload a 2D drawing or 3D model with your quantity and material. Your files stay confidential — we sign an NDA before review if you would like one.</p>
-      <a class="btn" href="#">Request a Quote</a>
+      <p>Tell us the quantity, the material and when you need it. Your files stay confidential, and we will sign an NDA before review if you would like one.</p>
+      <a class="btn lg" href="mailto:syh@yuhaomachinery.com">Request a Quote</a>
     </div>
-    <div class="dropzone">
-      <div class="big">Drop your drawing here</div>
+    <div class="upload">
+      <div class="ic">&#8593;</div>
+      <b>Drop your drawing here</b>
       <small>or browse from your computer</small>
-      <div class="fmt mono">STEP · STP · IGES · X_T · SLDPRT · DWG · DXF · PDF · ZIP — up to 500 MB</div>
+      <div class="f mono">STEP · STP · IGES · X_T · SLDPRT · DWG · DXF · PDF · ZIP — up to 500 MB</div>
     </div>
   </div>
 </div>
 
-<footer id="contact">
+<footer>
   <div class="wrap">
     <div class="foot">
       <div>
         <h4>Jiangsu Yuhao Machinery Co., Ltd.</h4>
         <p>SONNENSCHEIN MACHINERY</p>
         <p>Danyang, Jiangsu Province, China</p>
-        <p>15,000 m² manufacturing facility</p>
+        <p>15,000 m² manufacturing facility · Established 2009</p>
       </div>
       <div>
         <h4>Contact</h4>
@@ -494,7 +502,8 @@ footer{padding:56px 0 40px;font-size:13.5px;color:var(--ink-dim)}
       <div>
         <h4>Company</h4>
         <p><a href="#capabilities">Capabilities</a></p>
-        <p><a href="#quality">Quality &amp; measurement</a></p>
+        <p><a href="#parts">Parts</a></p>
+        <p><a href="#quality">Quality</a></p>
         <p><a href="#quote">Request a quote</a></p>
       </div>
     </div>
@@ -512,8 +521,9 @@ footer{padding:56px 0 40px;font-size:13.5px;color:var(--ink-dim)}
     tabs.forEach(function(t){
       var on = t === tab;
       t.setAttribute('aria-selected', on ? 'true' : 'false');
-      var panel = document.getElementById(t.getAttribute('aria-controls'));
-      if (panel) { if (on) { panel.setAttribute('data-open','true'); } else { panel.removeAttribute('data-open'); } }
+      var p = document.getElementById(t.getAttribute('aria-controls'));
+      if (!p) { return; }
+      if (on) { p.setAttribute('data-open',''); } else { p.removeAttribute('data-open'); }
     });
   }
   tabs.forEach(function(t){
@@ -527,6 +537,5 @@ footer{padding:56px 0 40px;font-size:13.5px;color:var(--ink-dim)}
   });
 })();
 </script>
-
 </body>
 </html>
