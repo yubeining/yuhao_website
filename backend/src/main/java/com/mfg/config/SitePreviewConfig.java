@@ -67,16 +67,37 @@ public class SitePreviewConfig implements WebMvcConfigurer {
     }
 
     /**
-     * {@code /site} 和 {@code /site/} 转到首页。
+     * {@code /site} 重定向到 {@code /site/}，{@code /site/} 转到首页。
      *
-     * <p>静态资源处理器把目录路径当成"找不到这个文件"，不会自动找 index.html ——
-     * 少了这一步，分享出去的链接必须精确写成 {@code /site/index.html} 才打得开，
-     * 而所有人都会去掉那一截。
+     * <p><b>★ 少了那个斜杠，图片全部裂开。</b>
+     *
+     * <p>最初两个路径都用 forward 到 index.html，页面能出来，但
+     * <b>浏览器地址栏仍然是 {@code /site}（没有斜杠）</b>，
+     * 而 HTML 里的资源写的是相对路径 {@code ./assets/hero.jpg}。
+     * 浏览器按当前 URL 的目录解析相对路径：
+     * <pre>
+     *   /site   →  ./assets/hero.jpg  解析成  /assets/hero.jpg   404
+     *   /site/  →  ./assets/hero.jpg  解析成  /site/assets/hero.jpg   200
+     * </pre>
+     * 结果是文字正常、图片全裂 —— 而服务端日志里只有几条 404，
+     * 看不出和访问入口有关。
+     *
+     * <p>所以 {@code /site} 必须<b>重定向</b>（让地址栏真的变成 {@code /site/}），
+     * 不能 forward（地址栏不变）。
+     *
+     * <p>没有改成绝对路径 {@code /site/assets/...}，是因为这个站同时还要能
+     * 在自己的端口上以根路径提供服务（见 {@code site/serve.mjs}），
+     * 那种情况下绝对路径反而是错的。相对路径两边都对，前提是有那个斜杠。
      */
     @Controller
     static class SiteIndexController {
 
-        @RequestMapping({"/site", "/site/"})
+        @RequestMapping("/site")
+        public String redirectToSlash() {
+            return "redirect:/site/";
+        }
+
+        @RequestMapping("/site/")
         public String index() {
             return "forward:/site/index.html";
         }
