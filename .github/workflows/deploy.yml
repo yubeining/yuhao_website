@@ -160,6 +160,18 @@ jobs:
             "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
             "MFG_COMMIT='${{ env.COMMIT }}' bash /home/devbox/app/src/deploy/devbox/build.sh backend"
 
+      # 官网是纯静态的，和平台分开发布 —— 改一句文案不该重启交易平台。
+      - name: 发布官网（独立端口）
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
+          ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
+            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
+            "bash /home/devbox/app/src/deploy/devbox/deploy-site.sh"
+
       - name: 上线（健康检查 + 失败自动回滚）
         env:
           DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}

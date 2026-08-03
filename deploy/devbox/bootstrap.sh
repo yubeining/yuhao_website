@@ -223,6 +223,14 @@ set -euo pipefail
 APP_DIR=/home/devbox/app
 [ -f "$APP_DIR/.env" ] && { set -a; . "$APP_DIR/.env"; set +a; }
 mkdir -p "$APP_DIR/logs"
+
+# 官网静态站，独立端口。放在后台起 —— 它挂了不该影响平台。
+if [ -f "$APP_DIR/site/serve.mjs" ]; then
+    PORT="${SITE_PORT:-8081}" nohup node "$APP_DIR/site/serve.mjs" \
+        >>"$APP_DIR/logs/site.log" 2>&1 &
+fi
+
+# 平台是主进程：用 exec 让它成为 PID 1，直接收到 SIGTERM 而不是等被 KILL
 if [ -f "$APP_DIR/app.jar" ]; then
     exec java ${JAVA_OPTS:-} -jar "$APP_DIR/app.jar" >>"$APP_DIR/logs/app.log" 2>&1
 fi
