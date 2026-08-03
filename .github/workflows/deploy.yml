@@ -77,7 +77,18 @@ jobs:
           fi
           chmod 600 ~/.ssh/known_hosts
 
-      - name: 在 DevBox 上构建并部署
+      # ★★ 源码同步在这里做，不在 build.sh 里做。
+      #
+      #    build.sh 原本自己 git reset，然后立刻执行刚被覆盖掉的自己 ——
+      #    为了避免 bash 边执行边读导致的语法错乱，它会先把自己拷到 /tmp 再 exec。
+      #    代价是：【对 build.sh 自身的修改永远晚一个版本生效】，
+      #    因为这一轮跑的是上一版的副本。而且完全静默 —— 部署显示成功，
+      #    你以为新逻辑生效了，实际上下次才生效。真踩过一次。
+      #
+      #    放在 workflow 里就没有这个问题：workflow 文件由 GitHub 在触发时
+      #    从目标分支读取，永远是最新的，而且它同步完之后 build.sh 才被调用，
+      #    不存在"自己覆盖自己"。
+      - name: 同步源码
         env:
           DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
           DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
@@ -85,11 +96,27 @@ jobs:
           REF: ${{ inputs.ref }}
         run: |
           set -euo pipefail
+          ssh -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
+            "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
+            "set -e
+             cd /home/devbox/app/src
+             git fetch --depth 1 origin '${REF:-main}'
+             git reset --hard 'origin/${REF:-main}'
+             git clean -fd -e node_modules -e target
+             echo \"now at \$(git rev-parse --short HEAD) \$(git log -1 --pretty=%s)\""
+
+      - name: 在 DevBox 上构建并部署
+        env:
+          DEVBOX_HOST: ${{ secrets.DEVBOX_HOST }}
+          DEVBOX_PORT: ${{ secrets.DEVBOX_PORT }}
+          DEVBOX_USER: ${{ secrets.DEVBOX_USER }}
+        run: |
+          set -euo pipefail
           # -tt 强制分配伪终端，这样远端脚本的输出能实时回流到 Actions 日志，
           # 而不是攒到结束才一次性吐出来 —— 构建要几分钟，中途看不到进度很难受。
           ssh -tt -i ~/.ssh/devbox -p "${DEVBOX_PORT:-22}" \
             "${DEVBOX_USER:-devbox}@${DEVBOX_HOST}" \
-            "bash /home/devbox/app/src/deploy/devbox/build.sh '${REF:-main}'"
+            "bash /home/devbox/app/src/deploy/devbox/build.sh"
 
       - name: 清理凭据
         # ★ always()：前面任何一步失败都要清。

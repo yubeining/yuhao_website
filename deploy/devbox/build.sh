@@ -4,7 +4,22 @@
 # 由 GitHub Actions 通过一条 ssh 命令调用（跨境只走这条命令，几 KB）。
 #
 # 用法：
-#   bash /home/devbox/app/src/deploy/devbox/build.sh [分支]
+#   bash /home/devbox/app/src/deploy/devbox/build.sh
+#
+# ★★ 本脚本【不同步源码】。调用方负责在调用之前把工作区更新到目标版本。
+#
+#    原本它自己 git reset 然后执行刚被覆盖的自己，为此要先拷到 /tmp 再 exec。
+#    代价是【对本文件的修改永远晚一个版本生效】，而且完全静默 ——
+#    部署显示成功，你以为新逻辑生效了，其实是上一版在跑。踩过一次：
+#    加了 -Dgit.commit 之后部署成功，线上 commit 却还是 unknown。
+#
+#    现在同步由 .github/workflows/deploy.yml 做（workflow 文件由 GitHub
+#    在触发时从分支读取，永远最新），本脚本被调用时源码已经是目标版本。
+#
+#    手动使用时先自己同步：
+#      cd /home/devbox/app/src && git fetch --depth 1 origin main \
+#        && git reset --hard origin/main
+#      bash deploy/devbox/build.sh
 #
 # ★ 为什么构建在这里而不是在 GitHub Actions 上
 #   跨境传 130 MB 的 fat jar 实测 8 KB/s，要 4 个多小时。
@@ -18,7 +33,6 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/devbox/app}"
 SRC_DIR="${SRC_DIR:-$APP_DIR/src}"
-BRANCH="${1:-main}"
 
 # ★ 限制 Maven 堆。这台机器 4 GiB 且应用还开着，
 #   不限制的话 Maven 默认按物理内存的 1/4 起步，叠加 npm 和运行中的 JVM 容易 OOMKilled。
@@ -26,31 +40,10 @@ export MAVEN_OPTS="${MAVEN_OPTS:--Xmx1024m}"
 
 log() { echo "[build $(date '+%H:%M:%S')] $*"; }
 
-# ---------- 0. 把自己复制出去再执行 ----------
-# ★ 必须这样做。下一步的 git reset --hard 会覆盖本文件，
-#   而 bash 是【边执行边读】脚本文件的 —— 它记录的是字节偏移量，
-#   文件在执行途中被换掉，bash 会从新文件的那个偏移量继续读，
-#   于是跳到半行中间，报出完全无关的语法错误。
-#
-#   这个 bug 只在「build.sh 本身有改动的那次部署」才出现，
-#   平时改业务代码完全正常 —— 极难联想到是脚本自我覆盖。
-SELF="$(readlink -f "$0")"
-if [ "$SELF" != "/tmp/mfg-build-running.sh" ]; then
-    cp -f "$SELF" /tmp/mfg-build-running.sh
-    exec bash /tmp/mfg-build-running.sh "$@"
-fi
-
-# ---------- 1. 同步源码 ----------
-log "syncing $BRANCH"
-git -C "$SRC_DIR" fetch --depth 1 origin "$BRANCH"
-git -C "$SRC_DIR" reset --hard "origin/$BRANCH"
-# ★ 清掉未跟踪文件：上一次构建留下的 node_modules / target 之外，
-#   还有可能是已经从仓库里删掉、但本地还留着的源文件 ——
-#   不清的话它们会继续参与编译，出现"仓库里明明删了却还在生效"的怪事。
-#   -e 保留构建缓存，否则每次都要重新下载全部依赖。
-git -C "$SRC_DIR" clean -fd -e node_modules -e target
-
-log "now at $(git -C "$SRC_DIR" rev-parse --short HEAD) $(git -C "$SRC_DIR" log -1 --pretty=%s | cut -c1-60)"
+# ---------- 1. 确认源码版本 ----------
+# 同步由调用方完成（见文件头）。这里只把版本打进日志，
+# 万一构建出的东西不对，日志里能直接看到当时是哪个 commit。
+log "building $(git -C "$SRC_DIR" rev-parse --short HEAD) $(git -C "$SRC_DIR" log -1 --pretty=%s | cut -c1-60)"
 
 # ---------- 2. 前端 ----------
 log "building portal"
