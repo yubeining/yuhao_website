@@ -211,6 +211,63 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
 .foot a:hover{color:var(--brand)}
 .legal{margin-top:36px;padding-top:20px;border-top:1px solid var(--line);display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;font-size:13px;color:var(--ink-3)}
 
+/* ---------- Hero 徽章 + 交期承诺 ---------- */
+/* 两家对标的首屏都给速度承诺（Protolabs "as fast as 4 days"，
+   Xometry "Quote in Seconds"）—— 这是 B2B 制造首页最强的钩子。 */
+.badge{
+  display:inline-flex;align-items:center;gap:8px;
+  background:var(--brand-tint);color:var(--brand-dark);
+  border:1px solid #CFE0FA;border-radius:999px;
+  padding:6px 14px;font-size:13px;font-weight:600;margin-bottom:20px;
+}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+.promise{
+  display:flex;align-items:baseline;gap:9px;font-size:15px;color:var(--ink-2);
+  margin:0 0 24px;
+}
+.promise b{color:var(--brand);font-weight:700;font-size:16px}
+
+/* 次级按钮的箭头，两家都用这个手势 */
+.btn .arw{transition:transform .15s}
+.btn:hover .arw{transform:translateX(3px)}
+
+/* ---------- 能力 tab 图标 ---------- */
+.tab{display:inline-flex;align-items:center;gap:9px}
+.tab svg{width:17px;height:17px;flex:0 0 17px;stroke:currentColor;fill:none;stroke-width:1.6}
+
+/* ---------- 材料 ---------- */
+.mat-tabs{display:flex;gap:8px;margin-bottom:24px;flex-wrap:wrap}
+.mat-group{background:#fff;border:1px solid var(--line);border-radius:var(--radius-lg);padding:26px 28px}
+.mat-group + .mat-group{margin-top:16px}
+.mat-group h4{margin:0 0 4px;font-size:17px;font-weight:700}
+.mat-group p{margin:0 0 18px;font-size:14.5px;color:var(--ink-3)}
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.chip{
+  background:var(--bg-alt);border:1px solid var(--line);border-radius:8px;
+  padding:7px 13px;font-size:14px;color:var(--ink-2);
+}
+.chip b{font-weight:600;color:var(--ink)}
+
+/* ---------- FAQ ---------- */
+.faq{max-width:860px;margin:0 auto}
+.faq details{
+  background:#fff;border:1px solid var(--line);border-radius:var(--radius);
+  padding:0 22px;margin-bottom:10px;
+}
+.faq summary{
+  list-style:none;cursor:pointer;padding:18px 0;font-size:16.5px;font-weight:600;
+  display:flex;align-items:center;justify-content:space-between;gap:20px;
+}
+.faq summary::-webkit-details-marker{display:none}
+.faq summary::after{
+  content:"";flex:0 0 11px;height:11px;
+  border-right:2px solid var(--ink-3);border-bottom:2px solid var(--ink-3);
+  transform:rotate(45deg);transition:transform .18s;margin-top:-4px;
+}
+.faq details[open] summary::after{transform:rotate(-135deg);margin-top:3px}
+.faq details[open] summary{color:var(--brand)}
+.faq .a{padding:0 0 20px;font-size:15.5px;color:var(--ink-2);border-top:1px solid var(--line);padding-top:16px}
+
 @media(prefers-reduced-motion:reduce){*{transition:none!important;scroll-behavior:auto!important}}
 </style>
 </head>
@@ -220,9 +277,10 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
   <div class="wrap nav">
     <a class="logo" href="#top"><b>SONNENSCHEIN</b><span>MACHINERY · SINCE 2009</span></a>
     <a class="l" href="#capabilities">Capabilities</a>
+    <a class="l" href="#materials">Materials</a>
     <a class="l" href="#parts">Parts</a>
     <a class="l" href="#quality">Quality</a>
-    <a class="l" href="#process">How it works</a>
+    <a class="l" href="#faq">FAQ</a>
     <a class="btn" href="#quote">Request a Quote</a>
   </div>
 </header>
@@ -230,11 +288,15 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
 <div class="hero" id="top">
   <div class="wrap hero-grid">
     <div>
+      <div class="badge"><span class="dot"></span> ISO 13485 certified · Shipping to Europe</div>
       <h1>Custom CNC parts, from prototype to production.</h1>
-      <p class="sub">Send us your drawing and we come back with a price and a lead time. Machining, casting, sheet metal, welding and finishing all happen in one ISO 13485 certified plant.</p>
+      <p class="sub">Send us your drawing and we come back with a price and a lead time. Machining, casting, sheet metal, welding and finishing all happen in one plant.</p>
+      <!-- ★ 交期承诺，占位待确认：两家对标都在首屏给具体天数，
+           这是最强的钩子，但数字必须是你们真做得到的 -->
+      <p class="promise"><b>Quoted within 24 hours</b><span>·</span><span>Engineering review on every drawing</span></p>
       <div class="hero-btns">
         <a class="btn lg" href="#quote">Request a Quote</a>
-        <a class="btn alt lg" href="#capabilities">See capabilities</a>
+        <a class="btn alt lg" href="#capabilities">See capabilities <span class="arw">&#8594;</span></a>
       </div>
       <p class="fmts"><b>Accepted files:</b> <span class="mono">STEP · STP · IGES · X_T · SLDPRT · DWG · DXF · PDF · ZIP</span></p>
     </div>
@@ -306,12 +368,24 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
     </div>
 
     <div class="tabs" role="tablist">
-      <button class="tab" role="tab" aria-selected="true"  aria-controls="c1">CNC Machining</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="c2">Swiss-Type Turning</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="c3">Aluminium Die Casting</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="c4">Sheet Metal</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="c5">Welding</button>
-      <button class="tab" role="tab" aria-selected="false" aria-controls="c6">Surface Finishing</button>
+      <button class="tab" role="tab" aria-selected="true" aria-controls="c1">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v6M12 15v6M3 12h6M15 12h6"/><circle cx="12" cy="12" r="3"/></svg>
+        CNC Machining</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c2">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M6 9v6M10 8v8M14 9v6M18 10v4"/></svg>
+        Swiss-Type Turning</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c3">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8h16v9a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8zM8 8V5h8v3"/></svg>
+        Aluminium Die Casting</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c4">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 16l7-9 4 5 3-3 4 7z"/></svg>
+        Sheet Metal</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c5">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19l7-7M12 12l3-3 4 4-3 3zM9 5l3 3"/></svg>
+        Welding</button>
+      <button class="tab" role="tab" aria-selected="false" aria-controls="c6">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 18h16M6 14c2-4 10-4 12 0M9 9l1-4M15 9l-1-4"/></svg>
+        Surface Finishing</button>
     </div>
 
     <div class="panel" id="c1" role="tabpanel" data-open>
@@ -411,7 +485,52 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
   </div>
 </section>
 
-<section id="process">
+<section id="materials">
+  <div class="wrap">
+    <div class="head">
+      <div class="kicker">Materials</div>
+      <h2>What we machine.</h2>
+      <p>Not on the list? Send the specification — most engineering alloys can be sourced against your drawing.</p>
+    </div>
+    <div class="mat-group">
+      <h4>Aluminium</h4>
+      <p>The bulk of our machined and die cast work.</p>
+      <div class="chips">
+        <span class="chip"><b>6061</b></span><span class="chip"><b>6063</b></span>
+        <span class="chip"><b>7075</b></span><span class="chip"><b>5052</b></span>
+        <span class="chip"><b>2024</b></span><span class="chip">Die casting alloys</span>
+      </div>
+    </div>
+    <div class="mat-group">
+      <h4>Steel &amp; stainless</h4>
+      <p>Structural and corrosion-resistant components.</p>
+      <div class="chips">
+        <span class="chip"><b>1045</b></span><span class="chip"><b>4140</b></span>
+        <span class="chip"><b>SS 304</b></span><span class="chip"><b>SS 316</b></span>
+        <span class="chip"><b>SS 303</b></span>
+      </div>
+    </div>
+    <div class="mat-group">
+      <h4>Other metals</h4>
+      <p>Available on request against your specification.</p>
+      <div class="chips">
+        <span class="chip">Brass</span><span class="chip">Copper</span>
+        <span class="chip">Titanium</span><span class="chip">Zinc alloys</span>
+      </div>
+    </div>
+    <div class="mat-group">
+      <h4>Surface finishes</h4>
+      <p>Applied in our own plant, so parts ship finished.</p>
+      <div class="chips">
+        <span class="chip">Powder coating</span><span class="chip">Anodising</span>
+        <span class="chip">Passivation</span><span class="chip">Bead blasting</span>
+        <span class="chip">As machined</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="process">
   <div class="wrap">
     <div class="head">
       <div class="kicker">How it works</div>
@@ -426,7 +545,7 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
   </div>
 </section>
 
-<section class="alt">
+<section>
   <div class="wrap">
     <div class="stats">
       <div class="stat"><b class="mono">60+</b><span>CNC machines</span></div>
@@ -465,6 +584,41 @@ footer{background:#fff;padding:52px 0 34px;font-size:14.5px;color:var(--ink-2);b
       <div class="ind"><span class="tag">SERIES</span><b>Automotive</b><span class="d">Repeatable series production with stable process control.</span></div>
       <div class="ind"><span class="tag">MIXED PROCESS</span><b>Industrial equipment</b><span class="d">Machined, cast, formed and finished assemblies from one plant.</span></div>
       <div class="ind"><span class="tag">LOW VOLUME</span><b>Prototyping</b><span class="d">Single pieces and pilot runs on the same machines as production.</span></div>
+    </div>
+  </div>
+</section>
+
+<section class="alt" id="faq">
+  <div class="wrap">
+    <div class="head center">
+      <div class="kicker">Questions</div>
+      <h2>What buyers ask us first.</h2>
+    </div>
+    <div class="faq">
+      <details open>
+        <summary>How long does a quote take?</summary>
+        <div class="a">Within 24 hours for most drawings. Every drawing gets an engineering review before we price it, so if something in the design will be expensive or difficult to hold, you hear about it with the quote rather than after the first article.</div>
+      </details>
+      <details>
+        <summary>What is the minimum order quantity?</summary>
+        <div class="a">There is no minimum. Single pieces and pilot runs go on the same machines as series production, which is also why the sample you approve behaves like the parts that follow it.</div>
+      </details>
+      <details>
+        <summary>Will you sign an NDA?</summary>
+        <div class="a">Yes, before we review your files if you would like. Internally, access to a drawing is restricted to the people working on it, and every access is recorded — who opened which revision, and when.</div>
+      </details>
+      <details>
+        <summary>Do you supply inspection documentation?</summary>
+        <div class="a">Yes. Incoming material certificates, in-process measurement and final CMM results are recorded against the batch, so any dimension can be traced back. Our quality system is certified to ISO 13485 as well as ISO 9001.</div>
+      </details>
+      <details>
+        <summary>How do parts get to Europe?</summary>
+        <div class="a">By sea or by air depending on your lead time and volume, handled by a third-party forwarder. Tell us the incoterm you work with and the delivery address, and the quote reflects it.</div>
+      </details>
+      <details>
+        <summary>Can you make the part if I only have a 2D drawing?</summary>
+        <div class="a">Yes. A dimensioned 2D drawing in PDF or DWG is enough to quote. A 3D model helps for complex geometry, and we will tell you if we need one.</div>
+      </details>
     </div>
   </div>
 </section>
