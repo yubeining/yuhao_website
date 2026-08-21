@@ -1,40 +1,46 @@
+/**
+ * 受众守卫。
+ *
+ * ★ 这是体验层，不是安全边界（CLAUDE.md §1）。真正的闸门在后端的
+ *   受众级拦截器 —— 前端这层只负责「别把客户甩进内部后台看见一片空白」。
+ *   删掉它不会造成越权，只会让走错地址的人看到一个坏页面。
+ *
+ * ★ 目前读的是原型数据仓的会话（mock/store.ts 的 MockSession）。
+ *   后端登录接口做好之后，把 currentRole(state) 换成 auth/useSession.ts 里的
+ *   真实登录态即可，判断逻辑不用改 —— 两边都是「当前身份是不是 required」。
+ */
+
 import { Navigate, useLocation } from 'react-router-dom'
 import type { ReactNode } from 'react'
-import { HOME_BY_TYPE, type PartyType } from '../auth/session'
-import { useSession } from '../auth/useSession'
+import { useMock } from '../mock/MockProvider'
+import { currentRole } from '../mock/actions'
+import type { RoleName } from '../mock/types'
 
-/**
- * 端级路由闸门（前端侧）。原 Next.js middleware.ts 的等价物。
- *
- * ★★ 重要：这是【用户体验】层，不是安全边界。
- *
- *   真正的安全边界在后端的 PortalGuardInterceptor —— 按 URL 路径前缀
- *   拒绝错误的 principal type。前端这一层只是为了让走错门的人看到
- *   一个像样的跳转，而不是一屏 403。
- *
- *   永远不要因为"前端已经拦了"就放松后端的校验。
- *   浏览器里的一切都是可绕过的 —— localStorage 里的 partyType 改一改，
- *   这个组件就会把你放进 /ops，然后每个接口返回 403。这正是预期行为。
- *
- * ★ 同样重要：前端代码里【禁止】出现"根据角色隐藏字段"的逻辑。
- *   供应商端拿到的 JSON 里从一开始就不该有客户名和对客价 ——
- *   那是后端 DTO 白名单序列化的责任（CLAUDE.md 红线 2）。
- *   靠前端隐藏 = 数据已经发到浏览器了，F12 就能看到。
- */
-export function PortalGuard({ required, children }: { required: PartyType; children: ReactNode }) {
-    const session = useSession()
+/** 身份 → 该身份的落地页。走错端时送回自己的地盘，而不是甩到登录页。 */
+const HOME: Record<RoleName, string> = {
+    customer: '/customer',
+    supplier: '/supplier/hall',
+    ops: '/ops/dashboard',
+}
+
+export function PortalGuard({ required, children }: { required: RoleName; children: ReactNode }) {
+    const { state } = useMock()
     const location = useLocation()
+    const role = currentRole(state)
 
-    if (!session) {
-        // 带上 callbackUrl，登录后回到原来想去的地方
-        const callbackUrl = location.pathname + location.search
-        return <Navigate to={`/auth/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`} replace />
+    if (!role) {
+        // 带上来时的地址，登录后回到这里 —— 直接发链接给同事时不会丢目标页
+        return <Navigate to="/auth/signin" replace state={{ from: location.pathname }} />
     }
-
-    if (session.partyType !== required) {
-        // 走错门 → 送回自己的门，而不是给一屏 403
-        return <Navigate to={HOME_BY_TYPE[session.partyType]} replace />
+    if (role.role !== required) {
+        return <Navigate to={HOME[role.role]} replace />
     }
-
     return <>{children}</>
+}
+
+/** 已登录的人访问 / 或登录页时，按当前身份送去落地页。 */
+export function RootRedirect() {
+    const { state } = useMock()
+    const role = currentRole(state)
+    return <Navigate to={role ? HOME[role.role] : '/auth/signin'} replace />
 }

@@ -1,3 +1,12 @@
+/**
+ * 真实后端的连通性探针 —— 打三端各自的 /whoami，看受众闸门是否按预期放行 / 硬拒。
+ *
+ * ★ 目前**没有挂在任何路由上**：界面全部走 mock/ 的内存数据仓，不碰后端。
+ *   保留它是因为它验证的是 mock 层覆盖不到的东西 —— JWT、拦截器、
+ *   受众前缀这条真实链路。等 domain/ 的接口做出来、页面改调 services/ 时，
+ *   把它挂到某个内部路由下先跑一遍，比直接改页面再猜哪里断了要快。
+ */
+
 import { useEffect, useState } from 'react'
 import { http, ApiError } from '../services/core/http'
 import type { PartyType } from '../auth/session'
