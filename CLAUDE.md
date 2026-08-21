@@ -1,16 +1,16 @@
 # 机加工跨境定制平台 — 工程规范
 
-> 本文件是团队规范的唯一真源，也是 AI 助手（Claude Code / Cursor）的上下文。
+> 本文件是**工程约束**的唯一真源，也是 AI 助手（Claude Code / Cursor）的上下文。
 > 每一条规则背后都有理由，理由写在规则旁边 —— 不写理由的规则会被绕过。
 >
-> 完整设计文档见 [`docs/design/`](./docs/design/)。SQL 迁移注释里提到的
+> **本文件只写工程约束，不写业务流程。**业务会不断调整，写进来就会过期，
+> 而过期的业务描述比没有更糟 —— 它会把照着写的人和 AI 带偏。
+> 业务一律见 [`docs/design/`](./docs/design/)。SQL 迁移注释里提到的
 > 「设计文档 N §x.y」指的就是 `docs/design/N-*.md` 的对应章节。
 
 ---
 
 ## 强制约束（不可绕过）
-
-以下规则任何情况下都不能放松，包括「就这一次」「先上线再说」「本地跑一下」：
 
 - **提交格式校验不可绕过。**每次 `git commit` 前确认 hook 已激活：
   `[ "$(git config --get core.hooksPath)" = ".githooks" ] || git config core.hooksPath .githooks`
@@ -18,22 +18,21 @@
 - **数据库写操作前先确认。**任何 `DROP` / `TRUNCATE` / 无 `WHERE` 的 `UPDATE` / `DELETE`，
   必须先把完整 SQL 贴出来给人看，得到明确同意再执行。
 - **生产环境操作前先确认。**部署、改配置、改 secret、重启，每一条命令单独确认，不批量。
-- **合并前必须过五轴审查。**见 `.github/PULL_REQUEST_TEMPLATE.md`。
+- **界面上不许出现没有数据来源的内容。**画之前先回答「这个值从哪个字段来」。
+  答不上来就**停下来问，不许自己发挥补上** —— 造出来的字段和真数据长得一样，
+  评审看不出来，而使用者会照着它做决定（见 §10 C5）。
+- **没有接到明确的「开始写后端」指令，就不写后端。**
+  当前阶段一切功能在前端完成，`domain/` 下的业务包保持为空。
+  遇到非后端不可的事（文件存储、真实登录、跨端持久化），
+  **直接说它现在做不了，不要绕过** —— 不许临时加接口、不许改前端数据层之外的地方去凑。
+  **为什么**：先把前端跑通，业务能尽早看到全貌并纠偏；流程还在改的时候写接口，
+  返工的代价远大于抢出来的时间。
+- **合并前必须过五轴审查**（见 §11）。
   **CI 绿是机械底线，不是批准** —— 它只证明代码能跑，不证明授权正确、不证明功能完整。
 
 ---
 
-## 1. 业务背景（一分钟版）
-
-欧洲客户上传图纸 → 我们后台评审 → 匿名化下发给中国供应商 → 收集报价 → 综合定价 →
-对客报价 → **客户点接受即正式订单** → 拆生产订单（同一零件可拆多家）→ 供应商生产 →
-我们质检 → 包装 → 第三方物流送到欧洲。账款线下走，平台只记状态。
-
-**三个端**：客户端（欧洲）/ 供应商端（中国）/ 内部后台。加一个独立官网。
-
----
-
-## 2. 技术栈
+## 1. 技术栈
 
 | 层 | 技术 |
 |---|---|
@@ -41,78 +40,46 @@
 | 数据库 | PostgreSQL（`ddl-auto: validate`，schema 由手写迁移管理） |
 | 缓存 | Redis |
 | 前端 | Vite 6 / React 19 / TypeScript / React Router 7（**SPA，不是 SSR**） |
-| 官网 | SSG，独立部署（尚未开始） |
-| 构建 | Maven（`mvn test` 只跑单测；`mvn verify` 才跑 `*IT.java`） |
+| 官网 | SSG，独立部署 |
+| 构建 | 后端 Maven；前端 npm + vite（`build` 先跑 `tsc -b`，见 §12） |
 
-### ★ 前端是 SPA，和后端同一个部署单元
+### 前端是 SPA，和后端同一个部署单元
 
 `portal` 的 `vite build` 产物直接输出到 `backend/src/main/resources/static/`，
 由 Spring Boot 一并托管 —— 一个 jar、一个容器、一个端口。
 
-**原方案是 Next.js（SSR + middleware + next-auth），已放弃。** 原因：
-
-- Next.js 必须跑独立的 Node 进程，「前后端一起部署」就变成两个容器 + 一个网关分流规则，
-  外加一套跨域配置。而本系统的前端<b>没有一个页面需要 SSR</b> ——
-  三个端全部要登录才能看，SEO 无从谈起，首屏速度也不是这类内部系统的瓶颈。
-- 需要 SEO 的只有官网，而官网本来就是独立的 `site/`（SSG + 独立域名）。
+**不要引入 SSR 框架**（Next.js 方案已评估并放弃）—— 除少数公开端点外全部要登录才能看，
+没有一个页面需要 SSR；需要 SEO 的只有独立部署的官网。
 
 由此产生的两条约束：
 
-1. **`middleware.ts` 的端级跳转由 `components/PortalGuard.tsx` 承担**，
-   语义完全一致 —— 它仍然只是体验层，不是安全边界。
-2. **新增一级路由要同时改两处**：`portal/src/router.tsx` 和后端的
-   `SpaForwardController`。漏了后端那处，SPA 内跳转正常，但**直接访问或刷新会 404** ——
+1. **前端的路由守卫只是体验层，不是安全边界。**真正的闸门在后端（见 §3）。
+2. **新增一级路由要同时改两处**：前端路由表，和后端把未知路径转发给 SPA 的那个控制器。
+   漏了后端那处，SPA 内跳转正常，但**直接访问或刷新会 404** ——
    这个 bug 只在刷新时出现，开发时很容易漏掉。
 
-**全局 API 前缀** `/api/v1` 在 **MVC 层**配置（`app.api.prefix` + `ApiPrefixConfig`），
-不是 Tomcat context-path。任何做路径匹配的地方（Security matcher、拦截器、WebSocket 注册）
+**全局 API 前缀**走配置项 `app.api.prefix`，在 **MVC 层**统一加，不是 Tomcat context-path。
+任何做路径匹配的地方（Security matcher、拦截器、WebSocket 注册）
 **必须从配置推导，代码里不许出现 `/api/v1` 字面量**。
 
 ---
 
-## 3. 三条红线
-
-### 红线 1 — 图纸访问全审计
-每一次访问（含每一次生成签名 URL）必须落 `file_access_log`：
-谁 / 何时 / 哪个 revision / 哪个文件 / 从哪个 IP / 什么业务上下文。
-
-**这不是"以后加"的功能**，是跟欧洲客户签保密协议时的交付物。
-客户会问"如果我的图纸泄露了，你们能查到是谁看过吗"，要能一键导出。
-
-### 红线 2 — 供应商端 response 白名单序列化
-供应商端返回的 DTO **只允许显式列出的字段**，默认不暴露。不是"排除敏感字段"，
-是反过来 —— 新加字段默认不出现。
-
-命名统一 `SupplierXxxView`，code review 必查。
-漏一个字段就是泄露客户身份或对客价。
-
-### 红线 3 — 一切锚定图纸版本
-报价 / 订单 / 生产 / 质检 / 发货 **全部外键到 `part_revision_id`**，绝不锚定"最新版"。
-
-图纸改版必须触发一次**显式的人工决策**（是否重新报价 / 是否影响在产订单），
-不允许静默继承。制造业最经典的事故就是"按 Rev B 报的价、按 Rev C 生产"。
-
----
-
-## 4. 目录结构
+## 2. 目录结构
 
 ```
 backend/src/main/java/com/mfg/
 ├── common/          跨领域基础设施（dto / exception / security / cache / service）
 ├── config/          @Configuration
-├── platform/        平台与基础设施，无业务语义
-│   party auth access file notification audit i18n fx dbmigration
-└── domain/          业务核心
-    lead rfq part sourcing pricing quote order production qc shipment
-    document supplier settlement
+├── platform/        平台与基础设施，无业务语义（鉴权 / 文件 / 审计 / 通知 / i18n …）
+└── domain/          业务核心，一个业务域一个包
 ```
 
 **规则**
 
 1. 域内固定四层：`controller/ service/ repository/ dto/`。单文件域保持扁平。
 2. **定时任务 / 外部适配器 / 数据回填一律进 `service/`** —— 不另开 `scheduler/` `adapter/` 目录。
-3. **不用 DDD 分层**（`api/application/domain/infrastructure`）。本系统 CRUD 为主，
-   真正有领域逻辑的只有定价引擎一个模块，为它套全局 DDD 是过度设计。
+3. **不用 DDD 分层**（`api/application/domain/infrastructure`）。
+   本系统以 CRUD 为主，为个别有领域逻辑的模块套全局 DDD 是过度设计。
 4. 测试目录镜像主代码结构。
 5. **不确定新域该放 `platform/` 还是 `domain/` → 停下来问。**
    不许先随便放、以后再搬 —— 表改名 + 包移动的代价远高于问一句。
@@ -121,77 +88,166 @@ backend/src/main/java/com/mfg/
 
 ```
 portal/src/
-├── pages/
-│   ├── customer/      欧洲客户端
-│   ├── supplier/      供应商端
-│   ├── ops/           内部后台
-│   └── auth/          登录
-├── components/
-│   └── PortalGuard.tsx  ★端级路由闸门（体验层，不是安全边界）
-├── auth/
-│   └── session.ts     登录态存储
-├── services/
-│   ├── core/http.ts   ★唯一 HTTP 收口
-│   ├── customer/      客户端 API
-│   ├── supplier/      供应商端 API
-│   └── ops/           后台 API
-└── router.tsx         路由表
+├── pages/             一级目录 = 受众，一类受众一个目录
+├── components/        含路由守卫（体验层，不是安全边界）
+├── auth/              登录态存储
+├── services/          按受众划分，和 pages/ 一一对齐；另有一个唯一的 HTTP 收口
+└── router.tsx          路由表
 ```
 
-**每个新 service 文件必须在 `services/api.ts` 加一行 `export *`**，否则消费方看不到。
+**每个新 service 文件必须在 services 的聚合导出文件里加一行 `export *`**，否则消费方看不到。
 
-**页面目录一级 = 端**，和 URL 前缀、后端包结构三者对齐。
+**页面目录一级 = 受众**，和 URL 前缀、后端包结构三者对齐。
 一个文件放错目录就意味着它的受众判断错了 —— review 时按目录看即可。
 
 ---
 
-## 5. 数据隔离六条铁律 ★
+## 3. 安全铁律
 
-这是本系统的安全核心。违反任何一条 = 安全 bug，不是代码风格问题。
+违反任何一条 = 安全 bug。写业务代码时逐条对照：
 
-1. **Service 写方法必须显式接收 `partyId` 参数。**
-   不许从查出来的实体反推（`entity.getParty().getId()`），
-   不许在 service 内部从 principal 默认取。由 controller 用 `@CurrentParty` 传进来。
-   签名里没有 `partyId` 的租户范围写方法就是 bug。
+1. **Service 写方法必须显式接收租户 id 参数。**
+   不许从查出来的实体反推，不许在 service 内部从 principal 默认取 —— 由 controller 传进来。
+   签名里没有租户 id 的租户范围写方法就是 bug。
 
-2. **交易方范围的查询必须 `findByIdAndPartyId(id, partyId)`。**
-   裸 `findById` 出现在业务代码里就是红旗 —— 它不管这行数据是谁的都返回。
+2. **租户范围的查询必须把租户 id 写进查询条件**（`findByIdAndXxx(id, 租户id)` 这类），
+   不许先查出来再判。裸 `findById` 出现在业务代码里就是红旗 —— 它不管这行数据是谁的都返回。
    适用于 `@PathVariable` 的 ID、`@RequestParam` 的 ID、以及嵌在 `@RequestBody` 里的 ID。
 
-3. **DTO 禁止接受客户端可控的身份和定价字段。**
-   `partyId` / `customerId` / `supplierId` / `unitPrice` / `createdBy` 一律服务端推导。
-   引用型字段（如 `partRevisionId`）可以收，但 service 必须校验该实体属于调用方。
+3. **DTO 禁止接受调用方可控的身份字段和服务端计算字段。**
+   租户 id、各类归属 id、服务端算出来的数值、`createdBy` 一律服务端推导。
+   （调用方本来就该填的数值不在此列 —— 判据是「这个值是我们算的还是他给的」。）
+   引用型字段（`xxxId`）可以收，但 service 必须校验该实体属于调用方。
 
-4. **供应商端 response 白名单序列化。**（红线 2）
+4. **公开端点（`/public/**`，无 JWT）的范围从资源反查。**
+   绝不信调用方传的归属。如果端点带 token，每次请求都要验 token，不是只在创建时验。
 
-5. **公开端点（`/public/**`，无 JWT）的范围从资源反查。**
-   绝不信客户端传的 party。如果端点带 token，每次请求都要验 token，不是只在创建时验。
+5. **对外响应白名单序列化。**
+   DTO **只允许显式列出的字段**，默认不暴露 —— 不是「排除敏感字段」，是反过来，
+   新加字段默认不出现。方向是刻意的：黑名单在新增字段时**默认泄露**，白名单**默认不泄露**。
+   命名统一 `XxxView`，code review 必查。
 
-6. **任何文件访问都要过一次"这个 principal 对这个 revision 有权"的显式校验 + 审计落库。**
+6. **受控文件访问先校验后审计。**
+   每一次访问（含每一次签发签名 URL）先做「这个 principal 对这个资源版本有权」的
+   **显式校验**，再落审计表：谁 / 何时 / 哪个版本 / 哪个文件 / 来源 IP / 业务上下文。
+   审计必须能一键导出 —— 这不是「以后加」的功能。
 
-### 端级硬闸门
+7. **引用带版本的资源必须锚定版本 id**，绝不存父 id + 运行时取「最新」。
+   版本变更要触发一次**显式的人工决策**，不允许静默继承 ——
+   锚「最新」意味着同一条记录在不同时间会渲染出不同内容（同 §10 C2）。
+   注意这是*逻辑*引用，**不建数据库外键约束**（见 §4）。
 
-```
-/api/v1/customer/**   仅 CUSTOMER 类型 principal
-/api/v1/supplier/**   仅 SUPPLIER 类型 principal
-/api/v1/ops/**        仅 OPERATOR 类型 principal
-/api/v1/public/**     无鉴权
-```
+### 受众级硬闸门
 
-`PortalGuardInterceptor` 是**第一道拦截器**，按 principal type 直接拒。
-路径前缀即受众 —— 跨端泄露是本系统头号风险，粗闸门比细粒度更可靠。
+**每一类 principal 一个固定的路径前缀，一个前缀只服务一类受众**，另有一个无鉴权的公开前缀。
+前缀从 `app.api.prefix` 之下按受众划分，见 §1。
 
-细粒度权限只在 ops 端内部需要（销售/采购/质检/物流/财务/管理员），
-走 `RouteAccessRegistry` 路由表 + 拦截器，**零注解** —— 新增端点只在路由表加一行。
+**第一道拦截器**按 principal 类型和路径前缀直接拒，早于任何业务逻辑。
+路径前缀即受众 —— 粗闸门只有一个判断点，比散落各处的细粒度注解更难漏。
+
+细粒度权限只在单一受众内部才需要，走**路由表 + 拦截器、零注解** ——
+新增端点只在路由表加一行，不靠开发者记得打注解。
 
 ### 类型陷阱
 
-`UserPrincipal.getId()` 是 `UUID`（不是 String —— 这是刻意的选择，见 §11 C6）。
-和实体 ID 比较时类型天然匹配，不会出现恒 false 的静默 bug。
+principal 的 id 用 `UUID` 类型，**不用 String** —— 这是刻意的选择。
+String 和 UUID 比较时 `.equals()` 恒为 false 且**无编译警告**，直接就是水平越权。
+从源头用对类型，比事后加闸门好。
 
 ---
 
-## 6. 数据库
+## 4. 数据库
+
+### 表命名
+表名一律不加前缀。
+撞上 SQL 保留字（`order` / `user` / `group` 等）就加限定词避开，不要用引号硬转义。
+
+### 主键
+
+全部 UUID（`@GeneratedValue(strategy = GenerationType.UUID)`），无例外。
+高频只增的日志类表用 `bigserial`。
+
+### 禁止数据库外键约束
+
+**新建表和新增列一律不写 `REFERENCES` / `FOREIGN KEY` / `ON DELETE CASCADE`。**
+关联关系用裸 `uuid` 列表达，完整性由 service 层保证。
+
+**为什么**：
+
+1. **外键在本系统几乎不提供安全价值。**
+   §3 铁律 3 已经要求「引用型字段 service 必须校验该实体属于调用方」——
+   外键只能校验*存在*，不能校验*是不是你的* —— 调用方传一个别家租户的 id，
+   外键照样放行。既然归属校验无论如何都要在 service 写，
+   外键就只是重复了其中最弱的一半。
+
+2. **和扩展-收缩冲突。**外键是跨表强约束，回滚 jar 不回滚库的前提下，
+   v1 的代码面对带新外键的 schema 会因为不知道要先建父行而写不进去。
+   加外键因此天然是破坏性变更，每次都要拆两次发布。
+
+3. **`ON DELETE CASCADE` 是静默的大规模删除。**
+   删一行父记录会顺着链条清掉多张子表，影响面在 psql 里看不出来 ——
+   这和「强制约束」里的「数据库写操作前先确认」直接矛盾。
+
+4. **外键诱导 JPA 关联。**
+   有外键就有人写 `@ManyToOne`，随之而来的是 N+1 查询、LAZY 代理在事务外炸、
+   以及取一个 id 顺手把整棵对象树拖进内存。用裸 UUID 列从源头断掉这条链。
+
+**替代做法**
+
+| 外键原本负责的 | 改成 |
+|---|---|
+| 引用存在性 | service 层带租户条件显式取一次，取不到就报错（归属校验本来就要做，顺带覆盖了存在性） |
+| 级联删除 | service 层按序显式删除；**优先不删** —— 业务记录走状态位下线，不物理删 |
+| 关系可读性 | 命名约定 `<被引表单数形式>_id`，看列名即知引用谁 |
+| 查询性能 | **必须显式建索引** —— 这些列全是 join / filter 主力，而没有外键就没人替你建 |
+
+**实体层的连带规定**
+
+- 关联字段写成裸 `UUID xxxId`，**禁止 `@ManyToOne` / `@OneToMany` / `@OneToOne` /
+  `@ManyToMany` / `@JoinColumn`**。需要连表数据就在 service 里多查一次，或写投影 DTO。
+- 需要判断「这个 id 指向的东西是不是调用方的」时，照 §3 铁律 3 走 service 校验，
+  不要为了省一次查询把关联映射加回来。
+
+**删存量外键约束不需要走扩展-收缩** —— 旧版本代码不依赖约束存在，一次发布即可
+（这个方向天然安全，和加外键正好相反）。
+
+### 时间一律存 UTC
+
+**库里的时间戳一律是 UTC**，列类型 `timestamptz`，写入前不做任何时区转换。
+本地化只发生在最外层 —— 后端返带时区的 ISO 8601，前端自己转成用户所在时区。
+
+**为什么**：本系统天然跨时区，两端不在同一个时区里，
+「几点」这个问题没有唯一答案，除非先约定一个基准。存 UTC 就是那个约定。
+
+连带的三条：
+
+1. **实体字段用 `Instant`，不用 `LocalDateTime`。**
+   `LocalDateTime` 不带时区，Hibernate 按 JVM 默认时区做隐式转换 ——
+   容器里默认 UTC、开发机 UTC+8，同一份代码写进去的值差 8 小时，
+   而且不报错、不告警。列上的 `columnDefinition` 仍然要显式钉住（见下表）。
+2. **当前时刻只从数据库或应用取一次，不在迁移里写死某个本地时刻。**
+   写死的时刻会随执行环境漂移，且漂移量取决于谁在什么机器上跑的迁移。
+3. **禁止「存本地时间 + 另存一列时区」。**两列必然不同步，
+   而一旦不同步就没有任何依据判断哪一列是对的。
+
+**最容易踩的坑是写入与读取用了不同基准。**
+一头用 UTC 输出成不带时区的字符串，另一头把它按本地时区解析回去，
+结果是稳定地差若干小时 —— 跨零点时就差一天。
+差一天的日期如果被人拿去排现金流或排产，代价远不止显示错误。
+**同一条时间数据的写入和解析必须用同一套函数**，不许一处输出 UTC、
+一处按本地解析。前端同理：格式化与解析成对出现，成对修改。
+
+### JPA 三个必踩的坑
+
+| 坑 | 正确写法 |
+|---|---|
+| `LocalDateTime` 与 schema 的 `timestamptz` 静默漂移 | 用 `Instant`，并显式 `@Column(columnDefinition = "timestamp with time zone")` |
+| jsonb 字段绑定失败 | `@JdbcTypeCode(SqlTypes.JSON)` + `columnDefinition = "jsonb"`（写 `"json"` 是坑） |
+| 自定义 `@Query` 的 UUID 参数运行时绑定失败 | Repository 泛型必须匹配实体 `@Id` 类型；配 `hibernate.type.preferred_uuid_jdbc_type: VARCHAR` |
+
+---
+
+## 5. 迁移与部署
 
 ### 迁移
 
@@ -201,15 +257,13 @@ portal/src/
     这是为了防字典序陷阱：`-`(0x2D) < `.`(0x2E)，`_slug-suffix.sql` 会排在 `_slug.sql` 前面。
 - **必须幂等**：每条 DDL 用 `IF [NOT] EXISTS`
 - **禁止 `DO $$` 块** —— 迁移执行器按 `;` 切语句，不认美元引号，
-  内层的 `;` 会把块切碎，开机报 "Unterminated dollar quote"。
-  需要函数就用单引号字符串形式定义函数体（见 `..._04_...sql` 的触发器）。
+  内层的 `;` 会把块切碎，开机报 `Unterminated dollar quote`。
+  需要函数就用单引号字符串形式定义函数体。
 - 改动同步反映到 `database/schema.sql`
 - **已应用文件的内容 hash 变了 = 开机报漂移错误。**要么撤销修改，要么新开一个文件。
 - **所有环境跑同一套迁移，没有例外。**不允许某个环境用 `ddl-auto: update` 绕过。
 
-### ★★ 迁移必须向后兼容一个版本（扩展-收缩）
-
-**这条是自动部署带来的，不遵守迟早出线上事故。**
+### 迁移必须向后兼容一个版本（扩展-收缩）
 
 部署流程是「跑迁移 → 起新版本 → 健康检查不过就回滚 jar」。
 关键在于：**回滚的只有 jar，数据库改动不回滚**。
@@ -218,7 +272,7 @@ portal/src/
 部署 v2 ──▶ 迁移执行成功（schema 已经是 v2 的形状）
         └─▶ v2 应用启动失败 / 健康检查不过
             └─▶ 自动回滚到 v1 的 jar
-                └─▶ ★ v1 的代码 面对 v2 的 schema
+                └─▶ v1 的代码 面对 v2 的 schema
 ```
 
 如果 v2 的迁移是「加一列」，v1 不认识这列，无所谓 —— 能正常跑。
@@ -239,59 +293,35 @@ portal/src/
 - 删列、列改名（`ALTER ... RENAME COLUMN`）
 - 给已有列加 `NOT NULL`（先加默认值回填，再加约束）
 - 收紧 `CHECK` 约束的取值范围（枚举加值是安全的，减值不是）
-- 表改名（配套的 `DROP TABLE` 要放到第二次发布）
+- **表改名** —— 第 1 次发布建新表、双写；第 2 次发布才 `DROP TABLE IF EXISTS old_name CASCADE`。
+  这个 `DROP` **不能省**：漏了它，后续某个迁移手滑写下 `CREATE TABLE IF NOT EXISTS old_name`
+  就会把空的旧表建回来，每个长期环境留一张垃圾表，而且没人发现。
 
 **判断方法**：问自己「**上一个版本的代码，面对这个迁移之后的库，还能不能跑**」。
 不能，就得拆两步。
 
 ### 迁移是自动执行的，不要手工改生产库
 
-`SchemaMigrationRunner` 开机自动应用 `database/migrations/` 下所有未应用的文件，
+开机自动应用 `database/migrations/` 下所有未应用的文件，
 用 `pg_advisory_lock` 保证多实例并发启动时只有一个在跑。
 
 - **单个迁移文件是原子的**（一个事务，含写 `schema_migrations` 记录）。
   但**文件与文件之间不是** —— 3 个文件跑到第 2 个失败，第 1 个已经生效了。
   所以一次发布尽量只带一个迁移文件。
 - **绝不用 psql 直连生产库改结构。**手工改完，`schema_migrations` 里没有记录，
-  下次部署迁移还会再跑一遍（撞已存在的对象），或者更糟 —— 因为写了
-  `IF NOT EXISTS` 而静默跳过，从此本地和生产永久不一致，且没有任何东西会告诉你。
+  下次部署迁移还会再跑一遍，而 `IF NOT EXISTS` 会让它**静默跳过** ——
+  从此本地和生产永久不一致，且没有任何东西会告诉你。
+  （幂等要求和这条不冲突：`IF NOT EXISTS` 保证的是**迁移重跑安全**，
+  防不一致靠的是「只走迁移」+ 已应用文件的 hash 漂移检测，不是靠 DDL 报错。）
 - 迁移在**端口打开之前**执行。大迁移会拉长启动时间，
   必要时调大 `deploy.sh` 的 `HEALTH_TIMEOUT`（默认 120 秒），否则会被误判成启动失败而回滚。
 
-### 表改名必须配套删除
-
-改名迁移必须**同 PR、同日**配一个 `DROP TABLE IF EXISTS old_name CASCADE`。
-
-**为什么**：没有配套删除，后续某个迁移手滑写了 `CREATE TABLE IF NOT EXISTS old_name`，
-会把空的旧表又建回来，每个长期环境都留下垃圾表，而且没人发现。
-
-（注意这条和上面的扩展-收缩有张力：**改名本身要拆两次发布**，
-配套的 `DROP TABLE` 放在第二次。同 PR 指的是同一个改名动作的两个迁移文件成对出现，
-不是让你在第一次发布里就把旧表删掉。）
-
-### JPA 三个必踩的坑
-
-| 坑 | 正确写法 |
-|---|---|
-| `LocalDateTime` 与 schema 的 `timestamptz` 静默漂移 | `@Column(columnDefinition = "timestamp with time zone")` |
-| jsonb 字段绑定失败 | `@JdbcTypeCode(SqlTypes.JSON)` + `columnDefinition = "jsonb"`（写 `"json"` 是坑） |
-| 自定义 `@Query` 的 UUID 参数运行时绑定失败 | Repository 泛型必须匹配实体 `@Id` 类型；配 `hibernate.type.preferred_uuid_jdbc_type: VARCHAR` |
-
-### 主键
-
-全部 UUID（`@GeneratedValue(strategy = GenerationType.UUID)`），无例外。
-高频只增日志表（`audit_event` / `file_access_log`）用 `bigserial`。
-
 ---
 
-## 7. 命名与文案
+## 6. 命名与文案
 
-### 表命名
-平台表和业务表都不加前缀（单一业务系统，无需区分业务线）。
-`order` 是 SQL 保留字 → 用 `sales_order`。
-
-### ★ 后端只返 code，不返文案
-本系统是三语的：EN/DE 给客户、中文给供应商和内部。
+### 后端只返 code，不返文案
+本系统是多语的，且各端语种不同。
 
 **后端返回的一切面向用户的内容都是 i18n code**，翻译全在前端。
 包括：错误消息、状态名、邮件模板 key、通知内容、字段标签。
@@ -300,48 +330,49 @@ portal/src/
 注释可以写中文，字符串字面量不行。
 
 ### 审计动作命名
-`<域>.<子域>.<动词>`，例：`quote.customer.send` / `quote.customer.accept` / `sourcing.dispatch`。
+`<域>.<子域>.<动词>`，例：`file.access.read` / `auth.login.success`。
 
-**状态流转有自己的动词**：`order.status_change`，
-**不要**写成 `order.update` + payload 里带 `status=xxx`。查问题时天差地别。
+**状态流转有自己的动词**：`<域>.status_change`，
+**不要**写成 `<域>.update` + payload 里带 `status=xxx`。查问题时天差地别。
 
 **payload 只放**：ID / 枚举 / 计数 / 变更字段名集合。
 **绝不放**：姓名 / 邮箱 / 电话 / 价格 / 自由文本 / 原始 IP / token。
 
 ---
 
-## 8. 缓存
+## 7. 缓存
 
 **不强制缓存。**有实测热点才加 —— 全量缓存是重大复杂度来源，收益不匹配。
 
 用的时候遵守：
 
-1. key 统一走 `CacheKeys`，禁止手写字符串拼接
-2. 交易方范围的 key 必须带 `party:{partyId}:` 前缀
-3. **只缓存 DTO，永不缓存 JPA 实体** ★
+1. key 统一走集中的 key 常量类，**禁止在调用处手写字符串拼接**
+2. 租户范围的 key 必须带租户 id 前缀
+3. **只缓存 DTO，永不缓存 JPA 实体**
 
 ### 为什么不缓存实体
 
-缓存命中返回的是 Jackson 反序列化的对象，`@ManyToOne(LAZY)` 关联是 `null`。
-`repository.save(it)` 走 `merge` 会把关联外键写成 `NULL` → NOT NULL 约束炸。
-而且**只在实体被读过一次进了缓存之后才复现**，mock 测试永远抓不到。
+缓存命中返回的是 Jackson 反序列化出来的**游离对象**，不是 Hibernate 托管实体。
+拿它去 `save()` 会走 `merge` **全量覆盖**：任何没进缓存的字段（`@JsonIgnore`、
+瞬时字段、`@Version` 乐观锁版本号）都会被写回默认值，等于静默丢数据。
 
-如果因为某些原因确实缓存了实体，那么：
-**任何 `@Transactional` 里调 `save(entity)` / `delete(entity)` 的方法，
-实体必须通过私有的 `loadManaged(partyId, id)` 直连 repository 加载，不能复用带缓存的 `findById`。**
+更麻烦的是**实体字段集会随 schema 演进**，旧缓存反序列化到新实体只会少字段、不会报错，
+而且只在「被读过一次进了缓存之后」才复现 —— mock 测试永远抓不到。
+
+**要写就直连 repository 重新加载，不要复用任何带缓存的读路径。**
 
 ---
 
-## 9. 定时任务
+## 8. 定时任务
 
 **每个 `@Scheduled` 必须按条目加 Redis 锁。**
 
 ```java
-String key = "lock:scheduler:quote-expiry:" + quoteId;
+String key = "lock:scheduler:" + jobName + ":" + itemId;
 String fence = UUID.randomUUID().toString();
-if (!redisService.setIfAbsent(key, fence, 120)) return;   // 别的 pod 在处理
+if (!redisService.setIfAbsent(key, fence, 120)) return;   // 120 秒 TTL；抢不到＝别的 pod 在处理
 try {
-    doWork(quoteId);
+    doWork(itemId);
 } finally {
     redisService.releaseLock(key, fence);                  // 比对 fence 才删
 }
@@ -349,16 +380,13 @@ try {
 
 DB 层必须有唯一索引兜底（防锁 TTL 到期后的重复执行）。
 
-**禁止**：假设"我们现在只有一个 pod"；引入 leader election / 分布式锁表这类新基础设施。
-
-本系统的定时任务：报价过期扫描、供应商报价过期提醒、生产里程碑逾期提醒、汇率同步、物流跟踪轮询。
-**每一个都要加锁。**
+**禁止**：假设「我们现在只有一个 pod」；引入 leader election / 分布式锁表这类新基础设施。
 
 ---
 
-## 10. 测试
+## 9. 测试
 
-两层，靠文件名后缀区分，这是权威判据：
+两层，靠文件名后缀区分：
 
 | 后缀 | 层级 | 规则 |
 |---|---|---|
@@ -366,68 +394,78 @@ DB 层必须有唯一索引兜底（防锁 TTL 到期后的重复执行）。
 | `*IT.java` | 集成测试 | **必须真 PostgreSQL + 真 Redis** |
 
 ### 为什么禁止在 IT 里 mock Redis
-缓存命中路径正是 Jackson / 泛型 / 懒加载 bug 的藏身之处。
+缓存命中路径正是 Jackson 反序列化和泛型擦除 bug 的藏身之处。
 mock 掉缓存的 IT 等于 CI 全绿着上线炸。
-**Code review 时看到 `*IT.java` 里出现 `@MockitoBean RedisService` 直接打回。**
-
-### 本项目的 IT 重点
-
-**每个供应商端端点必须有一个负向测试**：
-- 看不到别家供应商的报价
-- 看不到客户身份（名称 / 国家 / 联系人 / 地址）
-- 看不到对客价格
-
-这三条做成测试基类的模板方法，新端点直接继承。
+**Code review 时看到 `*IT.java` 里把 Redis mock 掉，直接打回。**
 
 ### 请求体构造
-IT 的请求体必须走项目的 ObjectMapper（`postJson(path, body)` helper），
-**不要手写 JSON 字符串** —— 手写的 key 拼错会静默绑成 null，测试照样"通过"。
+IT 的请求体必须走项目统一的 post helper（内部用项目的 ObjectMapper 序列化），
+**不要手写 JSON 字符串** —— 手写的 key 拼错会静默绑成 null，测试照样「通过」。
 
 ---
 
-## 11. 明确禁止的做法
+## 10. 明确禁止的做法
 
-这几条是从一个同栈生产系统（3200+ Java 文件）的真实事故里提炼的。
-
-### C1 — 禁止前后端大小写自动转换 ★
+### C1 — 禁止前后端大小写自动转换
 **前后端统一 camelCase 到底。**Jackson 默认就是 camelCase，什么都不用配。
 数据库列名用 snake_case，`@Column` 负责映射，仅此一处转换。
 
-**为什么**：参考系统做了自动 camelCase↔snake_case 转换，为此攒了两组豁免名单，
-每条都是一次线上 bug —— 流程图配置的 `actionType` 被转成 `action_type` 导致保存 400、
-表单配置的 `ui.minSelect` 被转导致校验静默失效、snake 镜像 key 回写覆盖用户编辑。
-**这是那个代码库里最大的一笔无谓技术债。**
+**为什么**：自动转换必然要配豁免名单，而名单漏一个就是一次线上 bug ——
+嵌套 key、配置项、动态字段名都会被误转，且转错之后毫无提示。
 
-### C2 — 禁止缓存 JPA 实体
-见 §8。
+### C2 — 禁止历史记录 join live 配置
+**已对外发出、已确认的记录，其内容必须自包含。**
 
-### C3 — 禁止历史单据 join live 配置 ★
-**已发出的报价、已确认的订单，其内容必须自包含。**
+记录行必须存下当时用到的全部计算输入的**快照**（参数取值、外部行情值、命中的规则版本），
+渲染历史记录时**绝不去 join 当前的配置表**。
 
-具体到本系统：`customer_quote_line` 必须存全量 `cost_breakdown` + `fx_rate` +
-`pricing_rule_versions` 快照。渲染历史报价时**绝不去 join 当前的 `pricing_rule` 表**。
+**为什么**：配置改一次，所有历史记录的数字就跟着变，且没有任何痕迹。
+对外发出过的记录被追溯篡改，后果远不止显示错误。
 
-**为什么**：参考系统出过审批表单改模板后历史实例被篡改、进度修订 overlay 导致数字对不上，
-根因都是同一个。而本系统的报价在法律上是要约，被篡改的后果更严重。
+### C3 — 禁止硬编码存储区域 / 短链域名
+全部走配置 —— 存储位置可配置是将来按地区拆部署的前提。
+API 前缀同理，见 §1。
 
-### C4 — 禁止 Java 里出现非 ASCII 字符串字面量
-见 §7。有提交闸门拦截，diff-aware（只卡新增行）。
+### C4 — 禁止 `git add .`
+只 add 明确要提交的文件。并行工作时 `git add .` 会把别人的在途改动一起卷走。
 
-### C5 — 禁止硬编码 API 前缀 / 存储区域 / 短链域名
-全部走配置。存储位置可配置是将来拆欧洲区的前提。
+### C5 — 禁止界面上出现没有数据来源的内容
 
-### C6 — `UserPrincipal.getId()` 用 `UUID` 类型，不用 `String`
-参考系统用 String（JWT sub），和 UUID 实体 ID 比较时 `.equals()` 恒为 false
-且**无编译警告**，因此出过两次水平越权 bug，最后不得不加一道专门的闸门。
-**从源头用对类型，比事后加闸门好。**
+**要显示的每一样东西，先回答它从哪个字段来。**答不上来就不画、不写、不做，
+而不是先摆一个像样的东西占着位置。
 
-### C7 — 禁止 `git add .`
-只 add 明确要提交的文件。并行工作时 `git add .` 会把别人的在途改动一起卷走，
-而且被卷走的新文件在 `git status` 里显示为 `M` 而不是 `??`，很难发现。
+**判据是「会不会有人据此做决定」。**
+
+会 —— 那就绝对不许凭空造。下面这些都属于这一类，全部真实发生过：
+
+| 界面上的东西 | 实际来源 | 后果 |
+|---|---|---|
+| 列表卡片上的示意图形 | 写死的几张线稿，按位次循环取 | 拿它当形状参考去估工时和装夹 |
+| 「剩 24 小时」 | 全局参数，不是这条记录的剩余时间 | 挂了三天的也显示 24 小时，据此判断急不急 |
+| 「已脱敏」标记 | 没有任何脱敏动作 | 是一句承诺，不是一个状态 |
+| 「已就绪 + 下载」 | 按阶段推断，文件根本不存在 | 点进去下不到东西 |
+| 红点、角标 | 没有对应的消息机制 | 亮一次没内容，之后没人再信它 |
+| 分类 / 筛选维度 | 模型里没有这个字段 | 让人以为系统掌握这个信息 |
+
+不会 —— 也别放。占位的东西一旦上线就没人记得它是假的。
+
+**接需求、画原型、动手写页面，第一个问题永远是「这个值从哪来」。**
+需求里没写、也问不出来的，**停下来问，不许自己发挥补上**。
+
+**自己发挥出来的字段最危险** —— 它和真数据长得一模一样，评审时没人会怀疑，
+只有写它的人知道底下是空的。而那个人过两周也会忘。
+
+**为什么**：界面是一份声明。屏幕上每一个数字、每一个状态、每一个图形，
+使用者默认它是系统知道的事实，并据此排产、报数、下判断。
+凭空造的那一个会被当成真的用。等到有人照着它算错了钱、做错了工件，
+再解释「那只是占位」已经晚了。
+
+**没有数据时的正确画法**：明说没有（「暂无 xx」「待生成」），或者整块不显示。
+留白不骗人，假内容骗人。
 
 ---
 
-## 12. 提交与审查
+## 11. 提交与审查
 
 ### 提交格式
 
@@ -440,8 +478,8 @@ IT 的请求体必须走项目的 ObjectMapper（`postJson(path, body)` helper�
 - **describe**：**英文**，模块用 `[scope]` 前缀
 
 ```
-MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
-MFG-31, fix, [sourcing] strip customer name from supplier package DTO
+MFG-12, feat, [auth] add refresh-token rotation
+MFG-31, fix, [file] enforce whitelist serialization on download response
 #0, doc, [docs] update migration naming rules
 ```
 
@@ -452,9 +490,9 @@ MFG-31, fix, [sourcing] strip customer name from supplier package DTO
 | # | 闸门 | 防什么 |
 |---|---|---|
 | 1 | 迁移文件名（不许未来日期 + 序号全局唯一） | 迁移执行顺序错乱 |
-| 2 | 密钥扫描（任何文件） | 密钥进 git 历史 = 强制去供应商侧轮换 |
+| 2 | 密钥扫描（任何文件） | 密钥进 git 历史 = 强制去服务商侧轮换 |
 | 3 | 遗留冲突标记 | `.sql` `.md` 没人解析，冲突标记能活到 psql 失败 |
-| 4 | Java 非 ASCII 字符串字面量 | §7 / C4 |
+| 4 | Java 非 ASCII 字符串字面量 | 文案写死在后端，多语翻译无从接管 |
 
 **diff-aware 是精髓** —— 只卡新增/修改的行。这让你可以中途加新闸门而不用先还完债。
 
@@ -470,7 +508,7 @@ MFG-31, fix, [sourcing] strip customer name from supplier package DTO
 **一分支一文件夹**，不是一 commit 一个。
 
 **豁免**：一行修复、错别字、依赖升级、纯机械重构。
-判据是「**光看 diff 会不会对"为什么"留下疑问**」—— 不会就不用写。
+判据是「**光看 diff 会不会对『为什么』留下疑问**」—— 不会就不用写。
 
 ### 合并前五轴审查
 
@@ -479,7 +517,7 @@ MFG-31, fix, [sourcing] strip customer name from supplier package DTO
 
 ---
 
-## 13. 开发环境
+## 12. 开发环境
 
 前置：**JDK 21**、Maven 3.9+、**Node 20+**、Docker。
 
@@ -487,7 +525,7 @@ MFG-31, fix, [sourcing] strip customer name from supplier package DTO
 # 一次性：激活 git hooks
 ./scripts/setup-hooks.sh
 
-# 一次性：本地配置。★ 端口撞车时改 .env，不要改 docker-compose.yml
+# 一次性：本地配置。端口撞车时改 .env，不要改 docker-compose.yml
 cp .env.example .env
 
 # 起 PostgreSQL + Redis
@@ -496,35 +534,30 @@ docker compose up -d
 # 前端（产物落进 backend/src/main/resources/static/）
 cd portal && npm install && npm run build
 
-# 后端（本地监听 3001，同时托管前端）
+# 后端（默认监听 3001，同时托管前端）
 cd backend && mvn spring-boot:run
 ```
 
 改前端时用 dev server，别每次重新 build：
 
 ```bash
-cd portal && npm run dev     # :5173，API 自动 proxy 到 :3001
+cd portal && npm run dev     # 默认 :5173，API 自动 proxy 到后端
 ```
 
-**★ 端口不要写死在 compose 文件里。**开发机上装了 brew 的 postgres、
-或者别的项目的 compose 占着同一个端口，是常态。而撞车的表现极具误导性：
-macOS 上 brew 的 postgres 绑 `127.0.0.1:5432`、docker 绑 `*:5432`，
-两者能同时启动、`docker ps` 一切正常，但 `localhost:5432` 会优先命中 brew 那个 ——
-应用报的是 `role "mfg" does not exist`，看起来像初始化没跑，实际是连错了库。
+**端口不要写死在 compose 文件里，走 `.env`。**本机已有的 postgres 会和 docker 抢端口，
+且两者能同时启动、`docker ps` 一切正常，报错却是「库/角色不存在」—— 看着像没初始化，实际是连错了库。
 
 **验证命令**（声称完成前必须实际跑过，贴出输出）：
 
 | 目的 | 命令 |
 |---|---|
 | 后端单测 | `mvn test` |
-| 后端集成测试 | `mvn verify`（`mvn test` **不跑** `*IT.java`） |
+| 后端集成测试 | `mvn verify`（`mvn test` **不跑** `*IT.java`；跑之前 `docker compose up -d` 要先起来） |
 | 前端类型检查 | `cd portal && npm run type-check` |
 | 前端构建（含类型检查） | `cd portal && npm run build` |
-| 冒烟 | `curl localhost:3001/api/v1/public/ping` |
+| 冒烟 | `curl localhost:3001/api/v1/public/ping`（前缀取默认值） |
 | 探针 | `curl localhost:3001/actuator/health` |
 
-**★ `npm run build` 会先跑 `tsc -b`。**不要为了「快一点」改成只跑 `vite build` ——
-vite 用 esbuild 转译，**它不做类型检查**，类型错误会一路编译过去。
-这不是假设：现有 `services/core/http.ts` 里 `requestBinary` 忘了把 `body`
-从 `...rest` 解构出去，`unknown` 直接落进 `fetch` 的 `RequestInit`，
-只有 `tsc` 抓得到，`vite build` 会照常出包，运行时把对象发成 `"[object Object]"`。
+**`npm run build` 会先跑 `tsc -b`。**不要为了「快一点」改成只跑 `vite build` ——
+vite 用 esbuild 转译，**它不做类型检查**，类型错误会一路编译过去，
+到运行时才以「对象被当成字符串发出去」这类形态暴露。
