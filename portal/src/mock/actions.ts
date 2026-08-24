@@ -9,10 +9,10 @@
  *   页面不用动。
  */
 
-import { X, fmtDate, now, parseStamp, plus, today } from './format'
-import { custUnit, num, supTarget, SURFACES } from './params'
+import { X, fmtDate, now, parseStamp, plus, plusHours, today } from './format'
+import { custUnit, num, pricingBlockers, supTarget } from './params'
 import { nextId, type MockState } from './store'
-import type { Company, LineStat, Order, Pkg, Quote, Rfq, RfqLine } from './types'
+import type { Company, LineStat, Order, OrderPart, PartExecStatus, Quote, QuoteItem } from './types'
 
 /* ── 查找 ─────────────────────────────────────────────────────────── */
 
@@ -97,7 +97,6 @@ export const invite = (s: MockState, name: string, mail: string) => {
         name,
         mail,
         at: today(),
-        exp: plus(14),
         used: false,
     })
 }
@@ -164,176 +163,248 @@ export const approve = (s: MockState, companyId: string, tier: string, scope: st
     c.scope = scope || '全部品类'
 }
 
-/* ── 客户：询价 ───────────────────────────────────────────────────── */
-
+/** 空白判定：未填、空串、纯空格都算没填 */
 const blank = (v: unknown) => !String(v ?? '').trim()
 
+/* ── 客户：订单与零件 ─────────────────────────────────────────────── */
+
 /**
- * 行状态三档。设计文档 9 §4.1。
- *
- * ★ 图号 / 名称 / 数量缺失才拒收 —— 这三样真实清单里一定有。
- *   版本和材料清单里没有（文档 9 §3），拒收它们等于拒收整份清单。
+ * 建订单。订单是整条链的主干，客户先建它，再往里加零件。
+ * 返回新订单，调用方据此跳转。
  */
-export const lineStat = (l: RfqLine): LineStat => {
-    if (blank(l.no) || blank(l.name) || blank(l.qty)) return 'blocked'
-    if (blank(l.rev) || blank(l.mat)) return 'pending'
+export const createOrder = (s: MockState, title: string): Order => {
+    const company = currentCompany(s)!
+    const order: Order = {
+        id: nextId(s.seq, 'so'),
+        companyId: company.id,
+        title: title || '未命名订单',
+        status: 'draft',
+        parts: [],
+        at: now(),
+        want: '',
+    }
+    s.db.orders.push(order)
+    return order
+}
+
+export const updateOrder = (s: MockState, id: string, patch: Partial<Order>) => {
+    const o = s.db.orders.find((x) => x.id === id)
+    if (o) Object.assign(o, patch)
+}
+
+/** 只有草稿状态的订单能删 —— 已经提交询价的删掉会让报价单指空。 */
+export const deleteOrder = (s: MockState, id: string) => {
+    const o = s.db.orders.find((x) => x.id === id)
+    if (o?.status === 'draft') s.db.orders = s.db.orders.filter((x) => x.id !== id)
+}
+
+/**
+ * 建 / 改零件时能传的字段。
+ * ★ 不含 version —— 版本是我方生成的，调用方不许传（CLAUDE.md §3 铁律 3：
+ *   服务端算出来的值一律服务端推导，不收调用方的）。
+ */
+export type PartInput = Omit<OrderPart, 'id' | 'version'>
+
+export const addPart = (s: MockState, orderId: string, input: PartInput): OrderPart | undefined => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (!o || o.status !== 'draft') return undefined
+    // ★ 版本由我方生成，新建就是第 1 版
+    const part: OrderPart = { id: nextId(s.seq, 'pt'), ...input, version: 1 }
+    o.parts.push(part)
+    return part
+}
+
+/** 两组图纸是不是同一批（按文件名比，不比顺序） */
+const sameFiles = (a: { name: string }[], b: { name: string }[]) =>
+    a.length === b.length && a.every((x) => b.some((y) => y.name === x.name))
+
+/**
+ * 改零件。
+ *
+ * ★★ 图纸变了 **且这个零件已经被报过价** → 版本自动 +1。
+ *
+ *   为什么用「已报价」当界线：报价之前反复换图只是还没定稿，
+ *   每换一次就升一版会把版本号变成噪音。报价之后换图不一样 ——
+ *   那份报价是照着旧图算的，已经失效了，这一刻必须留痕。
+ *
+ * ★ 升版之后清掉单价，整单要重新提交。已发出的那张报价单不动，
+ *   它指向的仍然是当时那一版（CLAUDE.md §10 C2）。
+ */
+export const updatePart = (s: MockState, orderId: string, partId: string, patch: Partial<PartInput>) => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    const p = o?.parts.find((x) => x.id === partId)
+    if (!p) return
+    const drawingsChanged = patch.files !== undefined && !sameFiles(patch.files, p.files)
+    const wasQuoted = p.unit !== undefined
+    Object.assign(p, patch)
+    if (drawingsChanged && wasQuoted) {
+        p.version += 1
+        p.unit = undefined
+        p.total = undefined
+    }
+}
+
+export const removePart = (s: MockState, orderId: string, partId: string) => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (o && o.status === 'draft') o.parts = o.parts.filter((p) => p.id !== partId)
+}
+
+/**
+ * 零件信息够不够拿去报价。
+ *
+ * ★ 图号 / 名称 / 数量缺失 = 收不进来；版本或材料缺失 = 能提交但不能报价。
+ *   版本和材料不算阻断，因为真实客户清单里根本没有这两列（设计文档 9 §3）。
+ */
+export const partStat = (p: Pick<OrderPart, 'no' | 'name' | 'qty' | 'mat' | 'files'>): LineStat => {
+    if (blank(p.no) || blank(p.name) || blank(p.qty)) return 'blocked'
+    // ★ 判据是「有没有图纸」和「有没有材料」，不是「有没有版本字母」。
+    //   真正的锚点是那份图纸文件本身 —— 攥着客户传的那个文件，
+    //   就精确知道要做什么，版本字母只是人嘴上好称呼。
+    //   材料另说：它是定价公式的直接输入，缺了算不出价。
+    if (!p.files.length || blank(p.mat)) return 'pending'
     return 'ready'
 }
 
-/** 能不能进报价。只有 ready 能 —— 材料是定价的直接输入，缺了算不出价。 */
-export const quotable = (l: RfqLine) => lineStat(l) === 'ready'
+/** 能进报价的零件。材料是定价的直接输入，缺了算不出价。 */
+export const quotableParts = (o: Order) => o.parts.filter((p) => partStat(p) === 'ready')
+
+/* ── 估价与报价 ───────────────────────────────────────────────────── */
+
+/** 订单能不能提交：至少一个零件，且**每一个**都齐全。 */
+export const orderReady = (o: Order) =>
+    o.parts.length > 0 && o.parts.every((p) => partStat(p) === 'ready')
 
 /**
- * 上传文件 → 模拟解析。
+ * 提交订单，生成报价单。
  *
- * ★ 结构照真实客户清单（文档 9 §2）：有图号 / 名称 / 数量 / 三个参考编号，
- *   **没有材料**；版本只有能从图纸文件名解析出来的那几行才有。
- *   这不是为了演示好看造出来的分布 —— 真实清单就长这样。
+ * ★★ **整单提交，不支持只报其中几个零件。**
  *
- * ★ 值全部匿名。样本里是客户的真实图号和课题号，不能进演示数据。
+ *   订单本身就是客户在表达「这些东西是一起的」——真实合同是一份文件、
+ *   一个总价、58 个零件，没有为其中 57 个签合同这种事。
+ *   允许挑子集会立刻带来三个说不清的问题：订单总额是多少、
+ *   哪一份报价才是当前有效的、客户确认了一部分算不算确认。
+ *
+ *   所以有零件没齐就整单提交不了，缺哪个补哪个。
+ *
+ * ★ 一个订单一份报价单。补齐之后重新提交仍是这一份，不产生第二版。
  */
-export const parseFile = (): RfqLine[] => [
-    // 图纸文件名里带版本，解析得出来
-    { no: '图号 A', name: '压板', rev: 'A', mat: '', qty: 1, surf: SURFACES[0],
-      taskNo: '批次 01', systemNo: '系统 1453', topicNo: '课题 A', files: [] },
-    { no: '图号 B', name: '定位销', rev: 'A', mat: '', qty: 50, surf: SURFACES[0],
-      taskNo: '批次 01', systemNo: '系统 1453', topicNo: '课题 A', files: [] },
-    // 图纸是纯数字命名，解析不出版本，要人工补
-    { no: '图号 C', name: '衬套', rev: '', mat: '', qty: 4, surf: SURFACES[0],
-      taskNo: '批次 02', systemNo: '系统 1382', topicNo: '课题 B', files: [] },
-    { no: '图号 D', name: '腔体', rev: 'B', mat: '', qty: 2, surf: SURFACES[0],
-      taskNo: '批次 03', systemNo: '系统 36303', topicNo: '课题 C', files: [] },
-]
-
-/**
- * 提交询价。设计文档 9 §4.2 —— **导入不拦截，报价才拦截**。
- *
- *   收下所有非 blocked 的行（图号/名称/数量齐全即可）
- *   只给 ready 的行出报价（版本和材料齐全）
- *   pending 的行留在询价单里等补齐，不进报价也不计价
- *
- * ★ 返回报价单；一行都报不了时返回 undefined，询价单仍然建好。
- *   这不是失败 —— 客户的清单本来就缺材料，补齐是下一步，不是重来一次。
- */
-export const submitRfq = (
-    s: MockState, lines: RfqLine[], want: string,
-): Quote | undefined => {
-    const company = currentCompany(s)!
-    const kept = lines.filter((l) => lineStat(l) !== 'blocked')
-    const rfq: Rfq = {
-        id: nextId(s.seq, 'rfq'),
-        companyId: company.id,
-        at: now(),
-        want: want || X,
-        lines: kept,
-        status: 'draft',
-        stage: 2,
-    }
-    s.db.rfqs.push(rfq)
-    return makeQuote(s, rfq)
+export const submitOrder = (s: MockState, orderId: string) => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (!o || o.status !== 'draft' || !orderReady(o)) return
+    o.status = 'pricing'
+    o.submittedAt = now()
 }
 
 /**
- * 给询价单里已补齐的行出报价。补齐之后可以再调一次。
+ * 估价完成，出报价单。
  *
- * ★ 已发出的报价不会因为后来补齐了别的行而变 —— 补齐的行进的是**新报价单**。
- *   改写历史报价是绝对禁止的（CLAUDE.md §10 C2）。
+ * ★ 由估价过程结束时调用，不是提交那一刻。**估价要时间** ——
+ *   解析几何、识别特征、算工时，快也要几秒。
+ *   界面上必须表现出这段时间，不能装成填完材料就有价。
  */
-export const makeQuote = (s: MockState, rfq: Rfq): Quote | undefined => {
-    const already = new Set(
-        s.db.quotes.filter((q) => q.rfqId === rfq.id).flatMap((q) => q.items.map((i) => i.no)),
-    )
-    const fresh = rfq.lines.filter((l) => quotable(l) && !already.has(l.no))
-    if (!fresh.length) return undefined
+export const finishPricing = (s: MockState, orderId: string): Quote | undefined => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (!o || o.status !== 'pricing') return undefined
 
-    const items = fresh.map((l) => {
-        const unit = custUnit(s.rates, s.params, l)
-        return { ...l, unit, total: +(unit * num(l.qty)).toFixed(2) }
+    // ★★ 闸门：系数没设全、或有材料没配基准成本 → 不出价，单子停在待估价。
+    //   以前这里有个 ¥100 的兜底价，随便填个材料都能"估"出结果 —— 那是编数字。
+    if (pricingBlockers(s.rates, s.params, o.parts).length) return undefined
+
+    const items: QuoteItem[] = o.parts.map((p) => {
+        const unit = custUnit(s.rates, s.params, p)!
+        const total = +(unit * num(p.qty)).toFixed(2)
+        p.unit = unit
+        p.total = total
+        return {
+            partId: p.id, no: p.no, name: p.name,
+            version: p.version, customerRev: p.customerRev,
+            mat: p.mat, surf: p.surf, qty: p.qty, unit, total,
+            // 供应商目标价也在此刻算死 —— 发布时不回头读参数（C2）
+            target: supTarget(s.rates, s.params, p)!,
+        }
     })
     const quote: Quote = {
         id: nextId(s.seq, 'qt'),
-        rfqId: rfq.id,
-        companyId: rfq.companyId,
+        orderId: o.id,
+        companyId: o.companyId,
         at: now(),
         items,
         total: +items.reduce((a, i) => a + i.total, 0).toFixed(2),
-        lead: rfq.want && rfq.want !== X ? rfq.want + ' 天' : X,
-        valid: plus(14),
-        inco: 'EXW 指定仓库',
+        wantLead: o.want ? o.want + ' 天' : X,
+        inco: 'EXW',
+        valid: plus(s.params.validDays),
+        fx: s.params.fx!,
         status: 'open',
     }
     s.db.quotes.push(quote)
-    rfq.status = 'quoting'
-    rfq.stage = 3
-    rfq.quoteId = quote.id
+    o.quoteId = quote.id
+    o.status = 'quoted'
+    o.quotedAt = now()
     return quote
 }
 
-/**
- * 补齐一行的版本 / 材料 / 表面处理。
- *
- * ★ 这个动作代表的是「我方看图填 + 客户已确认」。真实实现里必须是两步：
- *   我方填 → 客户点确认。材料是定价的直接输入，我方看错牌号报出去的价就是错的，
- *   而客户从报价单上看不出这个数是谁定的（文档 9 §4.2）。
- */
-export const fillLine = (
-    s: MockState, rfqId: string, index: number,
-    patch: { rev?: string; mat?: string; surf?: string },
-) => {
-    const rfq = s.db.rfqs.find((r) => r.id === rfqId)
-    if (!rfq || !rfq.lines[index]) return
-    Object.assign(rfq.lines[index], patch)
-}
-
-/* ── 客户：接受报价 → 产能确认期 + 拆包挂池 ─────────────────────── */
+/* ── 确认报价 ─────────────────────────────────────────────────────── */
 
 /**
- * 接受报价。生成订单，并把每一行拆成独立的派单包挂上抢单大厅。
+ * 客户确认报价。**确认的只是价格，不是产能。**
  *
- * ★ 订单此刻是 capacity（产能确认中），不是成立 —— 合同以产能确认为准。
- *   所有包都抢到才转 confirmed（见 syncOrder）。
+ * ★ 确认之后订单还不能生产 —— 要先发布到订单市场、有供应商接单，
+ *   产能才算锁定。这一步只是把价格定死。
  */
-export const acceptQuote = (s: MockState, quoteId: string): Order | undefined => {
+export const confirmQuote = (s: MockState, quoteId: string): Order | undefined => {
     const q = s.db.quotes.find((x) => x.id === quoteId)
     if (!q || q.status !== 'open') return undefined
     q.status = 'accepted'
     q.acceptedAt = now()
-
-    const order: Order = {
-        id: nextId(s.seq, 'so'),
-        quoteId: q.id,
-        companyId: q.companyId,
-        at: now(),
-        eta: plus(45),
-        status: 'capacity',
-        stage: 0,
-        items: q.items.map((i) => ({ ...i, done: 0, stage: 0, ship: '随整单', st: 'pending' as const })),
+    const o = s.db.orders.find((x) => x.id === q.orderId)
+    if (o) {
+        o.status = 'toPublish'
+        o.confirmedAt = now()
+        o.parts.forEach((p) => { p.done = 0 })
     }
-    s.db.orders.push(order)
+    return o
+}
 
-    order.items.forEach((it, i) => {
-        const target = supTarget(s.rates, s.params, it)
+/* ── 发布到订单市场 ───────────────────────────────────────────────── */
+
+/**
+ * 把已确认的订单发布到订单市场：每个已报价的零件拆成一个独立派单包。
+ *
+ * ★ 一个零件一个包，各自独立抢单、独立成败。某一行无人接单退回，
+ *   不影响同一订单的其他行（dropLine）。
+ *
+ * ★ 发布是**我方的动作**，不是客户的 —— 供应商是我们的资源，目标价是内部算的，
+ *   什么时候放给供应商看由运营决定。所以入口在内部端的派单管理。
+ */
+export const publishOrder = (s: MockState, orderId: string) => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (!o || o.status !== 'toPublish') return
+    const quote = s.db.quotes.find((q) => q.id === o.quoteId)
+    o.parts.forEach((p, i) => {
+        // ★ 目标价用估价时的快照，不重算 —— 参数后来改过也不影响已确认的单（C2）
+        const target = quote?.items.find((it) => it.partId === p.id)?.target
+        if (target === undefined) return
         s.db.pkgs.push({
             id: nextId(s.seq, 'dp'),
-            orderId: order.id,
+            orderId: o.id,
             line: i,
-            partName: it.name,
-            rev: it.rev,
-            mat: it.mat,
-            surf: it.surf,
-            qty: num(it.qty),
+            partName: p.name,
+            rev: p.customerRev, mat: p.mat, surf: p.surf,
+            qty: num(p.qty),
             target,
-            total: +(target * num(it.qty)).toFixed(2),
-            lead: q.lead,
-            pay: `客户回款后 T+${s.params.payDays}`,
+            total: +(target * num(p.qty)).toFixed(2),
+            wantLead: o.want ? o.want + ' 天' : X,
+            pay: payTerm(s.params.payDays),
             at: now(),
-            exp: plus(1),
+            exp: plusHours(s.params.grabHours),
             status: 'open',
             sup: null,
             watch: 0,
         })
+        p.st = 'waiting'
     })
-    return order
+    o.status = 'published'
+    o.publishedAt = now()
 }
 
 /* ── 供应商：抢单 ─────────────────────────────────────────────────── */
@@ -348,6 +419,9 @@ export const grab = (s: MockState, pkgId: string): string | null => {
     const p = s.db.pkgs.find((x) => x.id === pkgId)
     if (!p) return '派单包不存在'
     if (p.status !== 'open') return '这个派单包已经被抢走了'
+    // ★ 界面上抢单按钮已经按 canGrab 禁用了，这里再挡一道 ——
+    //   资质闸门放动作层是全项目的惯例（报工查排产、估价查参数），不能只靠按钮变灰。
+    if (!canGrab(s)) return '资质考察通过后才能抢单'
     const company = currentCompany(s)!
     p.status = 'taken'
     p.sup = company.id
@@ -375,21 +449,65 @@ export const sign = (s: MockState, contractId: string) => {
     if (p) syncOrder(s, p.orderId)
 }
 
-const LOCKED = (st: Pkg['status']) => st === 'taken' || st === 'done'
 
-/** 所有包都抢到 → 产能确认通过，订单成立。 */
+/**
+ * 按派单包的状态推算订单和零件的状态。
+ *
+ * ★ 订单状态是零件状态的**汇总**，不单独维护：
+ *     全部签约      → 已接单
+ *     全部确认排产  → 待生产
+ *     有人开始报数  → 生产中
+ *     全部报满      → 生产完成
+ *   已退回的零件不参与判断 —— 它不做了，不该拖住整单。
+ */
 export const syncOrder = (s: MockState, orderId: string) => {
     const o = s.db.orders.find((x) => x.id === orderId)
     if (!o) return
     const ps = s.db.pkgs.filter((p) => p.orderId === orderId)
+    if (!ps.length) return
+
     ps.forEach((p) => {
-        o.items[p.line].st = p.status
+        const part = o.parts[p.line]
+        if (!part) return
+        if (p.status === 'dropped') { part.dropped = true; part.st = undefined; return }
+        const ct = s.db.contracts.find((c) => c.pkgId === p.id)
+        const signed = ct?.status === 'signed'
+        part.st = (p.done ?? 0) >= p.qty ? 'produced'
+            : (p.done ?? 0) > 0 ? 'producing'
+                : signed ? 'taken'
+                    : 'waiting'
+        part.done = p.done ?? 0
     })
-    if (ps.every((p) => LOCKED(p.status)) && o.status === 'capacity') {
-        o.status = 'confirmed'
-        o.confirmedAt = now()
-        o.stage = 1
-    }
+
+    const live = o.parts.filter((p) => !p.dropped && p.st)
+    if (!live.length) return
+    const all = (st: PartExecStatus) => live.every((p) => p.st === st)
+    const some = (st: PartExecStatus) => live.some((p) => p.st === st)
+
+    if (all('produced')) o.status = 'produced'
+    else if (some('producing') || some('produced')) o.status = 'producing'
+    else if (all('taken')) {
+        // 已接单之后，供应商确认排产才进待生产
+        o.status = live.every((p) => scheduledOf(s, o, p)) ? 'toProduce' : 'taken'
+        if (o.status === 'taken' && !o.takenAt) o.takenAt = now()
+    } else o.status = 'published'
+}
+
+/** 这个零件对应的派单包有没有确认过排产 */
+const scheduledOf = (s: MockState, o: Order, part: OrderPart) => {
+    const i = o.parts.indexOf(part)
+    return s.db.pkgs.find((p) => p.orderId === o.id && p.line === i)?.scheduled === true
+}
+
+/**
+ * 供应商确认排产。签完合同之后的一步 ——
+ * 他排进生产计划了，但还没开工。
+ */
+export const schedule = (s: MockState, pkgId: string) => {
+    const p = s.db.pkgs.find((x) => x.id === pkgId)
+    if (!p) return
+    p.scheduled = true
+    syncOrder(s, p.orderId)
 }
 
 /**
@@ -402,25 +520,22 @@ export const dropLine = (s: MockState, pkgId: string) => {
     const p = s.db.pkgs.find((x) => x.id === pkgId)
     if (!p) return
     p.status = 'dropped'
-    const o = s.db.orders.find((x) => x.id === p.orderId)
-    if (!o) return
-    o.items[p.line].st = 'dropped'
-    const live = s.db.pkgs.filter((x) => x.orderId === p.orderId && x.status !== 'dropped')
-    if (live.length && live.every((x) => LOCKED(x.status)) && o.status === 'capacity') {
-        o.status = 'confirmed'
-        o.confirmedAt = now()
-        o.stage = 1
-    }
+    syncOrder(s, p.orderId)
 }
 
-/** 调价重挂：目标价上浮 5% 重新挂池 */
-export const repost = (s: MockState, pkgId: string) => {
+/**
+ * 调价重挂。新目标价由运营填 ——
+ * 以前这里写死自动加 5%：调价重派这件事有出处（文档 6/8），
+ * 每次加几个点没人定过，不能替运营拍。
+ */
+export const repost = (s: MockState, pkgId: string, newTarget: unknown) => {
     const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return
+    const t = num(newTarget)
+    if (!p || t <= 0) return
     p.status = 'open'
-    p.target = +(p.target * 1.05).toFixed(2)
-    p.total = +(p.target * p.qty).toFixed(2)
-    p.exp = plus(1)
+    p.target = t
+    p.total = +(t * p.qty).toFixed(2)
+    p.exp = plusHours(s.params.grabHours)
     p.reprice = (p.reprice || 0) + 1
     syncOrder(s, p.orderId)
 }
@@ -430,22 +545,16 @@ export const repost = (s: MockState, pkgId: string) => {
 export const report = (s: MockState, pkgId: string, done: unknown) => {
     const p = s.db.pkgs.find((x) => x.id === pkgId)
     if (!p) return
+    if (!p.scheduled) return          // 没确认排产就不该有完成数
     p.done = Math.min(num(done), p.qty)
-    const o = s.db.orders.find((x) => x.id === p.orderId)
-    if (!o) return
-    const it = o.items[p.line]
-    it.done = p.done
-    it.stage = p.done >= p.qty ? 4 : p.done > 0 ? 1 : 0
     if (p.done >= p.qty) p.status = 'done'
-    const all = s.db.pkgs.filter((x) => x.orderId === o.id && x.status !== 'dropped')
-    o.stage = all.every((x) => x.status === 'done') ? 3 : all.some((x) => (x.done || 0) > 0) ? 1 : o.stage
+    syncOrder(s, p.orderId)
 }
 
 export const deliver = (s: MockState, orderId: string) => {
     const o = s.db.orders.find((x) => x.id === orderId)
     if (!o) return
-    o.status = 'delivered'
-    o.stage = 4
+    o.status = 'shipping'
     o.deliveredAt = now()
     s.db.pkgs
         .filter((p) => p.orderId === o.id && p.status === 'done')
@@ -476,6 +585,17 @@ export const uploadInvoice = (s: MockState, pkgId: string, invNo: string) => {
 
 /* ── 定价参数 ─────────────────────────────────────────────────────── */
 
+/**
+ * 新增一种材料的基准成本。名字和数值都是运营填的 ——
+ * 材料没有主数据表（见 RatesPage 空态文案），不新增就永远出不了第一张报价。
+ */
+export const addRate = (s: MockState, mat: string, rate: unknown) => {
+    const m = String(mat ?? '').trim()
+    if (!m || num(rate) <= 0) return
+    if (s.rates.some((r) => r.mat === m)) return
+    s.rates.push({ mat: m, rate: num(rate) })
+}
+
 export const saveRates = (
     s: MockState,
     rateInputs: Record<number, string>,
@@ -485,7 +605,7 @@ export const saveRates = (
         const v = rateInputs[i]
         if (v !== undefined && v !== '') r.rate = num(v)
     })
-    ;(['margin', 'spread', 'fx', 'payDays', 'holdHours', 'grabHours'] as const).forEach((k) => {
+    ;(['margin', 'spread', 'fx', 'payDays', 'grabHours', 'validDays'] as const).forEach((k) => {
         const v = paramInputs[k]
         if (v !== undefined && v !== '') s.params[k] = num(v)
     })
@@ -493,8 +613,15 @@ export const saveRates = (
 
 /* ── 供应商应付日 ─────────────────────────────────────────────────── */
 
-/** 客户回款后 T+payDays。未回款返回 null —— 界面上显示「客户回款后 T+N」。 */
+/** 客户回款后 T+payDays。未回款或 T+N 没设置时返回 null。 */
 export const dueDate = (s: MockState, o: Order | undefined): string | null =>
-    o && o.paidAt
+    o && o.paidAt && s.params.payDays != null
         ? fmtDate(new Date(parseStamp(o.paidAt).getTime() + s.params.payDays * 864e5))
         : null
+
+/**
+ * 派单包上的付款条款文案。背靠背是会议拍板的；T+N 的 N 是平台参数，
+ * 运营没设置时只说机制，不编一个天数。
+ */
+const payTerm = (payDays: number | null) =>
+    payDays != null ? `客户回款后 T+${payDays} 天` : '客户回款后支付（背靠背，T+N 天待平台设置）'

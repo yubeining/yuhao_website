@@ -13,15 +13,15 @@ import { useState } from 'react'
 import { Field, FieldRow, Input } from '../../components/form'
 import { Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, Stack, TableWrap } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
-import { saveRates } from '../../mock/actions'
+import { addRate, saveRates } from '../../mock/actions'
 
 const LABELS = {
     margin: '利润率 %',
     spread: '议价空间 %',
     fx: '汇率 EUR→CNY',
     payDays: '付款 T+N 天',
-    holdHours: '产能确认期 小时',
     grabHours: '抢单超时 小时',
+    validDays: '报价有效期 天',
 } as const
 
 type ParamKey = keyof typeof LABELS
@@ -31,10 +31,13 @@ export function OpsRatesPage() {
 
     // 草稿：没动过的字段留空，保存时只写改过的（见 actions.saveRates）
     const [rateDraft, setRateDraft] = useState<Record<number, string>>({})
+    const [newMat, setNewMat] = useState('')
+    const [newRate, setNewRate] = useState('')
     const [paramDraft, setParamDraft] = useState<Record<string, string>>({})
     const [saved, setSaved] = useState(false)
 
-    const paramValue = (k: ParamKey) => paramDraft[k] ?? String(state.params[k])
+    // null = 还没人设过。显示为空，不显示 "null"，更不显示一个编的默认值。
+    const paramValue = (k: ParamKey) => paramDraft[k] ?? (state.params[k] == null ? '' : String(state.params[k]))
 
     const save = () => {
         act((s) => saveRates(s, rateDraft, paramDraft))
@@ -60,6 +63,17 @@ export function OpsRatesPage() {
                     <Card>
                         <CardHead title="基准制造成本" rid="¥ / 件" />
                         <CardBody flush>
+                            {state.rates.length === 0 && (
+                                <div style={{ padding: '26px 20px', textAlign: 'center' }}>
+                                    <div style={{ fontSize: 13.5, color: 'var(--muted)', lineHeight: 1.7 }}>
+                                        还没有配置任何材料。<br />
+                                        <span style={{ fontSize: 12.5, color: 'var(--faint)' }}>
+                                            材料没有主数据表，只能在这里配。一条都没有时，
+                                            询价页的材料字段是自由输入，报价也算不出来。
+                                        </span>
+                                    </div>
+                                </div>
+                            )}
                             <TableWrap>
                                 <thead>
                                     <tr><th>材料</th><th className="n">基准成本</th></tr>
@@ -75,6 +89,28 @@ export function OpsRatesPage() {
                                             </td>
                                         </tr>
                                     ))}
+                                    <tr>
+                                        <td>
+                                            <Input value={newMat} placeholder="新增材料名"
+                                                onChange={setNewMat} />
+                                        </td>
+                                        <td className="n" style={{ width: 140 }}>
+                                            <div style={{ display: 'flex', gap: 6 }}>
+                                                <Input value={newRate} placeholder="¥/件"
+                                                    style={{ textAlign: 'right' }}
+                                                    onChange={setNewRate} />
+                                                <button className="btn sm" type="button"
+                                                    disabled={!newMat.trim() || !newRate.trim()}
+                                                    onClick={() => {
+                                                        act((s) => addRate(s, newMat, newRate))
+                                                        setNewMat('')
+                                                        setNewRate('')
+                                                    }}>
+                                                    添加
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
                                 </tbody>
                             </TableWrap>
                         </CardBody>
@@ -94,9 +130,13 @@ export function OpsRatesPage() {
                                 <ParamField k="payDays" value={paramValue('payDays')} onChange={setParamDraft} />
                             </FieldRow>
                             <FieldRow>
-                                <ParamField k="holdHours" value={paramValue('holdHours')} onChange={setParamDraft} />
                                 <ParamField k="grabHours" value={paramValue('grabHours')} onChange={setParamDraft} />
+                                <ParamField k="validDays" value={paramValue('validDays')} onChange={setParamDraft} />
                             </FieldRow>
+                            <div style={{ fontSize: 12.5, color: 'var(--faint)', marginTop: 10, lineHeight: 1.6 }}>
+                                利润率、议价空间、汇率设全（且订单里的材料都配了基准成本）之后才能出报价，
+                                缺一项，订单会停在「待估价」。
+                            </div>
                         </CardBody>
                     </Card>
 

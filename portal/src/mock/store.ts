@@ -12,7 +12,7 @@
  */
 
 import { DEFAULT_PARAMS, DEFAULT_RATES, type PlatformParams, type Rate } from './params'
-import { X, plus, today } from './format'
+import { X, today } from './format'
 import type { Company, Db, Seq, User } from './types'
 
 /** 当前登录态。原型里的 S。 */
@@ -32,22 +32,21 @@ export interface MockState {
     session: MockSession
 }
 
-const STORAGE_KEY = 'mfg.prototype.v2'
+const STORAGE_KEY = 'mfg.prototype.v3'
 
 const emptyDb = (): Db => ({
     companies: [],
     users: [],
     invites: [],
-    rfqs: [],
-    quotes: [],
     orders: [],
+    quotes: [],
     pkgs: [],
     contracts: [],
     invoices: [],
 })
 
 const emptySeq = (): Seq => ({
-    rfq: 0, qt: 0, so: 0, dp: 0, ct: 0, po: 0, inv: 0, cid: 0, uid: 0, iv: 0,
+    so: 0, pt: 0, qt: 0, dp: 0, ct: 0, inv: 0, cid: 0, uid: 0, iv: 0,
 })
 
 /** 单号生成。原型的 nid()，序列号存在 state 里以便持久化。 */
@@ -104,7 +103,7 @@ export const seed = (): MockState => {
 
     s.db.invites.push({
         id: 'IV0', name: '供应商 B', mail: 'supplier-b@example.com',
-        at: today(), exp: plus(14), used: false,
+        at: today(), used: false,
     })
 
     return s

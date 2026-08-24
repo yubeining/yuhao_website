@@ -1,7 +1,7 @@
 /**
  * 派单包详情 —— 抢单前唯一能看到的完整信息。
  *
- * ★ 抢单大厅对所有已入驻供应商开放，包括还没签这一单合同的人。
+ * ★ 订单市场对所有已入驻供应商开放，包括还没签这一单合同的人。
  *   所以终端客户身份、原始图纸、对客价格都不能出现在这一层。
  *
  *   ★★ 脱敏动作本身还没实现。在实现之前，界面上**不许**出现「已脱敏」标记 ——
@@ -28,7 +28,6 @@ export function HallDetailPage() {
     if (!p) return <Navigate to="/supplier/hall" replace />
 
     const grabbable = canGrab(state)
-    const params = state.params
     const left = hoursLeft(p.exp)
 
     const onGrab = () => {
@@ -39,7 +38,7 @@ export function HallDetailPage() {
     return (
         <Page>
             <Hello
-                back={<Link className="btn sm qui" to="/supplier/hall" style={{ margin: '0 0 6px -9px' }}>← 抢单大厅</Link>}
+                back={<Link className="btn sm qui" to="/supplier/hall" style={{ margin: '0 0 6px -9px' }}>← 订单市场</Link>}
                 title={`${p.partName} × ${p.qty}`}
                 sub={`${p.mat} · ${p.surf} · Rev ${p.rev}`}
                 right={
@@ -78,9 +77,8 @@ export function HallDetailPage() {
                         <CardHead title="商务条款" />
                         <CardBody>
                             <Kv>
-                                <KvRow k="交付周期" v={`${p.lead} · EXW 指定仓库`} sans />
+                                <KvRow k="客户要求交期" v={p.wantLead} sans />
                                 <KvRow k="付款周期" v={<b>{p.pay}</b>} sans />
-                                <KvRow k="发票" v={`交付后 ${params.invDays} 日内开增值税专用发票`} sans />
                             </Kv>
                             <Banner tone="wa" style={{ marginTop: 15 }}>
                                 付款以融一智造收到终端客户货款为前提，客户未付则顺延。抢单即视为接受该条款。

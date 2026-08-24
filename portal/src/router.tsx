@@ -10,15 +10,11 @@ import { SupplierRegisterPage } from './pages/auth/SupplierRegisterPage'
 import { SupplierDonePage } from './pages/auth/SupplierDonePage'
 
 import { CustomerHomePage } from './pages/customer/HomePage'
-import { RfqListPage } from './pages/customer/RfqListPage'
-import { RfqNewPage } from './pages/customer/RfqNewPage'
-import { RfqDetailPage } from './pages/customer/RfqDetailPage'
 import { QuoteListPage } from './pages/customer/QuoteListPage'
 import { QuoteDetailPage } from './pages/customer/QuoteDetailPage'
 import { OrderListPage } from './pages/customer/OrderListPage'
 import { OrderDetailPage } from './pages/customer/OrderDetailPage'
-import { OrderLinePage } from './pages/customer/OrderLinePage'
-import { DrawingsPage } from './pages/customer/DrawingsPage'
+import { PartFormPage } from './pages/customer/PartFormPage'
 
 import { HallPage } from './pages/supplier/HallPage'
 import { HallDetailPage } from './pages/supplier/HallDetailPage'
@@ -28,7 +24,6 @@ import { BillPage } from './pages/supplier/BillPage'
 import { SupplierProfilePage } from './pages/supplier/ProfilePage'
 
 import { OpsDashboardPage } from './pages/ops/DashboardPage'
-import { OpsRfqsPage } from './pages/ops/RfqsPage'
 import { OpsQuotesPage } from './pages/ops/QuotesPage'
 import { OpsDispatchPage } from './pages/ops/DispatchPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
@@ -86,16 +81,13 @@ export const router = createBrowserRouter([
         ),
         children: [
             { index: true, element: <CustomerHomePage /> },
-            { path: 'rfqs', element: <RfqListPage /> },
-            // ★ new 必须排在 :id 前面，否则 /rfqs/new 会被当成 id 为 "new" 的询价单
-            { path: 'rfqs/new', element: <RfqNewPage /> },
-            { path: 'rfqs/:id', element: <RfqDetailPage /> },
             { path: 'quotes', element: <QuoteListPage /> },
             { path: 'quotes/:id', element: <QuoteDetailPage /> },
             { path: 'orders', element: <OrderListPage /> },
             { path: 'orders/:id', element: <OrderDetailPage /> },
-            { path: 'orders/:id/lines/:idx', element: <OrderLinePage /> },
-            { path: 'drawings', element: <DrawingsPage /> },
+            // ★ new 必须排在 :partId 前面，否则 /parts/new 会被当成 id 为 "new" 的零件
+            { path: 'orders/:id/parts/new', element: <PartFormPage /> },
+            { path: 'orders/:id/parts/:partId', element: <PartFormPage /> },
             { path: 'settings', element: <SettingsPage /> },
         ],
     },
@@ -131,7 +123,6 @@ export const router = createBrowserRouter([
         children: [
             { index: true, element: <Navigate to="/ops/dashboard" replace /> },
             { path: 'dashboard', element: <OpsDashboardPage /> },
-            { path: 'rfqs', element: <OpsRfqsPage /> },
             { path: 'quotes', element: <OpsQuotesPage /> },
             { path: 'dispatch', element: <OpsDispatchPage /> },
             { path: 'orders', element: <OpsOrdersPage /> },
@@ -146,7 +137,7 @@ export const router = createBrowserRouter([
 ])
 
 /**
- * 供应商端的壳要按当前路径决定形态：抢单大厅通栏、工作台带侧栏。
+ * 供应商端的壳要按当前路径决定形态：订单市场通栏、工作台带侧栏。
  * 单独抽出来是因为它需要 useLocation，而路由表本身在组件外求值。
  */
 function SupplierOutlet() {

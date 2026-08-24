@@ -1,12 +1,12 @@
 /**
- * 抢单大厅。
+ * 订单市场。
  *
  * ★ 版式刻意照搬 1688 那类货源大厅：顶部大搜索、多行标签筛选、
  *   排序条、卡片网格。供应商的老板每天就在这类界面里泡着，
  *   照着他熟悉的形状做，培训成本是零。
  *
  * ★ 已被抢走的包不从列表里拿掉，而是置灰留在原地。
- *   拿掉的话大厅看起来永远很空；留着能让人感觉到「手慢了」——
+ *   拿掉的话市场看起来永远很空；留着能让人感觉到「手慢了」——
  *   这是抢单机制唯一的驱动力。
  *
  * ★ 筛选和排序目前是纯展示（原型里就没有实现）。数据量到了再接。
@@ -42,7 +42,7 @@ export function HallPage() {
     const onGrab = (p: Pkg) => {
         const err = actWith((s) => grab(s, p.id))
         if (err) {
-            // 包被别人抢走了。留在大厅并让列表自然刷新 —— 比弹窗更贴近真实抢单体验
+            // 包被别人抢走了。留在市场并让列表自然刷新 —— 比弹窗更贴近真实抢单体验
             return
         }
         navigate('/supplier/won')
@@ -91,7 +91,7 @@ export function HallPage() {
                     ))}
                 </div>
             ) : (
-                <Empty text="大厅暂时没有派单包" />
+                <Empty text="市场上暂时没有派单包" />
             )}
         </Page>
     )
@@ -130,7 +130,7 @@ function PoolCard({ p, grabbable, onOpen, onGrab }: {
                 </div>
                 <div className="prsub">合计 ¥ {M(p.total)}</div>
                 <div className="mt2">
-                    <span>交付 <b>{p.lead}</b></span>
+                    <span>客户要求交期 <b>{p.wantLead}</b></span>
                     <span>{p.reprice ? `已调价 ${p.reprice} 次` : ''}</span>
                 </div>
                 <div className="pay">付款 <b>{p.pay}</b></div>

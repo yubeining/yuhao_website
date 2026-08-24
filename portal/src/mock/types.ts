@@ -67,7 +67,7 @@ export interface Invite {
     name: string
     mail: string
     at: string
-    exp: string
+    /** 一次性：用过即失效。有效期没人定过，所以没有这个字段。 */
     used: boolean
 }
 
@@ -83,40 +83,10 @@ export interface Invite {
  */
 export type LineStat = 'ready' | 'pending' | 'blocked'
 
-export interface RfqLine {
-    /** 图号。客户自己的编号，不是我方内部编号 */
-    no: string
-    /** 零件名称。真实清单里有这一列，之前模型漏了 */
-    name: string
-    /**
-     * 图纸版本。★ 客户清单里没有这一列 —— 真实来源是图纸文件名
-     * （`模型_4_1_LB8.605.63529_A_(密级为空)_…` 里的 A）。见文档 9 §3.1。
-     */
-    rev: string
-    /** 材料。★ 清单和文件名里都没有，只能看图填 + 客户确认。文档 9 §3.2 */
-    mat: string
-    qty: string | number
-    surf: string
-    /** 客户的批次号。原样存，不解析不校验。落 rfq_item.customer_task_no */
-    taskNo?: string
-    /** 客户的整机编号。零件固有属性，落 part.customer_system_no */
-    systemNo?: string
-    /** 客户的项目编号。零件固有属性，落 part.customer_topic_no */
-    topicNo?: string
-    /** 这个零件的图纸文件。一个零件多份图是常态，不是例外 */
-    files: RfqFile[]
-}
-
 /**
- * 一个图纸文件。
- *
- * ★ 文件挂在**零件**下面，不挂在询价单下面。真实数据里一个零件平均 3 个文件
- *   （三维 .prt/.par + 二维 .pdf，有时加 .dft），58 个零件 185 个文件。
- *   之前把文件挂在询价单上、再用下标指回行，是把从属关系写反了。
+ * 一份图纸文件。挂在零件上，跟着零件走。
  *
  * ★ 只存元数据。**文件本身没有上传到任何地方** —— 后端上传接口还没做。
- *   接上直传对象存储之后，这里加 fileObjectId 指向真实文件。
- *   在那之前不要让界面表现得像文件已经存下来了。
  */
 export interface RfqFile {
     name: string
@@ -125,74 +95,162 @@ export interface RfqFile {
     revFromName: string
 }
 
-export interface Rfq {
+
+/**
+ * 订单里的一个零件。
+ *
+ * ★ 零件建在订单里面，跟着订单走。图纸又挂在零件上。
+ *   三层从属关系：订单 → 零件 → 图纸。
+ */
+export interface OrderPart {
     id: string
-    companyId: string
-    at: string
-    want: string
+    /** 图号。多数情况从图纸文件名读出来 */
+    no: string
+    name: string
     /**
-     * 零件。真实业务里零件是原子，清单只是它的汇总。
+     * 版本号。**我方生成，从 1 开始，客户不填。**
      *
-     * ★ 图纸文件挂在零件里（`RfqLine.files`），**询价单这一层不持有任何文件**。
-     *   曾经在这里放过一个「未认领文件」的桶 —— 那等于承认图纸可以脱离零件存在，
-     *   而业务上不存在这种东西：一份图纸必然是某个零件的图纸。
-     *   认不出图号的文件当场变成一个待填图号的零件，不另开一个筐。
+     * ★ 版本是一个事实，不是一项申报 —— 客户重新传了图纸，就是新的一版。
+     *   让客户自己填版本号，等于让他去维护一件他本来就没在维护的事：
+     *   真实样本里 58 个零件只有 33 个的文件名带版本字母，剩下的他根本没写。
+     *
+     * ★ 什么时候递增：**这个零件的图纸在被报价之后又变了**。
+     *   报价前反复改图只是还没定稿，不算改版；报价之后改图会让已发出的报价失效，
+     *   那才是必须留痕的时刻。
      */
-    lines: RfqLine[]
-    /** draft = 还有行没补齐，未出报价；quoting = 已出报价 */
-    status: 'draft' | 'quoting'
-    stage: number
-    quoteId?: string
-}
+    version: number
+    /**
+     * 客户自己的版本标记（A / B / C），从图纸文件名读出来，**只展示不参与判断**。
+     * 他有就记下来，方便双方对话时说「按 B 版做」；没有也不影响任何事。
+     */
+    customerRev: string
+    /** 材料。★ 客户清单里没有这一列，我方看图补齐后客户确认（设计文档 9 §4.2） */
+    mat: string
+    surf: string
+    qty: string | number
+    /** 客户自己的三个编号。原样存，不解析不校验 */
+    taskNo?: string
+    systemNo?: string
+    topicNo?: string
+    files: RfqFile[]
 
-export interface QuoteItem extends RfqLine {
+    /* ── 报价之后才有 ─────────────────────────────────────────── */
     /** 对客单价（€/件） */
-    unit: number
-    /** 小计（€） */
-    total: number
+    unit?: number
+    total?: number
+
+    /* ── 发布之后才有 ─────────────────────────────────────────── */
+    /** 执行状态。发布之后才有；未发布时为空。退回的零件也置空并单独标记。 */
+    st?: PartExecStatus
+    /** 无人接单被退回 */
+    dropped?: boolean
+    /** 已完成件数。供应商上报的唯一生产信号 —— 没有工序级进度。 */
+    done?: number
 }
 
-export interface Quote {
-    id: string
-    rfqId: string
-    companyId: string
-    at: string
-    items: QuoteItem[]
-    total: number
-    lead: string
-    valid: string
-    inco: string
-    status: 'open' | 'accepted' | 'expired'
-    acceptedAt?: string
-}
+/**
+ * 订单。**整条链的主干。**
+ *
+ * ★ 客户先建订单，再往里加零件，然后整单发布。
+ *   订单不是报价被接受之后才产生的东西 —— 它从一开始就在，
+ *   后面发生的每一件事都是它的状态推进：
+ *
+ *     draft       草稿中     建零件中，还没发布
+ *     pricing     待估价     已发布订单，正在估价（要解析几何、算工时，不是即时的）
+ *     quoted      已估价     价格出来了，等客户确认
+ *     toPublish   待发布     客户已确认价格，等发布到订单市场
+ *     published   已发布     已挂上订单市场，等供应商接单
+ *     taken       已接单     全部零件被抢到**并签了合同**
+ *     toProduce   待生产     供应商确认排产，还没开工
+ *     producing   生产中     开始报完成量
+ *     produced    生产完成   全部零件报满
+ *     shipping    物流配送中 已发货
+ *
+ * ★★ 两个「发布」是两回事，不要混：
+ *     「发布订单」 —— 离开草稿，进入估价（客户动作）
+ *     「发布到订单市场」 —— 放给供应商看（客户动作，在价格确认之后）
+ *   界面上按钮分别叫「发布订单」和「发布到订单市场」，状态里只有一个「已发布」。
+ */
+export type OrderStatus =
+    | 'draft' | 'pricing' | 'quoted' | 'toPublish' | 'published'
+    | 'taken' | 'toProduce' | 'producing' | 'produced' | 'shipping'
 
-/** 订单行的履约状态。和派单包的 status 同步（syncOrder）。 */
-export type OrderItemStat = 'pending' | 'open' | 'taken' | 'done' | 'dropped'
-
-export interface OrderItem extends QuoteItem {
-    done: number
-    stage: number
-    ship: string
-    st: OrderItemStat
-}
+/**
+ * 零件的执行状态。**只有四个** —— 零件层面不需要订单那套完整流程。
+ *
+ *     waiting   待接单     已发布，还没有供应商接
+ *     taken     已接单     被抢到并签了合同
+ *     producing 生产中     开始报完成量
+ *     produced  生产完成   报满
+ */
+export type PartExecStatus = 'waiting' | 'taken' | 'producing' | 'produced'
 
 export interface Order {
     id: string
-    quoteId: string
     companyId: string
+    /** 客户给这一单起的名字，方便他自己认 */
+    title: string
+    status: OrderStatus
+    parts: OrderPart[]
     at: string
-    eta: string
-    status: 'capacity' | 'confirmed' | 'delivered'
-    stage: number
-    items: OrderItem[]
+    /** 交期要求（天） */
+    want: string
+    /** 当前有效的报价 */
+    quoteId?: string
+    submittedAt?: string
+    quotedAt?: string
     confirmedAt?: string
+    publishedAt?: string
+    takenAt?: string
+    scheduledAt?: string
     deliveredAt?: string
-    /** 客户回款时间。背靠背结算的起算点。 */
+    /** 客户回款时间。背靠背结算的起算点 */
     paidAt?: string
 }
 
 /**
- * 派单包 —— 订单的一行拆出来独立挂到抢单大厅。
+ * 报价单。订单的子记录。
+ *
+ * ★ 报价行是**快照**：订单里的零件之后改了名或改了材料，
+ *   已发出的报价单内容不能跟着变（CLAUDE.md §10 C2）。
+ */
+export interface QuoteItem {
+    partId: string
+    no: string
+    name: string
+    /** 报的是这个零件的第几版。之后零件改版，这张报价单指向的仍是当时那一版 */
+    version: number
+    customerRev: string
+    mat: string
+    surf: string
+    qty: string | number
+    unit: number
+    total: number
+    /** 供应商目标价快照（¥/件）。估价时和对客价一起算死，发布派单包用它，不回头读参数 */
+    target: number
+}
+
+export interface Quote {
+    id: string
+    orderId: string
+    companyId: string
+    at: string
+    items: QuoteItem[]
+    total: number
+    /** 客户在订单里填的交期要求。不是我方承诺的交期 —— 交期要等供应商排产才知道。 */
+    wantLead: string
+    inco: string
+    /** 有效期至。天数用平台参数 validDays（默认 15，文档 5 Q6），报价强制有效期是文档 3 护栏 1 */
+    valid: string
+    /** 估价时的汇率快照（文档 3 护栏 4）。内部算毛利用它，不读当前参数 */
+    fx: number
+    /** 只有这两个 —— 谢绝之后订单怎么走还没定，没定就不先摆一个状态名 */
+    status: 'open' | 'accepted'
+    acceptedAt?: string
+}
+
+/**
+ * 派单包 —— 订单的一行拆出来独立挂到订单市场。
  *
  * ★ 一行一个包，各自独立抢单、独立成败：某一行无人接单退回，
  *   不影响同一订单的其他行（dropLine）。
@@ -206,9 +264,9 @@ export interface Pkg {
     /**
      * ★ 零件名称，**不是客户图号**。
      *
-     *   抢单大厅对所有已入驻供应商开放，包括还没签这一单的人。
+     *   订单市场对所有已入驻供应商开放，包括还没签这一单的人。
      *   客户图号是客户自己的编码体系（真实样本形如 LB8.610.63493），
-     *   把它挂在大厅上等于把客户的产品结构公开 —— 同行看编号段就能
+     *   把它挂在市场上等于把客户的产品结构公开 —— 同行看编号段就能
      *   反推出他在做什么产品线。文档 7 §8 明确要求寻源包脱敏。
      *
      *   内部要看图号，从 orderId + line 回溯订单行。
@@ -221,14 +279,18 @@ export interface Pkg {
     /** 给供应商的目标价（¥/件），不可议价 */
     target: number
     total: number
-    lead: string
+    /** 客户要求的交期。派单包上写明它是客户的要求，不是我方给供应商的承诺 */
+    wantLead: string
     pay: string
     at: string
+    /** 抢单截止时刻（发布时刻 + grabHours） */
     exp: string
     status: 'open' | 'taken' | 'done' | 'dropped'
     /** 抢到的供应商企业 id */
     sup: string | null
     watch: number
+    /** 供应商已确认排产 */
+    scheduled?: boolean
     tookAt?: string
     contractId?: string
     done?: number
@@ -260,9 +322,8 @@ export interface Db {
     companies: Company[]
     users: User[]
     invites: Invite[]
-    rfqs: Rfq[]
-    quotes: Quote[]
     orders: Order[]
+    quotes: Quote[]
     pkgs: Pkg[]
     contracts: Contract[]
     invoices: Invoice[]
@@ -270,12 +331,11 @@ export interface Db {
 
 /** id 序列号。持久化时一起存，否则刷新后会发出重复单号。 */
 export interface Seq {
-    rfq: number
-    qt: number
     so: number
+    pt: number
+    qt: number
     dp: number
     ct: number
-    po: number
     inv: number
     cid: number
     uid: number

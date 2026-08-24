@@ -1,157 +1,263 @@
 /**
- * 订单详情。
+ * 订单详情 —— **整条链都在这一页推进**。
  *
- * ★ 产能确认期和「部分行退回」这两件事必须用横幅顶在最上面。
- *   它们都是客户没预期的状态：下了单却还没成立、下了 4 行只做成 3 行。
- *   埋在表格里等他自己发现，等来的一定是电话。
+ *   草稿中    往里加零件，每个零件传自己的图纸
+ *   ↓ 发布订单（草稿变正式）
+ *   待估价 → 已估价
+ *   ↓ 确认价格（在报价页）
+ *   待发布
+ *   ↓ 发布到订单市场
+ *   已发布 → 已接单 → 待生产 → 生产中 → 生产完成 → 物流配送中
+ *
+ * ★ 两个「发布」不是一回事：前一个是草稿转正式，后一个是挂到订单市场。
+ *
+ * ★ 零件建在订单里面，图纸挂在零件上。三层从属：订单 → 零件 → 图纸。
+ *
+ * ★ 缺版本或材料的零件照样能留在订单里，只是不进这一次的报价 ——
+ *   真实客户清单里本来就没有这两列（设计文档 9 §3）。
  */
 
+import { useEffect, useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
+import { Input } from '../../components/form'
 import {
-    Banner, Bar, BarLabel, Card, CardBody, CardHead, Cols, Fields, Fld, Hello,
-    Page, Pill, pill, Stack, TableWrap, Timeline,
+    Banner, Bar, BarLabel, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld,
+    Hello, Page, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
-import { money, sum } from '../../mock/format'
+import {
+    finishPricing, orderReady, partStat, publishOrder, removePart, submitOrder, updateOrder,
+} from '../../mock/actions'
+import { X, money, sum } from '../../mock/format'
 import { num } from '../../mock/params'
-import { myOrders, orderTotal, progress } from '../../mock/selectors'
-import { IT_ST, ORD_ST, ORD_STAGES } from './status'
+import { myOrders, progress, quotesOf } from '../../mock/selectors'
+import { EXEC_ST, isPublished, ORD_ST, PART_ST } from './status'
 
 export function OrderDetailPage() {
-    const { state } = useMock()
+    const { state, act, actWith } = useMock()
     const navigate = useNavigate()
     const { id } = useParams()
     const order = myOrders(state).find((o) => o.id === id)
+    const [err, setErr] = useState<string | null>(null)
+
     if (!order) return <Navigate to="/customer/orders" replace />
 
-    const dropped = order.items.filter((i) => i.st === 'dropped').length
-    const live = order.items.filter((i) => i.st !== 'dropped')
-    const pct = progress(order)
+    const draft = order.status === 'draft'
+    const quotes = quotesOf(state, order.id)
+    const stats = order.parts.map(partStat)
+    const ready = stats.filter((s) => s === 'ready').length
+    const notReady = stats.filter((s) => s !== 'ready').length
+    const canSubmit = orderReady(order)
+    const published = isPublished(order.status)
+    const quotedTotal = quotes.reduce((a, q) => a + q.total, 0)
 
     /**
-     * 随货单据清单。四项是合同里真实约定要给的东西，所以清单本身有依据。
+     * 估价过程。
      *
-     * ★ 但**文件还不存在** —— 平台没有单据生成，也没有文件库。
-     *   所以一律显示「待生成」，不按 stage 推断「已就绪」，也不给下载按钮。
-     *   推断出来的「已就绪」会让客户去点一个下不到东西的按钮。
+     * ★ 估价要时间 —— 解析几何、识别特征、算工时。演示里用一个定时器占位，
+     *   接真后端时换成轮询或推送。**不要退回「填完材料就有价」** ——
+     *   那会让客户以为价格是查表查出来的。
      */
-    const DOCS = ['订单确认书', '材质证明', '出厂质检报告', '装箱单与箱唛']
+    useEffect(() => {
+        if (order?.status !== 'pricing') return
+        const t = window.setTimeout(() => {
+            actWith((s) => finishPricing(s, order.id))
+        }, 5000)
+        return () => window.clearTimeout(t)
+    }, [order?.status, order?.id, actWith])
+
+    const submit = () => {
+        if (!order.parts.length) return setErr('请先录入零件')
+        if (!canSubmit) return setErr(`还有 ${notReady} 个零件信息不全，补齐后方可发布`)
+        act((s) => submitOrder(s, order.id))
+    }
 
     return (
         <Page>
             <Hello
                 back={<Link className="btn sm qui" to="/customer/orders" style={{ margin: '0 0 6px -9px' }}>← 我的订单</Link>}
-                title="订单详情" sub={order.id}
-                right={pill(ORD_ST[order.status])}
+                title={order.title}
+                sub={order.id}
+                right={
+                    <>
+                        {pill(ORD_ST[order.status])}
+                        {draft && (
+                            <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>
+                                ＋ 添加零件
+                            </Link>
+                        )}
+                    </>
+                }
             />
 
-            {order.status === 'capacity' && (
-                <Banner tone="wa" icon="◷" style={{ marginBottom: 18 }}>
-                    正在确认产能，{state.params.holdHours} 小时内给出结果。确认通过后合同成立并开始生产；
-                    未能确认的行会退回，不计费。
+            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+
+            {draft && notReady > 0 && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    {notReady} 个零件信息不全，整单暂不可发布。报价按订单出具，需全部零件齐备。
                 </Banner>
             )}
-            {dropped > 0 && (
-                <Banner tone="wa" style={{ marginBottom: 18 }}>
-                    {dropped} 行无人接单已退回，其余 {order.items.length - dropped} 行照常生产。
+            {order.status === 'pricing' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    订单已提交，平台估价中。完成后会在这里给出报价。
+                </Banner>
+            )}
+            {order.status === 'quoted' && order.quoteId && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    报价已生成，确认价格后即可发布到订单市场。
+                    <Link to={`/customer/quotes/${order.quoteId}`} style={{ marginLeft: 8 }}>去看报价 →</Link>
+                </Banner>
+            )}
+            {order.status === 'toPublish' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    价格已确认。发布到订单市场后，供应商按零件分别接单。
                 </Banner>
             )}
 
-            <Cols>
-                <Stack>
-                    <Card>
-                        <CardHead title="订单信息" />
-                        <CardBody>
-                            <Fields>
-                                <Fld k="零件行数" v={order.items.length} mono />
-                                <Fld k="总件数" v={sum(order.items, (i) => num(i.qty))} mono />
-                                <Fld k="金额" v={money(orderTotal(state, order))} mono />
-                                <Fld k="贸易条款" v="EXW 指定仓库" />
-                                <Fld k="下单日期" v={order.at} mono />
-                                <Fld k="预计送达" v={order.eta} mono />
-                            </Fields>
-                            <div style={{ borderTop: '1px solid var(--line)', marginTop: 18, paddingTop: 16 }}>
-                                <BarLabel
-                                    left={
-                                        <>
-                                            已完成 <b>{sum(live, (i) => num(i.done))} / {sum(live, (i) => num(i.qty))}</b>
-                                            {live.length < order.items.length && (
-                                                <span style={{ color: 'var(--faint)' }}>
-                                                    （不含已退回的 {order.items.length - live.length} 行）
-                                                </span>
+            <Card style={{ marginBottom: 16 }}>
+                <CardHead title="订单信息" />
+                <CardBody>
+                    <Fields>
+                        <Fld k="零件数" v={order.parts.length} mono />
+                        <Fld k="总件数" v={sum(order.parts, (p) => num(p.qty))} mono />
+                        <Fld k="报价金额" v={quotedTotal ? money(quotedTotal) : X} mono />
+                        <Fld k="建单日期" v={order.at} mono />
+                        <Fld k="交期要求" v={
+                            draft
+                                ? <Input value={order.want} placeholder="天"
+                                    onChange={(v) => act((s) => updateOrder(s, order.id, { want: v }))} />
+                                : (order.want ? `${order.want} 天` : X)
+                        } />
+                    </Fields>
+                    {published && (
+                        <div style={{ borderTop: '1px solid var(--line)', marginTop: 18, paddingTop: 16 }}>
+                            <BarLabel left={<>整单进度</>} right={`${progress(order)}%`} />
+                            <Bar pct={progress(order)} />
+                        </div>
+                    )}
+                </CardBody>
+                {order.status === 'toPublish' && (
+                    <CardFoot right={
+                        <button className="btn pri" type="button"
+                            onClick={() => act((s) => publishOrder(s, order.id))}>
+                            发布到订单市场（{order.parts.length} 个零件）→
+                        </button>
+                    } />
+                )}
+            </Card>
+
+            <Card>
+                <CardHead
+                    title={`零件 ${order.parts.length} 个`}
+                    right={
+                        <>
+                            {ready > 0 && <Pill tone="ok">{ready} 可报价</Pill>}
+                            {notReady > 0 && <Pill tone="wa">{notReady} 待补齐</Pill>}
+                        </>
+                    }
+                />
+                {order.parts.length ? (
+                    <CardBody flush>
+                        <TableWrap>
+                            <thead>
+                                <tr>
+                                    <th className="n">#</th>
+                                    <th>图号</th><th>名称</th><th>版本</th><th>材料</th>
+                                    <th className="n">数量</th><th className="n">图纸</th>
+                                    <th className="n">单价</th>
+                                    <th>{published ? '产能' : '状态'}</th>
+                                    <th />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {order.parts.map((p, i) => (
+                                    <tr key={p.id} className="clk"
+                                        onClick={() => navigate(`/customer/orders/${order.id}/parts/${p.id}`)}>
+                                        <td className="n">{i + 1}</td>
+                                        <td><span className="m">{p.no || X}</span></td>
+                                        <td className="t1">{p.name || X}</td>
+                                        <td>
+                                            <span className="m">v{p.version}</span>
+                                            {p.customerRev && <div className="t2">客户标记 {p.customerRev}</div>}
+                                        </td>
+                                        <td>{p.mat || X}</td>
+                                        <td className="n">{p.qty || X}</td>
+                                        <td className="n">{p.files.length || X}</td>
+                                        <td className="n">{p.unit !== undefined ? money(p.unit) : X}</td>
+                                        <td>
+                                            {!published ? pill(PART_ST[stats[i]])
+                                                : p.dropped ? <Pill tone="ba">已退回</Pill>
+                                                    : (
+                                                        <>
+                                                            {pill(EXEC_ST[p.st || 'waiting'])}
+                                                            {p.st === 'producing' && (
+                                                                <div className="t2">{num(p.done)} / {num(p.qty)} 件</div>
+                                                            )}
+                                                        </>
+                                                    )}
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            {draft ? (
+                                                <button className="btn qui sm" type="button"
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        act((s) => removePart(s, order.id, p.id))
+                                                    }}>
+                                                    删除
+                                                </button>
+                                            ) : (
+                                                <span style={{ color: 'var(--faint)' }}>›</span>
                                             )}
-                                        </>
-                                    }
-                                    right={`${pct}%`}
-                                />
-                                <Bar pct={pct} />
-                            </div>
-                        </CardBody>
-                    </Card>
-
-                    <Card>
-                        <CardHead title="零件明细"
-                            right={<Pill tone="ne" dot={false}>{order.items.length} 行</Pill>} />
-                        <CardBody flush>
-                            <TableWrap>
-                                <thead>
-                                    <tr>
-                                        <th className="n">行</th><th>零件</th><th>版本</th><th>材料</th>
-                                        <th className="n">数量</th><th className="n">进度</th>
-                                        <th>交付方式</th><th>状态</th><th />
+                                        </td>
                                     </tr>
-                                </thead>
-                                <tbody>
-                                    {order.items.map((it, i) => (
-                                        <tr key={i} className={`clk ${it.st === 'dropped' ? 'dim' : ''}`}
-                                            onClick={() => navigate(`/customer/orders/${order.id}/lines/${i}`)}>
-                                            <td className="n">{i + 1}</td>
-                                            <td className="t1">{it.no}</td>
-                                            <td><span className="m">{it.rev}</span></td>
-                                            <td>{it.mat}</td>
-                                            <td className="n">{it.qty}</td>
-                                            <td className="n">{it.done} / {it.qty}</td>
-                                            <td>
-                                                <Pill tone={it.ship === '分批发运' ? 'in' : 'ne'} dot={false}>
-                                                    {it.ship}
-                                                </Pill>
-                                            </td>
-                                            <td>{pill(IT_ST[it.st], IT_ST.pending)}</td>
-                                            <td style={{ textAlign: 'right', color: 'var(--faint)' }}>›</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </TableWrap>
-                        </CardBody>
-                    </Card>
-                </Stack>
+                                ))}
+                            </tbody>
+                        </TableWrap>
+                    </CardBody>
+                ) : (
+                    <CardBody>
+                        <Empty
+                            text="暂无零件"
+                            sub="录入零件后可发布订单，进入估价"
+                            action={<Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>
+                                ＋ 录入零件
+                            </Link>}
+                        />
+                    </CardBody>
+                )}
+                {draft && order.parts.length > 0 && (
+                    <CardFoot
+                        left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>＋ 添加零件</Link>}
+                        right={
+                            <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit}>
+                                {canSubmit ? `发布订单（${ready} 个零件）→` : `还差 ${notReady} 个零件`}
+                            </button>
+                        }
+                    />
+                )}
+            </Card>
 
-                <Stack>
-                    <Card>
-                        <CardHead title="进度" />
-                        <CardBody>
-                            <Timeline stages={ORD_STAGES} cur={order.stage}
-                                meta={(i) => (i < order.stage ? '已完成' : i === order.stage ? '进行中' : '待开始')} />
-                        </CardBody>
-                    </Card>
-
-                    <Card>
-                        <CardHead title="随货单据" />
-                        <CardBody flush>
-                            <TableWrap>
-                                <tbody>
-                                    {DOCS.map((n) => (
-                                        <tr key={n} className="dim">
-                                            <td className="t1">{n}</td>
-                                            <td><Pill tone="ne">待生成</Pill></td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </TableWrap>
-                        </CardBody>
-                    </Card>
-                </Stack>
-            </Cols>
+            {quotes.length > 0 && (
+                <Card style={{ marginTop: 16 }}>
+                    <CardHead title="报价" />
+                    <CardBody flush>
+                        <TableWrap>
+                            <tbody>
+                                {quotes.map((q) => (
+                                    <tr className="clk" key={q.id}
+                                        onClick={() => navigate(`/customer/quotes/${q.id}`)}>
+                                        <td><span className="m">{q.id}</span></td>
+                                        <td className="n">{q.items.length} 个零件</td>
+                                        <td className="n"><b>{money(q.total)}</b></td>
+                                        <td>{pill(q.status === 'open' ? ['wa', '待确认'] : ['ok', '已确认'])}</td>
+                                        <td style={{ textAlign: 'right', color: 'var(--faint)' }}>›</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </TableWrap>
+                    </CardBody>
+                </Card>
+            )}
         </Page>
     )
 }

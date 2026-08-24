@@ -3,13 +3,16 @@
  *
  * ★ 完成数直接在表格里改并上报。做成表内输入而不是弹窗：
  *   车间的人一天要报好几行，每行弹一次窗没人受得了。
+ *
+ * ★ 签完合同不等于能开工 —— 先「确认排产」，排进计划了才给上报入口。
+ *   没排产就能报完成数，那个数就没有意义。
  */
 
 import { useState } from 'react'
-import { Input } from '../../components/form'
+import { Stepper } from '../../components/form'
 import { Bar, Card, CardBody, Empty, Hello, Page, Pill, TableWrap } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
-import { report } from '../../mock/actions'
+import { report, schedule } from '../../mock/actions'
 import { M } from '../../mock/format'
 import { contractOf, myPkgs } from '../../mock/selectors'
 
@@ -30,7 +33,7 @@ export function SupplierOrdersPage() {
                             <thead>
                                 <tr>
                                     <th>生产订单</th><th>零件</th><th>规格</th><th className="n">数量</th>
-                                    <th className="n">金额</th><th className="n">已完成</th><th>进度</th><th>上报</th>
+                                    <th className="n">金额</th><th className="n">要求交期</th><th className="n">已完成</th><th>进度</th><th>排产</th><th>上报</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -44,15 +47,31 @@ export function SupplierOrdersPage() {
                                             <td>{p.mat} · {p.surf}</td>
                                             <td className="n">{p.qty}</td>
                                             <td className="n">¥ {M(p.total)}</td>
+                                            <td className="n">{p.wantLead}</td>
                                             <td className="n">{done} / {p.qty}</td>
                                             <td style={{ minWidth: 100 }}>
                                                 <Bar pct={Math.round((done / p.qty) * 100)} />
                                             </td>
                                             <td>
-                                                <div style={{ display: 'flex', gap: 6 }}>
-                                                    <Input value={draft} style={{ width: 76, padding: '5px 8px' }}
+                                                {p.scheduled ? (
+                                                    <Pill tone="ok">已排产</Pill>
+                                                ) : (
+                                                    <button className="btn sm pri" type="button"
+                                                        onClick={() => act((s) => schedule(s, p.id))}>
+                                                        确认排产
+                                                    </button>
+                                                )}
+                                            </td>
+                                            <td>
+                                                {p.delivered ? (
+                                                    <Pill tone="ok">已交付 {p.delivered.slice(0, 10)}</Pill>
+                                                ) : (
+                                                <div style={{ display: 'flex', gap: 6, opacity: p.scheduled ? 1 : 0.4 }}>
+                                                    {/* 上限是这个包的数量 —— 报多于订单量是笔误，直接挡住 */}
+                                                    <Stepper value={draft} min={0} max={p.qty} width={116}
+                                                        placeholder="件" disabled={!p.scheduled}
                                                         onChange={(v) => setDrafts((d) => ({ ...d, [p.id]: v }))} />
-                                                    <button className="btn sm" type="button"
+                                                    <button className="btn sm" type="button" disabled={!p.scheduled}
                                                         onClick={() => {
                                                             act((s) => report(s, p.id, draft))
                                                             // 清掉缓冲，让这一行回到跟随实际已报数量
@@ -65,6 +84,7 @@ export function SupplierOrdersPage() {
                                                         上报
                                                     </button>
                                                 </div>
+                                                )}
                                             </td>
                                         </tr>
                                     )

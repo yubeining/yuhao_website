@@ -3,7 +3,7 @@
  *
  * ★ 定级和可抢范围在**通过的同一步**里定，不拆成两步。
  *   拆开的话必然出现「已开通但没定级」的中间态，而没定级的供应商
- *   在抢单大厅里该看到什么，是个没有好答案的问题。
+ *   在订单市场里该看到什么，是个没有好答案的问题。
  */
 
 import { useState } from 'react'
@@ -119,7 +119,7 @@ export function OpsOnboardingPage() {
                             <thead>
                                 <tr>
                                     <th>受邀企业</th><th>邮箱</th><th className="n">发出</th>
-                                    <th className="n">有效期至</th><th>状态</th>
+                                    <th>状态</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -128,7 +128,6 @@ export function OpsOnboardingPage() {
                                         <td className="t1">{i.name || X}</td>
                                         <td><span className="m">{i.mail || X}</span></td>
                                         <td className="n">{i.at}</td>
-                                        <td className="n">{i.exp}</td>
                                         <td>{i.used ? <Pill tone="ok">已使用</Pill> : <Pill tone="wa">未使用</Pill>}</td>
                                     </tr>
                                 ))}

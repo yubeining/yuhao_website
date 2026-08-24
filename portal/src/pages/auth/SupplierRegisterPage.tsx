@@ -4,7 +4,7 @@
  * ★ 三步在一个组件里、表单值提在最外层 —— 上一步 / 下一步来回切时值不能丢。
  *   拆成三个路由的话要把草稿存到别处，为一个一次性流程不值得。
  *
- * ★ 提交后企业是 review 状态，不是 active：能登录、能逛大厅，但抢不了单。
+ * ★ 提交后企业是 review 状态，不是 active：能登录、能逛订单市场，但抢不了单。
  *   这条规则在 actions.onboard 里，不在这儿。
  */
 
@@ -13,27 +13,30 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
     Checkbox, ErrMsg, Field, FieldRow, Input, Select, UploadDrop,
 } from '../../components/form'
-import { Card, CardBody, CardFoot, CardHead, SectionTitle, StepBar, TableWrap } from '../../components/ui'
+import { Card, CardBody, CardFoot, CardHead, SectionTitle, StepBar } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { findUserByMail, onboard } from '../../mock/actions'
 import type { Machine } from '../../mock/types'
 import { OnboardShell } from './OnboardShell'
 
 const STEPS = ['企业信息', '设备清单', '资质与账号']
-const MACHINE_TYPES = ['设备类型 1', '设备类型 2', '设备类型 3', '设备类型 4', '设备类型 5']
-const emptyMachine = (): Machine => ({ type: MACHINE_TYPES[0], qty: '', size: '', prec: '' })
+const emptyMachine = (): Machine => ({ type: '', qty: '', size: '', prec: '' })
 
+/**
+ * 资质材料清单。
+ *
+ * ★ 只留营业执照这一项 —— 它是开户的法定前提，不需要额外依据。
+ *   原来还列了体系认证、检测设备证书、过往案例，并标注「加分项」。
+ *   那是编的：一没有定过收哪些材料，二「加分项」暗示存在评分机制，
+ *   而设计文档明确写了不做评分算法（D5）。
+ */
 const DOCS: [string, string][] = [
-    ['营业执照', '必传 · 加盖公章'],
-    ['体系认证', '体系认证证书，有则传'],
-    ['检测设备证书', '校准证书，有则传'],
-    ['过往案例', '非必需，加分项'],
+    ['营业执照', '加盖公章'],
 ]
 
 export function SupplierRegisterPage() {
     const { state, act } = useMock()
     const navigate = useNavigate()
-    const p = state.params
     const [step, setStep] = useState(0)
     const [err, setErr] = useState<string | null>(null)
 
@@ -60,14 +63,6 @@ export function SupplierRegisterPage() {
         act((s) => onboard(s, { ...f, machines }))
         navigate('/auth/supplier-done')
     }
-
-    const TERMS: [string, string][] = [
-        ['付款', `融一智造收到终端客户对应货款后 ${p.payDays} 个工作日内支付；客户未付款的，付款期相应顺延`],
-        ['交付', '以每单派单包约定的交期为准，EXW 指定仓库'],
-        ['质量', '按派单包锚定的图纸版本执行，不合格批次由乙方承担返工与运费'],
-        ['保密', '不得向第三方披露图纸、终端客户身份与价格信息'],
-        ['发票', `交付后 ${p.invDays} 日内开具增值税专用发票并上传平台`],
-    ]
 
     return (
         <OnboardShell right={<Link className="btn sm qui" to="/auth/signin">稍后再填</Link>}>
@@ -116,7 +111,10 @@ export function SupplierRegisterPage() {
                         </div>
                         {machines.map((m, i) => (
                             <div className="mcrow" key={i}>
-                                <Select value={m.type} options={MACHINE_TYPES} onChange={(v) => setMachine(i, 'type', v)} />
+                                {/* ★ 没有设备类型主数据表，自由填写。原来是「设备类型 1/2/3」
+                                    的写死下拉，那是编的 —— 既无来源也无处维护。 */}
+                                <Input value={m.type} placeholder="设备类型"
+                                    onChange={(v) => setMachine(i, 'type', v)} />
                                 <Input value={m.qty} placeholder="台" onChange={(v) => setMachine(i, 'qty', v)} />
                                 <Input value={m.size} placeholder="——" onChange={(v) => setMachine(i, 'size', v)} />
                                 <Input value={m.prec} placeholder="——" onChange={(v) => setMachine(i, 'prec', v)} />
@@ -177,25 +175,18 @@ export function SupplierRegisterPage() {
                     <Card style={{ marginTop: 16 }}>
                         <CardHead title="供应商框架协议" />
                         <CardBody>
-                            <TableWrap>
-                                <tbody>
-                                    {TERMS.map(([k, v]) => (
-                                        <tr key={k}>
-                                            <td style={{ width: 70, verticalAlign: 'top' }}>
-                                                <span style={{
-                                                    fontSize: 11, fontWeight: 700, letterSpacing: '.06em',
-                                                    color: 'var(--faint)', textTransform: 'uppercase',
-                                                }}>{k}</span>
-                                            </td>
-                                            <td style={{ lineHeight: 1.65 }}>{v}</td>
-                                        </tr>
-                                    ))}
-                                </tbody>
-                            </TableWrap>
+                            {/* ★★ 协议正文**没有**放在这里，也不该由界面临时拼。
+                                原来这里列了付款、交付、质量、保密、发票五条具体条款，
+                                是从原型抄来的 —— 那是法律文本，条款一字之差就是责任归属之差，
+                                不是可以先写个像样的占着位置的东西。
+                                正文定稿之后挂成可下载的文件，在这里链过去。 */}
+                            <div style={{ fontSize: 13, color: 'var(--ink-2)', lineHeight: 1.75 }}>
+                                协议正文尚未定稿。定稿后会在此提供全文供你阅读并留存。
+                            </div>
                             <ErrMsg>{err}</ErrMsg>
                             <div className="inprow" style={{ marginTop: 14 }}>
                                 <Checkbox checked={agree} onChange={(v) => { setAgree(v); setErr(null) }}>
-                                    我已阅读并同意《供应商框架协议》与《保密协议》
+                                    我确认已了解并接受后续正式协议的约束
                                 </Checkbox>
                             </div>
                         </CardBody>

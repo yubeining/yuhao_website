@@ -62,7 +62,7 @@ export function WonPage() {
                 ) : (
                     <CardBody>
                         <Empty text="还没抢到派单包"
-                            action={<Link className="btn pri" to="/supplier/hall">去抢单大厅</Link>} />
+                            action={<Link className="btn pri" to="/supplier/hall">去订单市场</Link>} />
                     </CardBody>
                 )}
             </Card>

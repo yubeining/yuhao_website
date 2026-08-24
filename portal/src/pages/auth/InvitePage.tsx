@@ -24,7 +24,7 @@ export function InvitePage() {
                     sub={
                         <>
                             融一智造邀请 <strong>{invite.name || X}</strong> 成为平台供应商。<br />
-                            本链接一次性使用，有效期至 {invite.exp}。
+                            本链接一次性使用。
                         </>
                     }
                     action={

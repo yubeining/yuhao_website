@@ -17,7 +17,7 @@ export function SupplierDonePage() {
                 title="已提交，等待资质考察"
                 sub={
                     <>
-                        你现在可以登录浏览抢单大厅，<strong>但还不能抢单</strong>。<br />
+                        你现在可以登录浏览订单市场，<strong>但还不能抢单</strong>。<br />
                         考察通过并定级后会通知你。
                     </>
                 }

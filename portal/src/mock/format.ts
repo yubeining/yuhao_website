@@ -42,6 +42,9 @@ export const now = () => fmtDateTime(new Date())
 /** 今天起 d 天后的日期 */
 export const plus = (d: number) => fmtDate(new Date(Date.now() + d * 864e5))
 
+/** N 小时后的时间戳（fmtDateTime 格式）。抢单截止用它 —— 24 小时就是 24 小时，不凑整到天。 */
+export const plusHours = (h: number) => fmtDateTime(new Date(Date.now() + h * 36e5))
+
 /**
  * 解析本仓存下来的时间戳（fmtDateTime 的产物）。
  * 「YYYY-MM-DD HH:mm」不带时区，JS 按本地时区解析 —— 和写入时一致。
@@ -59,8 +62,10 @@ export const sum = <T,>(a: T[], f: (x: T) => number) => a.reduce((s, x) => s + f
  */
 export const hoursLeft = (exp: string): number | null => {
     if (!exp) return null
-    // exp 是 YYYY-MM-DD，算到那天结束
-    const end = new Date(`${exp}T23:59:59`).getTime()
+    // exp 是带时间的时间戳（fmtDateTime 产物）；纯日期按当天结束算
+    const end = exp.includes(' ')
+        ? parseStamp(exp).getTime()
+        : new Date(`${exp}T23:59:59`).getTime()
     const h = Math.ceil((end - Date.now()) / 36e5)
     return h > 0 ? h : 0
 }

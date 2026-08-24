@@ -1,25 +1,48 @@
 /**
  * 内部看报价 —— 唯一能同时看到对客价和供应商目标价的地方，因此也是唯一能看毛利率的地方。
  *
- * ★ 毛利率按**当前**定价参数实时算。这只在内部视图成立：
- *   对外发出的报价单必须用下单时的快照，绝不回头读配置（CLAUDE.md §10 C2）。
- *   这里是运营的经营分析视图，不是发给客户的单据。
+ * ★ 毛利率用报价单里的**快照**算（目标价、汇率都是估价那一刻存死的），
+ *   不读当前参数 —— 参数后来改了，历史单据的毛利不该跟着变（CLAUDE.md §10 C2）。
+ *
+ * ★ 上面一块是停在「待估价」的订单：系数没设全或材料没配价就估不出来，
+ *   卡在哪一项这里说清楚 —— 不然单子无声地停着，没人知道为什么。
  */
 
-import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
+import { Link } from 'react-router-dom'
+import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { findCompany } from '../../mock/actions'
 import { M, money } from '../../mock/format'
-import { targetTotal } from '../../mock/params'
+import { num, pricingBlockers } from '../../mock/params'
 import { QT_ST } from '../customer/status'
 
 export function OpsQuotesPage() {
     const { state } = useMock()
     const quotes = state.db.quotes
+    const stuck = state.db.orders.filter((o) => o.status === 'pricing')
 
     return (
         <Page>
             <Hello title="报价" />
+            {stuck.length > 0 && (
+                <Card style={{ marginBottom: 16 }}>
+                    <CardHead title="待估价" />
+                    <CardBody>
+                        {stuck.map((o) => {
+                            const blockers = pricingBlockers(state.rates, state.params, o.parts)
+                            return (
+                                <Banner key={o.id} tone={blockers.length ? 'wa' : 'in'} style={{ marginBottom: 8 }}>
+                                    <b>{o.id}</b> · {findCompany(state, o.companyId)?.name} · {o.parts.length} 个零件
+                                    {blockers.length
+                                        ? <> —— 估不出来：{blockers.join('；')}。
+                                            <Link to="/ops/rates" style={{ marginLeft: 6 }}>去定价参数 →</Link></>
+                                        : ' —— 参数齐备，估价中。'}
+                                </Banner>
+                            )
+                        })}
+                    </CardBody>
+                </Card>
+            )}
             <Card>
                 {quotes.length ? (
                     <CardBody flush>
@@ -33,8 +56,8 @@ export function OpsQuotesPage() {
                             </thead>
                             <tbody>
                                 {quotes.map((q) => {
-                                    const target = targetTotal(state.rates, state.params, q.items)
-                                    const revenue = q.total * state.params.fx
+                                    const target = q.items.reduce((a, i) => a + i.target * num(i.qty), 0)
+                                    const revenue = q.total * q.fx
                                     const gm = revenue ? Math.round(((revenue - target) / revenue) * 100) : 0
                                     return (
                                         <tr className="clk" key={q.id}>

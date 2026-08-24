@@ -26,7 +26,7 @@ export interface NavItem {
     hot?: boolean
 }
 
-/** 顶栏中部的大区切换（供应商端的「抢单大厅 / 我的工作台」）。 */
+/** 顶栏中部的大区切换（供应商端的「订单市场 / 我的工作台」）。 */
 export interface AreaTab {
     to: string
     label: string
@@ -36,7 +36,7 @@ export interface AreaTab {
 
 interface Props {
     children: ReactNode
-    /** 侧栏导航。不给则不渲染侧栏（抢单大厅是通栏的）。 */
+    /** 侧栏导航。不给则不渲染侧栏（订单市场是通栏的）。 */
     nav?: NavItem[]
     /** 设置页的路径。给了就在侧栏底部固定一个「设置」。 */
     settingsTo?: string
@@ -195,11 +195,9 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
 const CUST_NAV: NavItem[] = [
     { sec: '交易' },
     { to: '/customer', ic: '◫', n: '概览' },
-    { to: '/customer/rfqs', ic: '▤', n: '我的询价' },
-    { to: '/customer/quotes', ic: '€', n: '我的报价' },
+    // ★ 订单是整条链的主干：建订单 → 加零件 → 询价 → 确认 → 发布
     { to: '/customer/orders', ic: '▣', n: '我的订单' },
-    { sec: '资料' },
-    { to: '/customer/drawings', ic: '⌗', n: '图纸库' },
+    { to: '/customer/quotes', ic: '€', n: '我的报价' },
 ]
 
 export function CustomerShell({ children }: { children: ReactNode }) {
@@ -225,11 +223,11 @@ const SUP_NAV: NavItem[] = [
 ]
 
 const SUP_AREAS: AreaTab[] = [
-    { to: '/supplier/hall', label: '抢单大厅', match: (p) => p.startsWith('/supplier/hall') },
+    { to: '/supplier/hall', label: '订单市场', match: (p) => p.startsWith('/supplier/hall') },
     { to: '/supplier/orders', label: '我的工作台', match: (p) => !p.startsWith('/supplier/hall') },
 ]
 
-/** 供应商端。抢单大厅是通栏（full），工作台带侧栏。 */
+/** 供应商端。订单市场是通栏（full），工作台带侧栏。 */
 export function SupplierShell({ children, full, path }: {
     children: ReactNode
     full?: boolean
@@ -250,7 +248,6 @@ const OPS_NAV: NavItem[] = [
     { sec: '总览' },
     { to: '/ops/dashboard', ic: '◫', n: '工作台' },
     { sec: '询价与报价' },
-    { to: '/ops/rfqs', ic: '▤', n: '询价单' },
     { to: '/ops/quotes', ic: '€', n: '报价' },
     { to: '/ops/dispatch', ic: '⇉', n: '派单管理' },
     { sec: '执行' },

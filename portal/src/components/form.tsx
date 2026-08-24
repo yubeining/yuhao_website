@@ -56,9 +56,11 @@ export function Field({ label, children }: { label: ReactNode; children: ReactNo
     )
 }
 
-/** 两列并排的字段行。窄屏由 CSS 收成一列。 */
-export function FieldRow({ children }: { children: ReactNode }) {
-    return <div className="f2row">{children}</div>
+/**
+ * 并排的字段行。默认两列，cols=3 时自适应铺三列。窄屏由 CSS 收成一列。
+ */
+export function FieldRow({ children, cols = 2 }: { children: ReactNode; cols?: 2 | 3 }) {
+    return <div className={cols === 3 ? 'f3row' : 'f2row'}>{children}</div>
 }
 
 /** 表单级错误。永远显示在提交按钮上方 —— 提交失败时视线就在那里。 */
@@ -93,6 +95,52 @@ export function UploadDrop({ title, hint }: { title: string; hint: string }) {
         <div className="updrop">
             <div className="u1">↑ {title}</div>
             <div className="u2">{hint}</div>
+        </div>
+    )
+}
+
+/**
+ * 数量输入。手填、框选、点 ± 三种都能用。
+ *
+ * ★ 中间就是一个普通输入框 —— 能整段框选替换。填几十个零件时，
+ *   双击选中直接敲新数字比点二十下加号快得多，两种都要留着。
+ *
+ * ★ 不给 0：数量为 0 的零件不该存在于订单里，要么填数要么删掉这一行。
+ */
+export function Stepper({ value, onChange, min = 1, max, placeholder = '件', width = 132, disabled }: {
+    value: string
+    onChange: (v: string) => void
+    min?: number
+    max?: number
+    placeholder?: string
+    width?: number
+    disabled?: boolean
+}) {
+    const n = parseInt(String(value).replace(/[^\d-]/g, ''), 10)
+    const cur = Number.isFinite(n) ? n : null
+
+    const step = (d: number) => {
+        const base = cur ?? min - d          // 空着时点 + 得到 min，点 − 也得到 min
+        let next = base + d
+        if (next < min) next = min
+        if (max !== undefined && next > max) next = max
+        onChange(String(next))
+    }
+
+    return (
+        <div className="stepper" style={{ width }}>
+            <button type="button" className="st-btn" onClick={() => step(-1)}
+                disabled={disabled || (cur !== null && cur <= min)} aria-label="减一">−</button>
+            <input
+                className="st-in"
+                inputMode="numeric"
+                placeholder={placeholder}
+                value={value}
+                disabled={disabled}
+                onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
+            />
+            <button type="button" className="st-btn" onClick={() => step(1)}
+                disabled={disabled || (max !== undefined && cur !== null && cur >= max)} aria-label="加一">＋</button>
         </div>
     )
 }

@@ -104,6 +104,8 @@ a:hover{text-decoration:underline;}
   transition:background .14s,border-color .14s;}
 .langbtn:hover{background:var(--panel-3);border-color:var(--muted);color:var(--ink);}
 .f2row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+/* 一行放三个字段时用它 —— 两列栅格塞三个会把第三个挤到下一行 */
+.f3row{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;}
 .oauths{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
 .formwrap{width:100%;max-width:392px;}
 .fh{font-size:24px;font-weight:650;letter-spacing:-.015em;margin:0;}
@@ -184,7 +186,7 @@ select.inp{appearance:none;-webkit-appearance:none;cursor:pointer;
 .chead .sp{flex:1;}
 .cbody{padding:19px;}
 .cbody.flush{padding:0;}
-.cfoot{padding:13px 19px;border-top:1px solid var(--line);background:var(--panel-2);
+.cfoot{padding:13px 19px;border-top:1px solid var(--line);
   display:flex;gap:9px;align-items:center;flex-wrap:wrap;}
 .cfoot .sp{flex:1;}
 .cols{display:grid;grid-template-columns:minmax(0,1.62fr) minmax(0,1fr);gap:18px;align-items:start;}
@@ -214,8 +216,8 @@ select.inp{appearance:none;-webkit-appearance:none;cursor:pointer;
 .tw{overflow-x:auto;}
 table{width:100%;border-collapse:collapse;font-size:13.5px;}
 th{text-align:left;white-space:nowrap;font-size:10.5px;font-weight:700;letter-spacing:.08em;
-  text-transform:uppercase;color:var(--faint);padding:10px 17px;border-bottom:1px solid var(--line);
-  background:var(--panel-2);}
+  text-transform:uppercase;color:var(--faint);padding:10px 17px;
+  border-bottom:1px solid var(--line-2);}
 td{padding:12px 17px;border-bottom:1px solid var(--line);vertical-align:middle;}
 tbody tr:last-child td{border-bottom:0;}
 tbody tr.clk{cursor:pointer;transition:background .12s;}
@@ -295,12 +297,14 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .empty .s2{font-size:12.5px;color:var(--faint);margin-top:4px;}
 .sect-t{font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
   color:var(--faint);margin:0 0 12px;}
-.ban{display:flex;gap:11px;align-items:flex-start;border-radius:var(--r2);padding:12px 15px;
-  font-size:13px;line-height:1.62;border:1px solid transparent;}
-.ban .bi{font-family:var(--mono);font-weight:700;flex:none;}
-.ban.in{background:var(--acc-wash);border-color:var(--acc-line);color:var(--acc-ink);}
-.ban.wa{background:var(--warn-wash);border-color:var(--warn-line);color:var(--warn);}
-.ban.ok{background:var(--ok-wash);border-color:var(--ok-line);color:var(--ok);}
+.ban{display:flex;gap:10px;align-items:flex-start;padding:2px 0 2px 13px;
+  font-size:13px;line-height:1.65;color:var(--ink-2);
+  border-left:2px solid var(--line-2);border-radius:0;background:transparent;}
+.ban .bi{display:none;}
+.ban strong{font-weight:600;color:var(--ink);}
+.ban.in{border-left-color:var(--acc);}
+.ban.wa{border-left-color:var(--warn);}
+.ban.ok{border-left-color:var(--ok);}
 
 /* ═══════════════════════════════ 应用外壳（三端共用 · 左深右浅） */
 .appshell{display:flex;flex:1;min-height:0;}
@@ -525,8 +529,9 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .btn:disabled:hover{background:var(--panel);}
 
 /* ═══════════════════════════════ 上传与解析 */
-.drop{border:1.5px dashed var(--line-2);border-radius:var(--r3);background:var(--panel-2);
-  padding:30px 22px;text-align:center;}
+.drop{border:1px dashed var(--line-2);border-radius:var(--r2);background:transparent;
+  padding:22px;text-align:center;transition:border-color .14s;}
+.drop:hover{border-color:var(--acc-line);}
 .drop .dz{width:46px;height:46px;margin:0 auto 12px;border-radius:var(--r2);background:var(--acc-wash);
   border:1px solid var(--acc-line);color:var(--acc-ink);display:grid;place-items:center;font-size:19px;}
 .drop .d1{font-size:14.5px;font-weight:600;}
@@ -539,8 +544,10 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .file .fn{font-size:13px;font-weight:600;}
 .file .fs{font-family:var(--mono);font-size:11px;color:var(--faint);margin-top:1px;}
 .file .sp{flex:1;}
-tr.rowbad td{background:var(--bad-wash);}
-tr.rowwarn td{background:var(--warn-wash);}
+/* ★ 状态用左侧细标线表示，不给整行铺色 ——
+   几十行里三五行铺满黄底红底，扫一眼像是出了故障。 */
+tr.rowbad td:first-child{box-shadow:inset 2px 0 0 var(--bad);}
+tr.rowwarn td:first-child{box-shadow:inset 2px 0 0 var(--warn);}
 tr.rowskip td{opacity:.5;}
 .raw{font-family:var(--mono);font-size:11px;color:var(--faint);}
 tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var(--line-2);}
@@ -600,42 +607,19 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
   letter-spacing:.02em;}
 .dslot-s{font-size:11px;color:var(--faint);line-height:1.45;}
 
-/* ═══════════════════════════════ 零件卡
-   ★ 零件是原子，不是清单里的一行 —— 它带着自己的图纸、规格和数量。
-     摊平成表格行之后「这几个文件属于这个零件」就没地方放了。见 PartCard.tsx。 */
-.pcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
-  box-shadow:var(--sh-1);overflow:hidden;}
-.pcard.warn{border-color:var(--warn-line);}
-.pcard.bad{border-color:var(--bad-line);}
-.pcard-hd{display:flex;align-items:center;gap:10px;padding:11px 16px;
-  border-bottom:1px solid var(--line);background:var(--panel-2);}
-.pcard.warn .pcard-hd{background:var(--warn-wash);}
-.pcard.bad .pcard-hd{background:var(--bad-wash);}
-.pcard-n{width:22px;height:22px;border-radius:50%;flex:none;display:grid;place-items:center;
-  background:var(--panel-3);color:var(--muted);font-family:var(--mono);font-size:11.5px;font-weight:700;}
-.pcard-id{display:flex;align-items:center;gap:9px;min-width:0;}
-.pcard-no{font-family:var(--mono);font-size:14px;font-weight:650;letter-spacing:-.01em;}
-.pcard-hd .sp{flex:1;}
-.pcard-bd{display:grid;grid-template-columns:repeat(auto-fit,minmax(148px,1fr));
-  gap:12px 16px;padding:14px 16px;}
-.pcard-bd.refs{padding-top:0;border-top:1px dashed var(--line);padding-top:13px;}
-.pf{display:flex;flex-direction:column;gap:5px;min-width:0;}
-.pf-k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--faint);}
-.pcard-ft{display:flex;align-items:flex-start;gap:11px;padding:11px 16px;
-  border-top:1px solid var(--line);background:var(--panel-2);flex-wrap:wrap;}
-.pcard-fk{font-size:11.5px;color:var(--muted);flex:none;padding-top:3px;}
-.pcard-files{display:flex;gap:6px;flex-wrap:wrap;min-width:0;}
-.fchip{display:inline-flex;align-items:center;gap:6px;max-width:250px;
-  border:1px solid var(--line);background:var(--panel);border-radius:var(--r1);
-  padding:3px 8px;font-size:11.5px;color:var(--ink-2);
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+/* ═══════════════════════════════ 零件行
+   ★ 一单几十个零件是常态（真实样本 58 个），所以是紧凑表格行不是卡片。
+     图纸做成只有格式角标的小片，把宽度留给名称和数量。见 PartRow.tsx。 */
+.fcell{display:flex;align-items:center;gap:4px;flex-wrap:wrap;min-width:96px;}
+.fchip{display:inline-flex;align-items:center;gap:2px;
+  border:1px solid var(--acc-line);background:var(--acc-wash);border-radius:var(--r1);
+  padding:1px 3px 1px 5px;}
 .fchip .fx{font-family:var(--mono);font-size:9.5px;font-weight:700;letter-spacing:.04em;
-  color:var(--acc-ink);background:var(--acc-wash);border:1px solid var(--acc-line);
-  border-radius:3px;padding:0 4px;flex:none;}
-.fchip i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--faint);flex:none;}
-.pcard-why{padding:10px 16px;font-size:12.5px;line-height:1.6;color:var(--ink-2);
-  border-top:1px solid var(--line);background:var(--panel-3);}
-.parts{display:flex;flex-direction:column;gap:12px;}
+  color:var(--acc-ink);}
+.fchip .fdel{border:0;background:transparent;color:var(--acc-ink);opacity:.5;
+  font-size:12px;line-height:1;padding:0 1px;}
+.fchip .fdel:hover{opacity:1;color:var(--bad);}
+.dim2{color:var(--faint);font-style:normal;font-size:12px;}
 .fchip b{font-weight:400;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
 .fchip .fdel{border:0;background:transparent;color:var(--faint);font-size:13px;line-height:1;
   padding:0 0 0 2px;flex:none;}
@@ -643,23 +627,36 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .pcard-hint{font-size:11.5px;color:var(--faint);overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;max-width:260px;min-width:0;}
 
-/* ═══════════════════════════════ 智能识别条
-   ★ 刻意做得比表单轻 —— 它是加速器不是必经步骤，不该占版面重心。
-     参照寄快递页面的「智能识别」：表单是主体，它挂在旁边。 */
-.recog{display:flex;align-items:center;gap:13px;margin-bottom:14px;padding:12px 16px;
-  border:1.5px dashed var(--line-2);border-radius:var(--r2);background:var(--panel-2);
-  cursor:pointer;transition:border-color .14s,background .14s;}
-.recog:hover,.recog.on{border-color:var(--acc);background:var(--acc-wash);}
-.recog-ic{width:30px;height:30px;flex:none;border-radius:var(--r2);display:grid;place-items:center;
-  background:var(--panel);border:1px solid var(--line);color:var(--acc-ink);font-size:15px;}
-.recog.on .recog-ic{background:var(--acc);color:#fff;border-color:var(--acc);}
-.recog-tx{display:flex;flex-direction:column;gap:2px;min-width:0;flex:1;}
-.recog-tx b{font-size:13.5px;font-weight:600;}
-.recog-tx span{font-size:12px;color:var(--muted);line-height:1.5;}
-.recog-btn{flex:none;font-size:12.5px;font-weight:550;color:var(--acc-ink);
-  border:1px solid var(--acc-line);background:var(--panel);border-radius:var(--r1);padding:5px 12px;}
-.recog-note{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:8px 14px;
-  border:1px solid var(--ok-line);background:var(--ok-wash);color:var(--ok);
-  border-radius:var(--r2);font-size:12.5px;}
-.recog-note button{margin-left:auto;border:0;background:transparent;color:var(--ok);
-  font-size:12.5px;text-decoration:underline;}
+/* ═══════════════════════════════ 数量步进器
+   ★ 三种输入方式并存：手填、框选替换、点 ±。见 form.tsx 的 Stepper。 */
+.stepper{display:inline-flex;align-items:stretch;border:1px solid var(--line-2);
+  border-radius:var(--r2);background:var(--panel);overflow:hidden;
+  transition:border-color .15s,box-shadow .15s;}
+.stepper:focus-within{border-color:var(--acc);box-shadow:0 0 0 3px var(--acc-wash);}
+.stepper .st-btn{flex:none;width:32px;border:0;background:transparent;color:var(--muted);
+  font-size:15px;line-height:1;display:grid;place-items:center;
+  transition:background .12s,color .12s;}
+.stepper .st-btn:hover:not(:disabled){background:var(--acc-wash);color:var(--acc-ink);}
+.stepper .st-btn:active:not(:disabled){background:var(--acc-line);}
+.stepper .st-btn:disabled{opacity:.35;cursor:default;}
+.stepper .st-btn:first-child{border-right:1px solid var(--line);}
+.stepper .st-btn:last-child{border-left:1px solid var(--line);}
+.stepper .st-in{flex:1;min-width:0;border:0;background:transparent;color:var(--ink);
+  text-align:center;padding:8px 4px;font-size:14px;
+  font-family:var(--mono);font-variant-numeric:tabular-nums;}
+.stepper .st-in:focus{outline:none;}
+.stepper .st-in::placeholder{color:var(--faint);font-family:var(--sans);}
+
+/* ═══════════════════════════════ 零件附件
+   ★ 附件属于零件，所以嵌在零件信息卡里、排在字段之后 ——
+     它是这个零件的补充材料，不该占一整张卡。见 PartFormPage.tsx。 */
+.attach{margin-top:16px;padding-top:14px;border-top:1px solid var(--line);}
+.attach-hd{display:flex;align-items:center;gap:9px;flex-wrap:wrap;}
+.attach-k{font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--faint);}
+.attach-hint{font-size:12px;color:var(--muted);}
+.attach-hd .sp{flex:1;}
+.fchip.lg{padding:3px 4px 3px 7px;gap:5px;max-width:300px;}
+.fchip.lg b{font-weight:400;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap;min-width:0;}
+.fchip.lg i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--faint);flex:none;}

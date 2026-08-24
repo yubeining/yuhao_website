@@ -61,7 +61,9 @@ export function BillPage() {
                                                 {paid
                                                     ? <b>{dueDate(state, o)}</b>
                                                     : <span style={{ color: 'var(--muted)' }}>
-                                                        客户回款后 T+{state.params.payDays}
+                                                        {state.params.payDays != null
+                                                            ? `客户回款后 T+${state.params.payDays} 天`
+                                                            : '客户回款后支付'}
                                                     </span>}
                                             </td>
                                             <td>

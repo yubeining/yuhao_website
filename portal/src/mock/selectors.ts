@@ -10,10 +10,7 @@ import { currentCompany, type findCompany } from './actions'
 import type { MockState } from './store'
 import type { Order, Pkg, Quote } from './types'
 
-export const myRfqs = (s: MockState) => {
-    const c = currentCompany(s)
-    return c ? s.db.rfqs.filter((r) => r.companyId === c.id) : []
-}
+
 
 export const myQuotes = (s: MockState) => {
     const c = currentCompany(s)
@@ -34,6 +31,10 @@ export const myPkgs = (s: MockState) => {
 export const quoteOf = (s: MockState, o: Order): Quote | undefined =>
     s.db.quotes.find((q) => q.id === o.quoteId)
 
+/** 一个订单的所有报价版本（补齐之后会出新版） */
+export const quotesOf = (s: MockState, orderId: string) =>
+    s.db.quotes.filter((q) => q.orderId === orderId)
+
 export const orderTotal = (s: MockState, o: Order) => quoteOf(s, o)?.total ?? 0
 
 /**
@@ -43,10 +44,10 @@ export const orderTotal = (s: MockState, o: Order) => quoteOf(s, o)?.total ?? 0
  *   算进分母的话进度永远到不了 100%，客户会以为卡住了。
  */
 export const progress = (o: Order) => {
-    const live = o.items.filter((i) => i.st !== 'dropped')
+    const live = o.parts.filter((p) => p.st && !p.dropped)
     if (!live.length) return 0
-    const done = live.reduce((a, i) => a + num(i.done), 0)
-    const total = live.reduce((a, i) => a + num(i.qty), 0)
+    const done = live.reduce((a, p) => a + num(p.done), 0)
+    const total = live.reduce((a, p) => a + num(p.qty), 0)
     return Math.round((done / Math.max(1, total)) * 100)
 }
 
@@ -58,7 +59,11 @@ export const contractOf = (s: MockState, pkgId: string) =>
 
 export const openPkgs = (s: MockState) => s.db.pkgs.filter((p) => p.status === 'open')
 
-export const capacityOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'capacity')
+/** 已确认价格、等着发布到订单市场的订单 —— 内部端的待办 */
+export const confirmedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'toPublish')
+
+/** 已发布、产能还没锁满的订单 */
+export const publishedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'published')
 
 export const pendingSuppliers = (s: MockState) =>
     s.db.companies.filter((c) => c.status === 'review')

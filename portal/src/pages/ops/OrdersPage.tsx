@@ -18,7 +18,7 @@ export function OpsOrdersPage() {
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>订单</th><th>客户</th><th className="n">行数</th><th className="n">金额</th>
+                                    <th>订单</th><th>客户</th><th className="n">零件</th><th className="n">金额</th>
                                     <th className="n">下单</th><th>进度</th><th>客户回款</th><th>状态</th>
                                 </tr>
                             </thead>
@@ -27,7 +27,7 @@ export function OpsOrdersPage() {
                                     <tr className="clk" key={o.id}>
                                         <td><span className="m">{o.id}</span></td>
                                         <td className="t1">{findCompany(state, o.companyId)?.name}</td>
-                                        <td className="n">{o.items.length}</td>
+                                        <td className="n">{o.parts.length}</td>
                                         <td className="n">{money(orderTotal(state, o))}</td>
                                         <td className="n">{o.at.slice(0, 10)}</td>
                                         <td style={{ minWidth: 100 }}><Bar pct={progress(o)} /></td>
