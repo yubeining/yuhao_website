@@ -32,7 +32,10 @@ export interface MockState {
     session: MockSession
 }
 
-const STORAGE_KEY = 'mfg.prototype.v3'
+// v4：定价参数和材料成本带上了演示种子（params.ts）。种子只在 loadState 取不到
+// 存档时才播，所以停在 v3 存档上的会话吃不到它 —— 换 key 是让它们重播一次，
+// 否则打开还是「一条材料都没配」。
+const STORAGE_KEY = 'mfg.prototype.v4'
 
 const emptyDb = (): Db => ({
     companies: [],
