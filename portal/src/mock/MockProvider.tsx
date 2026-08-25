@@ -13,7 +13,7 @@ import {
     type ReactNode,
 } from 'react'
 import { clone, loadState, resetState, saveState, type MockState } from './store'
-import { finishPricing } from './actions'
+import { autoQuotable, finishPricing, runAi } from './actions'
 import { pricingBlockers } from './params'
 import { STRINGS, type Lang, type Strings } from '../i18n/strings'
 
@@ -106,10 +106,13 @@ export function MockProvider({ children }: { children: ReactNode }) {
      *   客户本人停在那一页时才推进 —— 提交完随手点走，单子就永久停在「估价中」，
      *   运营端也救不回来。估价是平台在后台做的事，不该取决于谁开着哪一页。
      *
-     * ★ 只在**真能出价**时才写 state：系数没设全或材料没配基准成本时
-     *   finishPricing 本来就会拒绝出价，这里先用 pricingBlockers 判一次，
-     *   免得每一跳都 clone + 落盘一遍，白白触发整棵树重渲染。
-     *   顺带来了一个正确的行为：卡住的单子在运营把参数配齐的下一跳会自动接着估。
+     * ★ 一跳做两件事：先跑 AI 估价，再看能不能出报价单。
+     *   **AI 只对每个零件跑一次**（runAi 跳过已经有基准成本的零件），
+     *   所以置信度不够的零件不会被反复重估 —— 它停在那里等人工，这正是设计（文档 8 §5）。
+     *
+     * ★ 出不了价就**什么都不写**：估过一轮之后还缺基准成本，说明在等运营。
+     *   这时候每一跳都 clone + 落盘只会白白触发整棵树重渲染。
+     *   顺带来了一个正确的行为：运营在报价工作台把价填上，下一跳单子自己就往前走了。
      *
      * ★ 计时从「本次会话第一次看见它在估价」算起，不从 submittedAt 算 ——
      *   落盘的时间戳只到分钟，量不了 5 秒。刷新页面会重新等一轮，这是占位实现
@@ -129,10 +132,18 @@ export function MockProvider({ children }: { children: ReactNode }) {
                     return false
                 }
                 if (t - from < PRICING_MS) return false
-                return pricingBlockers(s.rates, s.params, o.parts).length === 0
+                // 还没估过的零件（要跑 AI），或者 AI 全程搞定、可以自动出单的。
+                // ★ 第二个条件同时要 pricingBlockers 为空和 autoQuotable：
+                //   前者防「系数还缺一项」时每一跳白写一次 state；
+                //   后者把沾了人工定价的单子留给运营自己按按钮，不抢在他前面发出去。
+                return o.parts.some((p) => p.base == null && p.ai === undefined)
+                    || (autoQuotable(o) && pricingBlockers(s.params, o.parts).length === 0)
             })
             if (!due.length) return
-            actWith((next) => due.forEach((o) => finishPricing(next, o.id)))
+            actWith((next) => due.forEach((o) => {
+                runAi(next, o.id)
+                finishPricing(next, o.id)
+            }))
         }
         const id = window.setInterval(tick, TICK_MS)
         return () => window.clearInterval(id)

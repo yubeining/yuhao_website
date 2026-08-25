@@ -10,6 +10,7 @@
  */
 
 import { X, fmtDate, now, parseStamp, plus, plusHours, today } from './format'
+import { estimate, usable } from './ai'
 import { custUnit, num, pricingBlockers, supTarget } from './params'
 import { nextId, type MockState } from './store'
 import type { Company, LineStat, Order, OrderPart, PartExecStatus, Quote, QuoteItem } from './types'
@@ -236,7 +237,16 @@ export const updatePart = (s: MockState, orderId: string, partId: string, patch:
     if (!p) return
     const drawingsChanged = patch.files !== undefined && !sameFiles(patch.files, p.files)
     const wasQuoted = p.unit !== undefined
+    // ★ 材料变了，基准成本就作废 —— 成本是按材料估的，换了材料还留着旧价，
+    //   那个价就成了一个来源已经不存在的数字。图纸变了同理。
+    const specChanged = drawingsChanged || (patch.mat !== undefined && patch.mat !== p.mat)
     Object.assign(p, patch)
+    if (specChanged) {
+        delete p.base
+        delete p.baseSrc
+        delete p.baseAt
+        delete p.ai
+    }
     if (drawingsChanged && wasQuoted) {
         p.version += 1
         p.unit = undefined
@@ -296,6 +306,74 @@ export const submitOrder = (s: MockState, orderId: string) => {
 }
 
 /**
+ * 跑一遍 AI 估价。**只填还没有基准成本的零件。**
+ *
+ * ★ 已经定过价的不覆盖 —— 运营手工改过的价，绝不能被后来的一次自动估价冲掉。
+ *
+ * ★ 估价结果**不管采不采用都留在零件上**（part.ai）：
+ *   置信度够就落价（baseSrc = 'ai'），不够就只留结果、不落价，转人工（文档 8 §5）。
+ *   留着是为了让运营看见「模型说了什么、有多大把握」，那是判断手填价合不合理的依据。
+ *
+ * 返回这一轮估了几个、其中几个够格采用。
+ */
+export const runAi = (s: MockState, orderId: string) => {
+    const o = s.db.orders.find((x) => x.id === orderId)
+    if (!o) return { ran: 0, taken: 0 }
+    const at = now()
+    let ran = 0
+    let taken = 0
+    o.parts.forEach((p) => {
+        if (p.base != null) return
+        const e = estimate(p, s.rates, at)
+        p.ai = e
+        ran++
+        if (usable(e)) {
+            p.base = e.base
+            p.baseSrc = 'ai'
+            p.baseAt = at
+            taken++
+        }
+    })
+    return { ran, taken }
+}
+
+/**
+ * 人工定价 —— 运营给某个零件填基准成本（¥/件）。
+ *
+ * ★★ 这是 AI 说「没把握」之后唯一的出路（文档 8 §5），也是随时可以推翻 AI 的入口。
+ *
+ * ★ 覆写会记下来源和时刻。**不许静默改价** —— 事后要能说清这一行的价
+ *   是模型估的还是人定的，否则复盘时分不清是模型不准还是人填错了。
+ *
+ * ★ 传 null 表示撤销人工价，退回「还没有基准成本」。不顺手把 AI 的估值填回去 ——
+ *   撤销是「我不认这个价」，不是「我要用模型那个价」，那是另一个决定。
+ */
+export const setBase = (s: MockState, orderId: string, partId: string, value: number | null) => {
+    const p = s.db.orders.find((x) => x.id === orderId)?.parts.find((x) => x.id === partId)
+    if (!p) return
+    if (value == null || !(value > 0)) {
+        delete p.base
+        delete p.baseSrc
+        delete p.baseAt
+        return
+    }
+    p.base = +value.toFixed(2)
+    p.baseSrc = 'manual'
+    p.baseAt = now()
+}
+
+/**
+ * 这一单能不能**自动**出报价单 —— 每一个零件都是 AI 估出来的。
+ *
+ * ★★ 只要有一个零件是人工定的价，就不自动出单。
+ *   人工定价意味着这一单已经在运营手上了：他刚填完最后一个价，
+ *   下一秒单子自己发出去，等于把「再看一眼」的机会拿掉了。
+ *   AI 全程搞定的单子不占人，自动走；沾了人的单子，由那个人按按钮（文档 8 §5）。
+ */
+export const autoQuotable = (o: Order) =>
+    o.parts.length > 0 && o.parts.every((p) => p.baseSrc === 'ai')
+
+/**
  * 估价完成，出报价单。
  *
  * ★ 由估价过程结束时调用，不是提交那一刻。**估价要时间** ——
@@ -306,12 +384,12 @@ export const finishPricing = (s: MockState, orderId: string): Quote | undefined 
     const o = s.db.orders.find((x) => x.id === orderId)
     if (!o || o.status !== 'pricing') return undefined
 
-    // ★★ 闸门：系数没设全、或有材料没配基准成本 → 不出价，单子停在待估价。
+    // ★★ 闸门：系数没设全、或有零件还没有基准成本 → 不出价，单子停在待估价。
     //   以前这里有个 ¥100 的兜底价，随便填个材料都能"估"出结果 —— 那是编数字。
-    if (pricingBlockers(s.rates, s.params, o.parts).length) return undefined
+    if (pricingBlockers(s.params, o.parts).length) return undefined
 
     const items: QuoteItem[] = o.parts.map((p) => {
-        const unit = custUnit(s.rates, s.params, p)!
+        const unit = custUnit(s.params, p.base)!
         const total = +(unit * num(p.qty)).toFixed(2)
         p.unit = unit
         p.total = total
@@ -320,7 +398,11 @@ export const finishPricing = (s: MockState, orderId: string): Quote | undefined 
             version: p.version, customerRev: p.customerRev,
             mat: p.mat, surf: p.surf, qty: p.qty, unit, total,
             // 供应商目标价也在此刻算死 —— 发布时不回头读参数（C2）
-            target: supTarget(s.rates, s.params, p)!,
+            target: supTarget(s.params, p.base)!,
+            // 基准成本和它的来源一并快照。毛利要按当时的成本算，
+            // 「这个价是谁定的」也要跟着单据走，不能回头读零件（C2）
+            base: p.base!,
+            baseSrc: p.baseSrc ?? 'manual',
         }
     })
     const quote: Quote = {

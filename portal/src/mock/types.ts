@@ -9,6 +9,8 @@
  *   现在就对齐，将来换成真接口时页面不用改。
  */
 
+import type { AiEstimate } from './ai'
+
 /** 交易方类型。和后端 PartyType / 路由前缀三者对齐。 */
 export type PartyKind = 'platform' | 'customer' | 'supplier' | 'both'
 
@@ -134,6 +136,26 @@ export interface OrderPart {
     topicNo?: string
     files: RfqFile[]
 
+    /* ── 估价之后才有 ─────────────────────────────────────────── */
+    /**
+     * 基准成本 ¥/件 —— **这个零件的制造成本，不是对客价**（文档 8 §1）。
+     *
+     * ★ 它是定价的唯一输入：对客价和供应商目标价都是在它身上乘出来的。
+     *   没有它就出不了价 —— 这正是 pricingBlockers 卡住整单的那一项。
+     *
+     * ★ 两个来源，**必须能分清是哪一个**（见 baseSrc）：AI 估的，或者运营手填的。
+     */
+    base?: number
+    /** 基准成本是谁定的。AI 估价低于阈值时只有人工这一条路（文档 8 §5） */
+    baseSrc?: 'ai' | 'manual'
+    /** 定这个价的时刻。人工改价要留痕 —— 事后要能说清价是什么时候、由哪一侧定的 */
+    baseAt?: string
+    /**
+     * 最近一次 AI 估价的输出。**采不采用都留着** ——
+     * 运营手工覆写之后，原来那个估值和它的置信度是判断覆写对不对的唯一依据。
+     */
+    ai?: AiEstimate
+
     /* ── 报价之后才有 ─────────────────────────────────────────── */
     /** 对客单价（€/件） */
     unit?: number
@@ -228,6 +250,10 @@ export interface QuoteItem {
     total: number
     /** 供应商目标价快照（¥/件）。估价时和对客价一起算死，发布派单包用它，不回头读参数 */
     target: number
+    /** 基准成本快照（¥/件）。内部算毛利用它，不回头读零件（CLAUDE.md §10 C2） */
+    base: number
+    /** 这一行的价当时是 AI 估的还是人工定的。**内部字段，不出现在客户看到的报价单上** */
+    baseSrc: 'ai' | 'manual'
 }
 
 export interface Quote {

@@ -98,39 +98,43 @@ export const SURFACES: string[] = []
 export const materials = (rates: Rate[]) => rates.map((r) => r.mat)
 
 /**
- * 查基准成本。查不到就是查不到 ——
+ * 查材料基准成本。查不到就是查不到 ——
  * 这里曾经写过 `|| { rate: 100 }`：材料没配价就按 ¥100 算，
  * 于是任何随手填的材料都能"估"出一个价。那是整个原型里最重的一处编造。
+ *
+ * ★ 这张表现在的角色是 **AI 估价的锚点**（mock/ai.ts），不再被定价公式直接读。
+ *   零件的基准成本一律取 part.base —— 那个值要么是 AI 估的，要么是运营填的，
+ *   两者都留了来源。查表直接算价等于绕开了「这个价是谁定的」这个问题。
  */
-const rateOf = (rates: Rate[], mat: string) => rates.find((r) => r.mat === mat)?.rate
+export const rateOf = (rates: Rate[], mat: string) => rates.find((r) => r.mat === mat)?.rate
 
 /**
- * 这一单现在能不能估价。返回缺的东西，空数组 = 能估。
+ * 这一单现在能不能出报价。返回缺的东西，空数组 = 能出。
  * finishPricing 用它做闸门，内部后台用它解释单子为什么停在待估价。
+ *
+ * ★ 零件缺基准成本是最常见的一项：AI 说没把握、运营还没定价，都会落到这里。
  */
-export const pricingBlockers = (rates: Rate[], p: PlatformParams, parts: OrderPart[]): string[] => {
+export const pricingBlockers = (p: PlatformParams, parts: OrderPart[]): string[] => {
     const out: string[] = []
     if (p.margin == null) out.push('利润率未设置')
     if (p.spread == null) out.push('议价空间未设置')
     if (p.fx == null) out.push('汇率未设置')
     parts.forEach((pt) => {
-        if (rateOf(rates, pt.mat) === undefined) out.push(`材料「${pt.mat || '（空）'}」没有基准成本`)
+        if (pt.base == null) out.push(`零件「${pt.no || pt.name || '未命名'}」还没有基准成本`)
     })
     return [...new Set(out)]
 }
 
 /** 对客单价（€/件）= 基准成本 × (1 + 利润率) ÷ 汇率。缺任何一项返回 null。 */
-export const custUnit = (rates: Rate[], p: PlatformParams, item: OrderPart): number | null => {
-    const rate = rateOf(rates, item.mat)
-    if (rate === undefined || p.margin == null || p.fx == null) return null
-    return +((rate * (1 + p.margin / 100)) / p.fx).toFixed(2)
+export const custUnit = (p: PlatformParams, base: number | undefined): number | null => {
+    if (base == null || p.margin == null || p.fx == null) return null
+    return +((base * (1 + p.margin / 100)) / p.fx).toFixed(2)
 }
 
 /** 供应商目标价（¥/件）= 基准成本 × (1 + 议价空间)。缺任何一项返回 null。 */
-export const supTarget = (rates: Rate[], p: PlatformParams, item: OrderPart): number | null => {
-    const rate = rateOf(rates, item.mat)
-    if (rate === undefined || p.spread == null) return null
-    return +(rate * (1 + p.spread / 100)).toFixed(2)
+export const supTarget = (p: PlatformParams, base: number | undefined): number | null => {
+    if (base == null || p.spread == null) return null
+    return +(base * (1 + p.spread / 100)).toFixed(2)
 }
 
 /** 宽松取数：输入框里的值可能带单位或为空，取不出数就当 0。 */
