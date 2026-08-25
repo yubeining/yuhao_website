@@ -13,6 +13,8 @@ import {
     type ReactNode,
 } from 'react'
 import { clone, loadState, resetState, saveState, type MockState } from './store'
+import { finishPricing } from './actions'
+import { pricingBlockers } from './params'
 import { STRINGS, type Lang, type Strings } from '../i18n/strings'
 
 export type Theme = 'light' | 'dark'
@@ -38,6 +40,18 @@ interface MockContextValue {
 }
 
 const MockContext = createContext<MockContextValue | null>(null)
+
+/**
+ * 估价耗时的占位时长。
+ *
+ * ★ 估价要时间 —— 解析几何、识别特征、算工时。界面上必须表现出这段时间，
+ *   不能装成填完材料就有价，那会让客户以为价格是查表查出来的。
+ *   接真后端时这里换成轮询或推送。
+ */
+const PRICING_MS = 5000
+
+/** 估价轮询间隔。没有待估价的单子时这一跳什么都不做，也不写 state。 */
+const TICK_MS = 1000
 
 const LANG_KEY = 'mfg.prototype.lang'
 const THEME_KEY = 'mfg.prototype.theme'
@@ -83,6 +97,47 @@ export function MockProvider({ children }: { children: ReactNode }) {
         },
         [actWith],
     )
+
+    /**
+     * 估价工人。
+     *
+     * ★★ 挂在 Provider 上，**不挂在订单详情页里**。
+     *   上一版把这个定时器写在客户的订单详情页 useEffect 里，于是估价只在
+     *   客户本人停在那一页时才推进 —— 提交完随手点走，单子就永久停在「估价中」，
+     *   运营端也救不回来。估价是平台在后台做的事，不该取决于谁开着哪一页。
+     *
+     * ★ 只在**真能出价**时才写 state：系数没设全或材料没配基准成本时
+     *   finishPricing 本来就会拒绝出价，这里先用 pricingBlockers 判一次，
+     *   免得每一跳都 clone + 落盘一遍，白白触发整棵树重渲染。
+     *   顺带来了一个正确的行为：卡住的单子在运营把参数配齐的下一跳会自动接着估。
+     *
+     * ★ 计时从「本次会话第一次看见它在估价」算起，不从 submittedAt 算 ——
+     *   落盘的时间戳只到分钟，量不了 5 秒。刷新页面会重新等一轮，这是占位实现
+     *   可以接受的代价；接后端之后时间由服务端说了算。
+     */
+    const seenAt = useRef(new Map<string, number>())
+
+    useEffect(() => {
+        const tick = () => {
+            const s = latest.current
+            const t = Date.now()
+            const due = s.db.orders.filter((o) => {
+                if (o.status !== 'pricing') return false
+                const from = seenAt.current.get(o.id)
+                if (from === undefined) {
+                    seenAt.current.set(o.id, t)
+                    return false
+                }
+                if (t - from < PRICING_MS) return false
+                return pricingBlockers(s.rates, s.params, o.parts).length === 0
+            })
+            if (!due.length) return
+            actWith((next) => due.forEach((o) => finishPricing(next, o.id)))
+        }
+        const id = window.setInterval(tick, TICK_MS)
+        return () => window.clearInterval(id)
+        // actWith 是稳定的（useCallback 无依赖），这个 interval 跟着 Provider 活一辈子
+    }, [])
 
     const reset = useCallback(() => {
         const fresh = resetState()

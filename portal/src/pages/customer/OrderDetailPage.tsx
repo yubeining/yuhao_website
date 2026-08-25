@@ -17,7 +17,7 @@
  *   真实客户清单里本来就没有这两列（设计文档 9 §3）。
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
@@ -26,7 +26,7 @@ import {
 } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import {
-    finishPricing, orderReady, partStat, publishOrder, removePart, submitOrder, updateOrder,
+    orderReady, partStat, publishOrder, removePart, submitOrder, updateOrder,
 } from '../../mock/actions'
 import { X, money, sum } from '../../mock/format'
 import { num } from '../../mock/params'
@@ -34,7 +34,7 @@ import { myOrders, progress, quotesOf } from '../../mock/selectors'
 import { EXEC_ST, isPublished, ORD_ST, PART_ST } from './status'
 
 export function OrderDetailPage() {
-    const { state, act, actWith } = useMock()
+    const { state, act } = useMock()
     const navigate = useNavigate()
     const { id } = useParams()
     const order = myOrders(state).find((o) => o.id === id)
@@ -50,21 +50,6 @@ export function OrderDetailPage() {
     const canSubmit = orderReady(order)
     const published = isPublished(order.status)
     const quotedTotal = quotes.reduce((a, q) => a + q.total, 0)
-
-    /**
-     * 估价过程。
-     *
-     * ★ 估价要时间 —— 解析几何、识别特征、算工时。演示里用一个定时器占位，
-     *   接真后端时换成轮询或推送。**不要退回「填完材料就有价」** ——
-     *   那会让客户以为价格是查表查出来的。
-     */
-    useEffect(() => {
-        if (order?.status !== 'pricing') return
-        const t = window.setTimeout(() => {
-            actWith((s) => finishPricing(s, order.id))
-        }, 5000)
-        return () => window.clearTimeout(t)
-    }, [order?.status, order?.id, actWith])
 
     const submit = () => {
         if (!order.parts.length) return setErr('请先录入零件')
