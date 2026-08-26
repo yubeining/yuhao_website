@@ -26,7 +26,7 @@ import {
 } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import {
-    orderReady, partStat, publishOrder, removePart, submitOrder, updateOrder,
+    orderReady, partStat, removePart, submitOrder, updateOrder,
 } from '../../mock/actions'
 import { X, money, sum } from '../../mock/format'
 import { num } from '../../mock/params'
@@ -87,9 +87,14 @@ export function OrderDetailPage() {
                     订单已提交，平台估价中。完成后会在这里给出报价。
                 </Banner>
             )}
+            {order.status === 'toPublish' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    价格已确认，平台正在安排生产。零件排进生产订单后这里会显示进度。
+                </Banner>
+            )}
             {order.status === 'quoted' && order.quoteId && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    报价已生成，确认价格后即可发布到订单市场。
+                    报价已生成，确认价格后由平台安排生产。
                     <Link to={`/customer/quotes/${order.quoteId}`} style={{ marginLeft: 8 }}>去看报价 →</Link>
                 </Banner>
             )}
@@ -121,14 +126,9 @@ export function OrderDetailPage() {
                         </div>
                     )}
                 </CardBody>
-                {order.status === 'toPublish' && (
-                    <CardFoot right={
-                        <button className="btn pri" type="button"
-                            onClick={() => act((s) => publishOrder(s, order.id))}>
-                            发布到订单市场（{order.parts.length} 个零件）→
-                        </button>
-                    } />
-                )}
+                {/* ★★ 这里以前有个「发布到订单市场」按钮，是错的：
+                    零件怎么组成生产订单、什么时候放给供应商看，是我方运营的判断，
+                    不是客户的动作。客户确认的只是价格（见 mock/actions.publishProd）。 */}
             </Card>
 
             <Card>

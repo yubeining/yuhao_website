@@ -8,7 +8,7 @@
 import { num } from './params'
 import { currentCompany, type findCompany } from './actions'
 import type { MockState } from './store'
-import type { Order, Pkg, Quote } from './types'
+import type { Order, Prod, Quote } from './types'
 
 
 
@@ -22,10 +22,10 @@ export const myOrders = (s: MockState) => {
     return c ? s.db.orders.filter((o) => o.companyId === c.id) : []
 }
 
-/** 当前供应商抢到的派单包 */
-export const myPkgs = (s: MockState) => {
+/** 当前供应商抢到的生产订单 */
+export const myProds = (s: MockState) => {
     const c = currentCompany(s)
-    return c ? s.db.pkgs.filter((p) => p.sup === c.id) : []
+    return c ? s.db.prods.filter((d) => d.sup === c.id) : []
 }
 
 export const quoteOf = (s: MockState, o: Order): Quote | undefined =>
@@ -51,18 +51,27 @@ export const progress = (o: Order) => {
     return Math.round((done / Math.max(1, total)) * 100)
 }
 
-export const pkgsOf = (s: MockState, orderId: string): Pkg[] =>
-    s.db.pkgs.filter((p) => p.orderId === orderId)
+/**
+ * 装着这个客户订单零件的所有生产订单。
+ *
+ * ★ 是「装着」不是「属于」：一个生产订单可以同时装别的客户的零件，
+ *   所以这里返回的生产订单上还有跟这个客户无关的行。
+ */
+export const prodsOf = (s: MockState, orderId: string): Prod[] =>
+    s.db.prods.filter((d) => d.lines.some((l) => l.orderId === orderId))
 
-export const contractOf = (s: MockState, pkgId: string) =>
-    s.db.contracts.find((c) => c.pkgId === pkgId)
+export const contractOf = (s: MockState, prodId: string) =>
+    s.db.contracts.find((c) => c.prodId === prodId)
 
-export const openPkgs = (s: MockState) => s.db.pkgs.filter((p) => p.status === 'open')
+export const openProds = (s: MockState) => s.db.prods.filter((d) => d.status === 'open')
+
+/** 还在组、没挂出去的生产订单 —— 运营的在途工作 */
+export const draftProds = (s: MockState) => s.db.prods.filter((d) => d.status === 'draft')
 
 /** 已确认价格、等着发布到订单市场的订单 —— 内部端的待办 */
 export const confirmedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'toPublish')
 
-/** 已发布、产能还没锁满的订单 */
+/** 已安排生产、产能还没锁满的订单 */
 export const publishedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'published')
 
 export const pendingSuppliers = (s: MockState) =>

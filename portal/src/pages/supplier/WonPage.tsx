@@ -1,8 +1,10 @@
 /**
  * 我抢到的 —— 抢到之后、签合同之前的中间状态。
  *
- * ★ 抢到不等于可以开工：合同要签。没签的包在「我的订单」里不出现，
+ * ★ 抢到不等于可以开工：合同要签。没签的单在「我的订单」里不出现，
  *   逼着人先把合同签掉，而不是先开机器再补手续。
+ *
+ * ★ 一个生产订单一份合同 —— 整单抢走，所以也就整单签。
  */
 
 import { Link } from 'react-router-dom'
@@ -10,34 +12,38 @@ import { Card, CardBody, Empty, Hello, Page, Pill, TableWrap } from '../../compo
 import { useMock } from '../../mock/MockProvider'
 import { sign } from '../../mock/actions'
 import { M } from '../../mock/format'
-import { contractOf, myPkgs } from '../../mock/selectors'
+import { contractOf, myProds } from '../../mock/selectors'
 
 export function WonPage() {
     const { state, act } = useMock()
-    const pkgs = myPkgs(state)
+    const prods = myProds(state)
 
     return (
         <Page>
-            <Hello title="我抢到的" right={<Pill tone="ne" dot={false}>共 {pkgs.length} 个</Pill>} />
+            <Hello title="我抢到的" right={<Pill tone="ne" dot={false}>共 {prods.length} 单</Pill>} />
             <Card>
-                {pkgs.length ? (
+                {prods.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>派单号</th><th>零件</th><th className="n">数量</th><th className="n">金额</th>
+                                    <th>生产订单</th><th>零件</th><th className="n">件数</th><th className="n">金额</th>
                                     <th className="n">抢单时间</th><th>合同</th><th />
                                 </tr>
                             </thead>
                             <tbody>
-                                {pkgs.map((p) => {
+                                {prods.map((p) => {
                                     const ct = contractOf(state, p.id)
                                     const signed = ct?.status === 'signed'
+                                    const qty = p.lines.reduce((a, l) => a + l.qty, 0)
                                     return (
                                         <tr key={p.id}>
                                             <td><span className="m">{p.id}</span></td>
-                                            <td className="t1">{p.partName}</td>
-                                            <td className="n">{p.qty}</td>
+                                            <td className="t1">
+                                                {p.lines[0]?.partName}
+                                                {p.lines.length > 1 && <div className="t2">等 {p.lines.length} 个零件</div>}
+                                            </td>
+                                            <td className="n">{qty}</td>
                                             <td className="n"><b>¥ {M(p.total)}</b></td>
                                             <td className="n">{p.tookAt}</td>
                                             <td>
@@ -61,7 +67,7 @@ export function WonPage() {
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text="还没抢到派单包"
+                        <Empty text="还没抢到生产订单"
                             action={<Link className="btn pri" to="/supplier/hall">去订单市场</Link>} />
                     </CardBody>
                 )}

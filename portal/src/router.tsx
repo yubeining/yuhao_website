@@ -27,6 +27,7 @@ import { OpsDashboardPage } from './pages/ops/DashboardPage'
 import { OpsQuotesPage } from './pages/ops/QuotesPage'
 import { OpsQuoteWorkPage } from './pages/ops/QuoteWorkPage'
 import { OpsDispatchPage } from './pages/ops/DispatchPage'
+import { OpsProdPage } from './pages/ops/ProdPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsOnboardingPage } from './pages/ops/OnboardingPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
@@ -128,6 +129,8 @@ export const router = createBrowserRouter([
             // 报价工作台。:id 是订单号 —— 定价是按整单做的，一单一份报价（见 submitOrder）
             { path: 'quotes/:id', element: <OpsQuoteWorkPage /> },
             { path: 'dispatch', element: <OpsDispatchPage /> },
+            // 生产订单详情。:id 是 PO- 开头的生产订单，不是客户订单 SO-
+            { path: 'dispatch/:id', element: <OpsProdPage /> },
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'onboarding', element: <OpsOnboardingPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },

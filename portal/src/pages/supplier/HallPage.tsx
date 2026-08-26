@@ -5,6 +5,11 @@
  *   排序条、卡片网格。供应商的老板每天就在这类界面里泡着，
  *   照着他熟悉的形状做，培训成本是零。
  *
+ * ★★ 市场上挂的是**生产订单**，不是客户订单。一个生产订单是我方组好的一批活，
+ *   可能装着几个客户的零件 —— 供应商看到的只有零件名、材料、数量，
+ *   **看不到图号，也看不到是谁的货**（文档 7 §8 脱敏要求）。
+ *   整单抢走，一个生产订单一个供应商（设计文档 3 §2.4）。
+ *
  * ★ 已被抢走的包不从列表里拿掉，而是置灰留在原地。
  *   拿掉的话市场看起来永远很空；留着能让人感觉到「手慢了」——
  *   这是抢单机制唯一的驱动力。
@@ -20,7 +25,7 @@ import { useMock } from '../../mock/MockProvider'
 import { canGrab, grab } from '../../mock/actions'
 import { M, hoursLeft } from '../../mock/format'
 import { materials } from '../../mock/params'
-import type { Pkg } from '../../mock/types'
+import type { Prod } from '../../mock/types'
 
 export function HallPage() {
     const { state, actWith } = useMock()
@@ -34,12 +39,13 @@ export function HallPage() {
     const [mat, setMat] = useState('全部')
 
     const all = useMemo(() => {
-        const base = state.db.pkgs.filter((p) => p.status === 'open' || p.status === 'taken')
-        return mat === '全部' ? base : base.filter((p) => p.mat === mat)
-    }, [state.db.pkgs, mat])
+        const base = state.db.prods.filter((d) => d.status === 'open' || d.status === 'taken')
+        // ★ 一单多行：任意一行是这个材料就算命中
+        return mat === '全部' ? base : base.filter((d) => d.lines.some((l) => l.mat === mat))
+    }, [state.db.prods, mat])
     const live = all.filter((p) => p.status === 'open')
 
-    const onGrab = (p: Pkg) => {
+    const onGrab = (p: Prod) => {
         const err = actWith((s) => grab(s, p.id))
         if (err) {
             // 包被别人抢走了。留在市场并让列表自然刷新 —— 比弹窗更贴近真实抢单体验
@@ -51,7 +57,7 @@ export function HallPage() {
     return (
         <Page>
             <div className="hsearch">
-                <input placeholder="搜零件名、材料、派单号" />
+                <input placeholder="搜零件名、材料、生产订单号" />
                 <button type="button">搜索</button>
             </div>
 
@@ -91,20 +97,24 @@ export function HallPage() {
                     ))}
                 </div>
             ) : (
-                <Empty text="市场上暂时没有派单包" />
+                <Empty text="市场上暂时没有生产订单" />
             )}
         </Page>
     )
 }
 
 function PoolCard({ p, grabbable, onOpen, onGrab }: {
-    p: Pkg
+    p: Prod
     grabbable: boolean
     onOpen: () => void
     onGrab: () => void
 }) {
     const gone = p.status !== 'open'
     const left = hoursLeft(p.exp)
+    const qty = p.lines.reduce((a, l) => a + l.qty, 0)
+    const mats = [...new Set(p.lines.map((l) => l.mat).filter(Boolean))]
+    const leads = [...new Set(p.lines.map((l) => l.wantLead))]
+    const head = p.lines[0]
     return (
         <div className={`pcd ${gone ? 'gone' : ''}`} onClick={gone ? undefined : onOpen}>
             <div className="im">
@@ -117,20 +127,27 @@ function PoolCard({ p, grabbable, onOpen, onGrab }: {
             </div>
             <div className="bd">
                 <div>
-                    <div className="nm2">{p.partName} × {p.qty}</div>
-                    <div className="sp2">{p.mat} · {p.surf} · Rev {p.rev}</div>
+                    {/* ★ 一单多行，卡片上放不下每一行 —— 给第一行的名字加一句「等 N 个零件」，
+                        具体清单在详情页。数量给的是整单总件数，不是某一行的。 */}
+                    <div className="nm2">
+                        {head?.partName ?? '空单'}
+                        {p.lines.length > 1 ? ` 等 ${p.lines.length} 个零件` : ''}
+                    </div>
+                    <div className="sp2">
+                        {mats.length ? mats.slice(0, 2).join(' · ') : '材料未定'}
+                        {mats.length > 2 ? ` 等 ${mats.length} 种` : ''} · 共 {qty} 件
+                    </div>
                 </div>
-                {/* ★ 单价和合计分两行。原型里挤在一行，卡片 228px 宽只剩 202px，
-                    而「¥108.00」+「/ 件 · 合计 ¥10,800.00」要 203px —— 差 1px，
-                    两个元素一起折行，价格断成「¥」和「108.00」。
-                    金额位数会随订单变，靠宽度刚好放得下是撑不住的。 */}
+                {/* ★ 只给整单合计，**不给单价** —— 一单里各行的单价本来就不同，
+                    平均出来的那个数不对应任何一件东西，看的人会拿它去估自己的成本。 */}
                 <div className="pr">
-                    <b>¥ {M(p.target)}</b>
-                    <span>/ 件</span>
+                    <b>¥ {M(p.total)}</b>
+                    <span>整单</span>
                 </div>
-                <div className="prsub">合计 ¥ {M(p.total)}</div>
+                <div className="prsub">{p.lines.length} 行 · 共 {qty} 件</div>
                 <div className="mt2">
-                    <span>客户要求交期 <b>{p.wantLead}</b></span>
+                    {/* ★ 各行的客户交期可能不一样，不同就明说不同，不挑一个当代表 */}
+                    <span>客户要求交期 <b>{leads.length === 1 ? leads[0] : '按行不同'}</b></span>
                     <span>{p.reprice ? `已调价 ${p.reprice} 次` : ''}</span>
                 </div>
                 <div className="pay">付款 <b>{p.pay}</b></div>

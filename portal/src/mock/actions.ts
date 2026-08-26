@@ -13,7 +13,7 @@ import { X, fmtDate, now, parseStamp, plus, plusHours, today } from './format'
 import { estimate, usable } from './ai'
 import { custUnit, num, pricingBlockers, supTarget } from './params'
 import { nextId, type MockState } from './store'
-import type { Company, LineStat, Order, OrderPart, PartExecStatus, Quote, QuoteItem } from './types'
+import type { Company, LineStat, Order, OrderPart, PartExecStatus, Prod, Quote, QuoteItem } from './types'
 
 /* ── 查找 ─────────────────────────────────────────────────────────── */
 
@@ -449,44 +449,128 @@ export const confirmQuote = (s: MockState, quoteId: string): Order | undefined =
 
 /* ── 发布到订单市场 ───────────────────────────────────────────────── */
 
+/* ── 生产订单 ─────────────────────────────────────────────────────── */
+
 /**
- * 把已确认的订单发布到订单市场：每个已报价的零件拆成一个独立派单包。
+ * 一个零件现在在哪个生产订单里。没有就是还没安排。
  *
- * ★ 一个零件一个包，各自独立抢单、独立成败。某一行无人接单退回，
- *   不影响同一订单的其他行（dropLine）。
- *
- * ★ 发布是**我方的动作**，不是客户的 —— 供应商是我们的资源，目标价是内部算的，
- *   什么时候放给供应商看由运营决定。所以入口在内部端的派单管理。
+ * ★ 数量不拆（业务方 2026-08-26 定），所以一个零件最多只属于一个生产订单，
+ *   这个查找返回单个值而不是列表。将来要拆数量，改的是这里的返回类型。
  */
-export const publishOrder = (s: MockState, orderId: string) => {
-    const o = s.db.orders.find((x) => x.id === orderId)
-    if (!o || o.status !== 'toPublish') return
-    const quote = s.db.quotes.find((q) => q.id === o.quoteId)
-    o.parts.forEach((p, i) => {
-        // ★ 目标价用估价时的快照，不重算 —— 参数后来改过也不影响已确认的单（C2）
-        const target = quote?.items.find((it) => it.partId === p.id)?.target
-        if (target === undefined) return
-        s.db.pkgs.push({
-            id: nextId(s.seq, 'dp'),
-            orderId: o.id,
-            line: i,
-            partName: p.name,
-            rev: p.customerRev, mat: p.mat, surf: p.surf,
-            qty: num(p.qty),
-            target,
-            total: +(target * num(p.qty)).toFixed(2),
-            wantLead: o.want ? o.want + ' 天' : X,
-            pay: payTerm(s.params.payDays),
-            at: now(),
-            exp: plusHours(s.params.grabHours),
-            status: 'open',
-            sup: null,
-            watch: 0,
+export const assignedProd = (s: MockState, partId: string) =>
+    s.db.prods.find((d) => d.status !== 'dropped' && d.lines.some((l) => l.partId === partId))
+
+/**
+ * 还没安排进任何生产订单的零件 —— 组包时可选的池子。
+ *
+ * ★ 只收**客户已确认报价**的订单（toPublish 之后的都算）：价没定死之前
+ *   目标价还可能变，组进去的行会带着一个作废的快照。
+ *
+ * ★ 已退回的零件重新回到池子里 —— 退回的意思就是这一行还得再找一次产能。
+ */
+export const freeParts = (s: MockState) => {
+    const out: { order: Order; part: OrderPart; target: number }[] = []
+    s.db.orders.forEach((o) => {
+        if (o.status === 'draft' || o.status === 'pricing' || o.status === 'quoted') return
+        const quote = s.db.quotes.find((q) => q.id === o.quoteId)
+        if (!quote) return
+        o.parts.forEach((part) => {
+            if (assignedProd(s, part.id)) return
+            const target = quote.items.find((it) => it.partId === part.id)?.target
+            // ★ 报价行里没有它就不给组 —— 目标价是组包的必要输入，没有就不该出现在池子里
+            if (target === undefined) return
+            out.push({ order: o, part, target })
         })
-        p.st = 'waiting'
     })
-    o.status = 'published'
-    o.publishedAt = now()
+    return out
+}
+
+/** 新建一个空的生产订单，进草稿态。返回它的 id 以便立刻跳转。 */
+export const createProd = (s: MockState) => {
+    const d: Prod = {
+        id: nextId(s.seq, 'po'),
+        lines: [],
+        total: 0,
+        at: now(),
+        status: 'draft',
+        pay: payTerm(s.params.payDays),
+        sup: null,
+        watch: 0,
+    }
+    s.db.prods.push(d)
+    return d
+}
+
+/** 重算整单金额。行的价是快照，这里只做加法。 */
+const retotal = (d: Prod) => {
+    d.total = +d.lines.reduce((a, l) => a + l.total, 0).toFixed(2)
+}
+
+/**
+ * 把一个零件整行加进生产订单。
+ *
+ * ★★ 加进来的是**快照**，不是引用：名称、材料、数量、目标价、交期要求
+ *   全部拷一份存在行上。零件后来改了不影响已经组好的生产订单（C2）。
+ *
+ * ★ 目标价取报价行的快照，不重算 —— 客户确认的那一刻它就定死了。
+ */
+export const addProdLine = (s: MockState, prodId: string, orderId: string, partId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d || d.status !== 'draft') return
+    if (assignedProd(s, partId)) return          // 已经在别的生产订单里
+    const o = s.db.orders.find((x) => x.id === orderId)
+    const part = o?.parts.find((x) => x.id === partId)
+    if (!o || !part) return
+    const target = s.db.quotes.find((q) => q.id === o.quoteId)?.items
+        .find((it) => it.partId === partId)?.target
+    if (target === undefined) return
+    const qty = num(part.qty)
+    d.lines.push({
+        orderId: o.id,
+        partId: part.id,
+        partName: part.name,
+        rev: part.customerRev,
+        mat: part.mat,
+        surf: part.surf,
+        qty,
+        target,
+        total: +(target * qty).toFixed(2),
+        wantLead: o.want ? o.want + ' 天' : X,
+    })
+    retotal(d)
+}
+
+/** 从草稿里拿掉一行。零件回到未安排的池子里。 */
+export const removeProdLine = (s: MockState, prodId: string, partId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d || d.status !== 'draft') return
+    d.lines = d.lines.filter((l) => l.partId !== partId)
+    retotal(d)
+}
+
+/** 删掉一个还没挂出去的生产订单。 */
+export const deleteProd = (s: MockState, prodId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d || d.status !== 'draft') return
+    s.db.prods = s.db.prods.filter((x) => x.id !== prodId)
+}
+
+/**
+ * 把生产订单挂到订单市场。
+ *
+ * ★★ **这是我方的动作，不是客户的。**客户确认的只是价格；
+ *   零件怎么组、什么时候放给供应商看，是运营的判断。
+ *   以前这个按钮在客户的订单详情页上，那是错的。
+ *
+ * ★ 空单不许挂 —— 挂一个没有行的单子出去，供应商点进来什么都看不到。
+ */
+export const publishProd = (s: MockState, prodId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d || d.status !== 'draft' || !d.lines.length) return
+    d.status = 'open'
+    d.publishedAt = now()
+    d.exp = plusHours(s.params.grabHours)
+    syncProd(s, d)
 }
 
 /* ── 供应商：抢单 ─────────────────────────────────────────────────── */
@@ -496,29 +580,29 @@ export const canGrab = (s: MockState) => {
     return !!c && c.status === 'active'
 }
 
-/** 抢单。返回错误文案，null 表示成功。 */
-export const grab = (s: MockState, pkgId: string): string | null => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return '派单包不存在'
-    if (p.status !== 'open') return '这个派单包已经被抢走了'
+/** 抢单。抢的是**整个生产订单**（一个生产订单一个供应商，设计文档 3 §2.4）。 */
+export const grab = (s: MockState, prodId: string): string | null => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d) return '生产订单不存在'
+    if (d.status !== 'open') return '这个生产订单已经被抢走了'
     // ★ 界面上抢单按钮已经按 canGrab 禁用了，这里再挡一道 ——
     //   资质闸门放动作层是全项目的惯例（报工查排产、估价查参数），不能只靠按钮变灰。
     if (!canGrab(s)) return '资质考察通过后才能抢单'
     const company = currentCompany(s)!
-    p.status = 'taken'
-    p.sup = company.id
-    p.tookAt = now()
+    d.status = 'taken'
+    d.sup = company.id
+    d.tookAt = now()
     const ct = {
         id: nextId(s.seq, 'ct'),
-        pkgId: p.id,
-        sup: p.sup,
+        prodId: d.id,
+        sup: d.sup,
         at: now(),
-        amount: p.total,
+        amount: d.total,
         status: 'unsigned' as const,
     }
     s.db.contracts.push(ct)
-    p.contractId = ct.id
-    syncOrder(s, p.orderId)
+    d.contractId = ct.id
+    syncProd(s, d)
     return null
 }
 
@@ -527,13 +611,40 @@ export const sign = (s: MockState, contractId: string) => {
     if (!ct) return
     ct.status = 'signed'
     ct.signedAt = now()
-    const p = s.db.pkgs.find((x) => x.id === ct.pkgId)
-    if (p) syncOrder(s, p.orderId)
+    const d = s.db.prods.find((x) => x.id === ct.prodId)
+    if (d) syncProd(s, d)
 }
 
+/**
+ * 把一个生产订单的状态摊到它牵涉的每一个零件上，再汇总到各自的客户订单。
+ *
+ * ★★ 一个生产订单可能装着好几个客户订单的零件，所以最后要按 orderId
+ *   去重，逐个客户订单汇总一次 —— 不能只算它「所属」的那一个，它不属于任何一个。
+ */
+export const syncProd = (s: MockState, d: Prod) => {
+    const signed = s.db.contracts.find((c) => c.id === d.contractId)?.status === 'signed'
+    d.lines.forEach((l) => {
+        const part = s.db.orders.find((o) => o.id === l.orderId)?.parts.find((x) => x.id === l.partId)
+        if (!part) return
+        if (d.status === 'dropped') {
+            // 退回 = 这一行还得再找一次产能，零件回到未安排的池子里
+            part.dropped = true
+            delete part.st
+            delete part.done
+            return
+        }
+        const done = l.done ?? 0
+        part.st = done >= l.qty ? 'produced'
+            : done > 0 ? 'producing'
+                : signed ? 'taken'
+                    : 'waiting'
+        part.done = done
+    })
+    ;[...new Set(d.lines.map((l) => l.orderId))].forEach((id) => syncOrder(s, id))
+}
 
 /**
- * 按派单包的状态推算订单和零件的状态。
+ * 按零件的执行状态推算客户订单的状态。
  *
  * ★ 订单状态是零件状态的**汇总**，不单独维护：
  *     全部签约      → 已接单
@@ -541,28 +652,18 @@ export const sign = (s: MockState, contractId: string) => {
  *     有人开始报数  → 生产中
  *     全部报满      → 生产完成
  *   已退回的零件不参与判断 —— 它不做了，不该拖住整单。
+ *
+ * ★★ **还没安排进生产订单的零件留在 live 里、且没有 st**，
+ *   于是 all('taken') / all('produced') 自然为假，整单不会在只安排了一半时
+ *   就显示成已接单。这是刻意的：客户看到「已接单」会以为产能全锁定了。
  */
 export const syncOrder = (s: MockState, orderId: string) => {
     const o = s.db.orders.find((x) => x.id === orderId)
     if (!o) return
-    const ps = s.db.pkgs.filter((p) => p.orderId === orderId)
-    if (!ps.length) return
+    const live = o.parts.filter((p) => !p.dropped)
+    // 一个零件都还没安排 → 状态不动，仍然是「待安排生产」
+    if (!live.some((p) => p.st)) return
 
-    ps.forEach((p) => {
-        const part = o.parts[p.line]
-        if (!part) return
-        if (p.status === 'dropped') { part.dropped = true; part.st = undefined; return }
-        const ct = s.db.contracts.find((c) => c.pkgId === p.id)
-        const signed = ct?.status === 'signed'
-        part.st = (p.done ?? 0) >= p.qty ? 'produced'
-            : (p.done ?? 0) > 0 ? 'producing'
-                : signed ? 'taken'
-                    : 'waiting'
-        part.done = p.done ?? 0
-    })
-
-    const live = o.parts.filter((p) => !p.dropped && p.st)
-    if (!live.length) return
     const all = (st: PartExecStatus) => live.every((p) => p.st === st)
     const some = (st: PartExecStatus) => live.some((p) => p.st === st)
 
@@ -570,79 +671,96 @@ export const syncOrder = (s: MockState, orderId: string) => {
     else if (some('producing') || some('produced')) o.status = 'producing'
     else if (all('taken')) {
         // 已接单之后，供应商确认排产才进待生产
-        o.status = live.every((p) => scheduledOf(s, o, p)) ? 'toProduce' : 'taken'
+        o.status = live.every((p) => scheduledOf(s, p)) ? 'toProduce' : 'taken'
         if (o.status === 'taken' && !o.takenAt) o.takenAt = now()
     } else o.status = 'published'
 }
 
-/** 这个零件对应的派单包有没有确认过排产 */
-const scheduledOf = (s: MockState, o: Order, part: OrderPart) => {
-    const i = o.parts.indexOf(part)
-    return s.db.pkgs.find((p) => p.orderId === o.id && p.line === i)?.scheduled === true
-}
+/** 这个零件所在的生产订单有没有确认过排产 */
+const scheduledOf = (s: MockState, part: OrderPart) =>
+    assignedProd(s, part.id)?.scheduled === true
 
 /**
  * 供应商确认排产。签完合同之后的一步 ——
  * 他排进生产计划了，但还没开工。
  */
-export const schedule = (s: MockState, pkgId: string) => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return
-    p.scheduled = true
-    syncOrder(s, p.orderId)
+export const schedule = (s: MockState, prodId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d) return
+    d.scheduled = true
+    syncProd(s, d)
 }
 
 /**
- * 超时无人抢 → 退回该行；其余行照常成单。
+ * 超时无人抢 → 整个生产订单退回，行上的零件回到未安排的池子。
  *
- * ★ 这是「一行一个包」这个拆法的意义所在：一行找不到产能，
- *   不能把整单拖死。退回的行不计费，客户那边看到的是部分成单。
+ * ★ 退回的是我方组的这一包，不是客户的订单。运营可以换一种组法再挂，
+ *   或者调价重挂同一包。客户那边看到的是这几个零件还没安排上。
  */
-export const dropLine = (s: MockState, pkgId: string) => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return
-    p.status = 'dropped'
-    syncOrder(s, p.orderId)
+export const dropProd = (s: MockState, prodId: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d) return
+    d.status = 'dropped'
+    syncProd(s, d)
 }
 
 /**
- * 调价重挂。新目标价由运营填 ——
+ * 调价重挂。**按百分比上调整单的目标价**，由运营填 ——
  * 以前这里写死自动加 5%：调价重派这件事有出处（文档 6/8），
  * 每次加几个点没人定过，不能替运营拍。
+ *
+ * ★ 生产订单有很多行，每行的目标价不一样，所以调的是一个统一的涨幅，
+ *   不是某一个价 —— 让运营逐行改价等于要他重新组一遍包。
  */
-export const repost = (s: MockState, pkgId: string, newTarget: unknown) => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    const t = num(newTarget)
-    if (!p || t <= 0) return
-    p.status = 'open'
-    p.target = t
-    p.total = +(t * p.qty).toFixed(2)
-    p.exp = plusHours(s.params.grabHours)
-    p.reprice = (p.reprice || 0) + 1
-    syncOrder(s, p.orderId)
+export const repost = (s: MockState, prodId: string, pct: unknown) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    const up = num(pct)
+    if (!d || up <= 0) return
+    d.lines.forEach((l) => {
+        l.target = +(l.target * (1 + up / 100)).toFixed(2)
+        l.total = +(l.target * l.qty).toFixed(2)
+    })
+    retotal(d)
+    d.status = 'open'
+    d.exp = plusHours(s.params.grabHours)
+    d.reprice = (d.reprice || 0) + 1
+    syncProd(s, d)
 }
 
 /* ── 生产上报 ─────────────────────────────────────────────────────── */
 
-export const report = (s: MockState, pkgId: string, done: unknown) => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return
-    if (!p.scheduled) return          // 没确认排产就不该有完成数
-    p.done = Math.min(num(done), p.qty)
-    if (p.done >= p.qty) p.status = 'done'
-    syncOrder(s, p.orderId)
+/**
+ * 供应商按行报完成量。
+ *
+ * ★ 报的是**行**不是整单：一个生产订单里各个零件的进度本来就不一样。
+ */
+export const report = (s: MockState, prodId: string, partId: string, done: unknown) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    const l = d?.lines.find((x) => x.partId === partId)
+    if (!d || !l) return
+    if (!d.scheduled) return          // 没确认排产就不该有完成数
+    l.done = Math.min(num(done), l.qty)
+    if (d.lines.every((x) => (x.done ?? 0) >= x.qty)) d.status = 'done'
+    syncProd(s, d)
 }
 
+/**
+ * 给客户发货。
+ *
+ * ★ 只标这个客户订单的那些行 —— 生产订单里可能还装着别人的零件，
+ *   给 A 发货不等于 B 那几行也发了。
+ */
 export const deliver = (s: MockState, orderId: string) => {
     const o = s.db.orders.find((x) => x.id === orderId)
     if (!o) return
     o.status = 'shipping'
     o.deliveredAt = now()
-    s.db.pkgs
-        .filter((p) => p.orderId === o.id && p.status === 'done')
-        .forEach((p) => {
-            p.delivered = now()
+    const at = now()
+    s.db.prods.forEach((d) => {
+        d.lines.forEach((l) => {
+            if (l.orderId === o.id && (l.done ?? 0) >= l.qty) l.delivered = at
         })
+    })
 }
 
 /** 登记客户回款。背靠背结算的起算点 —— 供应商应付日从这天 +payDays。 */
@@ -651,18 +769,18 @@ export const custPaid = (s: MockState, orderId: string) => {
     if (o) o.paidAt = now()
 }
 
-export const uploadInvoice = (s: MockState, pkgId: string, invNo: string) => {
-    const p = s.db.pkgs.find((x) => x.id === pkgId)
-    if (!p) return
+export const uploadInvoice = (s: MockState, prodId: string, invNo: string) => {
+    const d = s.db.prods.find((x) => x.id === prodId)
+    if (!d) return
     s.db.invoices.push({
         id: nextId(s.seq, 'inv'),
-        pkgId: p.id,
-        sup: p.sup!,
+        prodId: d.id,
+        sup: d.sup!,
         no: invNo || X,
         at: now(),
         status: 'checking',
     })
-    p.invoice = true
+    d.invoice = true
 }
 
 /* ── 定价参数 ─────────────────────────────────────────────────────── */

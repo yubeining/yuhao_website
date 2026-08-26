@@ -32,10 +32,11 @@ export interface MockState {
     session: MockSession
 }
 
+// v5：派单包（Pkg）换成了生产订单（Prod），存档结构变了，老存档读不了。
 // v4：定价参数和材料成本带上了演示种子（params.ts）。种子只在 loadState 取不到
-// 存档时才播，所以停在 v3 存档上的会话吃不到它 —— 换 key 是让它们重播一次，
+// 存档时才播，所以停在旧存档上的会话吃不到它 —— 换 key 是让它们重播一次，
 // 否则打开还是「一条材料都没配」。
-const STORAGE_KEY = 'mfg.prototype.v4'
+const STORAGE_KEY = 'mfg.prototype.v5'
 
 const emptyDb = (): Db => ({
     companies: [],
@@ -43,13 +44,13 @@ const emptyDb = (): Db => ({
     invites: [],
     orders: [],
     quotes: [],
-    pkgs: [],
+    prods: [],
     contracts: [],
     invoices: [],
 })
 
 const emptySeq = (): Seq => ({
-    so: 0, pt: 0, qt: 0, dp: 0, ct: 0, inv: 0, cid: 0, uid: 0, iv: 0,
+    so: 0, pt: 0, qt: 0, po: 0, ct: 0, inv: 0, cid: 0, uid: 0, iv: 0,
 })
 
 /** 单号生成。原型的 nid()，序列号存在 state 里以便持久化。 */

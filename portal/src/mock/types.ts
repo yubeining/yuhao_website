@@ -281,37 +281,82 @@ export interface Quote {
  * ★ 一行一个包，各自独立抢单、独立成败：某一行无人接单退回，
  *   不影响同一订单的其他行（dropLine）。
  */
-export interface Pkg {
-    id: string
-    /** 所属订单 id */
+/**
+ * 生产订单里的一行 —— **一个客户订单的一个零件，整行给一家，数量不拆**。
+ *
+ * ★ 每一行记着它来自哪个客户订单的哪个零件，这是唯一的回溯路径。
+ *   一个零件同时只能出现在一个生产订单里（见 assignedPart）。
+ *
+ * ★ 行上的价、量、交期全是**组包那一刻的快照**。报价确认之后
+ *   参数再改也不影响已经组进去的行（CLAUDE.md §10 C2）。
+ */
+export interface ProdLine {
+    /** 来源客户订单 */
     orderId: string
-    /** 在订单 items 里的下标。要查客户图号从这里回溯到订单行，不在包里存 */
-    line: number
+    /** 来源零件 */
+    partId: string
     /**
      * ★ 零件名称，**不是客户图号**。
      *
-     *   订单市场对所有已入驻供应商开放，包括还没签这一单的人。
+     *   订单市场对所有已入驻供应商开放，包括还没接过这一单的人。
      *   客户图号是客户自己的编码体系（真实样本形如 LB8.610.63493），
      *   把它挂在市场上等于把客户的产品结构公开 —— 同行看编号段就能
      *   反推出他在做什么产品线。文档 7 §8 明确要求寻源包脱敏。
      *
-     *   内部要看图号，从 orderId + line 回溯订单行。
+     *   ★★ 一个生产订单可以装多个客户的零件，所以这里连客户是谁都不能带。
+     *
+     *   内部要看图号和客户，从 orderId + partId 回溯。
      */
     partName: string
     rev: string
     mat: string
     surf: string
     qty: number
-    /** 给供应商的目标价（¥/件），不可议价 */
+    /** 给供应商的目标价（¥/件），不可议价。报价时算死的快照 */
     target: number
     total: number
-    /** 客户要求的交期。派单包上写明它是客户的要求，不是我方给供应商的承诺 */
+    /** 这一行来源客户的交期要求。**是客户的要求，不是我方给供应商的承诺** */
     wantLead: string
-    pay: string
+    /** 已完成件数。供应商按行上报 */
+    done?: number
+    /**
+     * 这一行的货发给客户的时刻。
+     *
+     * ★ 发货在**行**上不在生产订单上：一个生产订单可以装多个客户的零件，
+     *   给 A 客户发货不等于 B 客户那几行也发了。
+     */
+    delivered?: string
+}
+
+/**
+ * 生产订单 —— **我方组织出来的东西，和客户订单不是一个概念**。
+ *
+ * ★★ 客户订单是客户表达「我要这些」；生产订单是我方表达「这一批交给一家做」。
+ *   两者的构成完全可以不同：一个生产订单能装多个客户订单的零件，
+ *   一个客户订单的零件也能分散进多个生产订单。
+ *   中间那一步——**怎么组**——是运营的判断，不是系统按客户下单方式自动推出来的。
+ *
+ * ★ 一个生产订单一个供应商（设计文档 3 §2.4），所以抢单是整单抢走，
+ *   合同也是一单一份。
+ */
+export interface Prod {
+    id: string
+    lines: ProdLine[]
+    /** Σ 行小计（¥） */
+    total: number
     at: string
-    /** 抢单截止时刻（发布时刻 + grabHours） */
-    exp: string
-    status: 'open' | 'taken' | 'done' | 'dropped'
+    /**
+     * draft   运营还在组，没挂出去
+     * open    已挂到订单市场，等抢
+     * taken   被抢走
+     * done    全部行报满
+     * dropped 超时无人抢，退回
+     */
+    status: 'draft' | 'open' | 'taken' | 'done' | 'dropped'
+    /** 抢单截止时刻（发布时刻 + grabHours）。draft 状态没有 */
+    exp?: string
+    publishedAt?: string
+    pay: string
     /** 抢到的供应商企业 id */
     sup: string | null
     watch: number
@@ -319,15 +364,15 @@ export interface Pkg {
     scheduled?: boolean
     tookAt?: string
     contractId?: string
-    done?: number
+    /** 调价重挂次数 */
     reprice?: number
     invoice?: boolean
-    delivered?: string
 }
 
 export interface Contract {
     id: string
-    pkgId: string
+    /** 合同挂在生产订单上 —— 一个生产订单一个供应商，所以也就是一份合同 */
+    prodId: string
     sup: string
     at: string
     amount: number
@@ -337,7 +382,8 @@ export interface Contract {
 
 export interface Invoice {
     id: string
-    pkgId: string
+    /** 开给哪个生产订单的。发票跟着合同走，一个生产订单一份 */
+    prodId: string
     sup: string
     no: string
     at: string
@@ -350,7 +396,7 @@ export interface Db {
     invites: Invite[]
     orders: Order[]
     quotes: Quote[]
-    pkgs: Pkg[]
+    prods: Prod[]
     contracts: Contract[]
     invoices: Invoice[]
 }
@@ -360,7 +406,8 @@ export interface Seq {
     so: number
     pt: number
     qt: number
-    dp: number
+    /** 生产订单。PO- 前缀，和客户订单 SO- 明确区分 —— 两者不是一个概念 */
+    po: number
     ct: number
     inv: number
     cid: number

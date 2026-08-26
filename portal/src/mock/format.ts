@@ -60,7 +60,8 @@ export const sum = <T,>(a: T[], f: (x: T) => number) => a.reduce((s, x) => s + f
  *   还剩多久，挂了三天的包也显示剩 24 小时。供应商靠这个判断急不急，
  *   给个假数字比不给更糟。这里按 exp（到期日）真算。
  */
-export const hoursLeft = (exp: string): number | null => {
+export const hoursLeft = (exp: string | undefined): number | null => {
+    // 草稿态的生产订单还没挂出去，没有截止时刻 —— 返回 null，界面不显示倒计时
     if (!exp) return null
     // exp 是带时间的时间戳（fmtDateTime 产物）；纯日期按当天结束算
     const end = exp.includes(' ')

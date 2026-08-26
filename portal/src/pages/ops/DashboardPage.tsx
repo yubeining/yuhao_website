@@ -11,7 +11,7 @@ import { Card, CardBody, CardHead, Empty, Hello, Kpi, Kpis, Page, TableWrap } fr
 import { useMock } from '../../mock/MockProvider'
 import { findCompany } from '../../mock/actions'
 import { money } from '../../mock/format'
-import { confirmedOrders, openPkgs, orderTotal, pendingSuppliers, publishedOrders } from '../../mock/selectors'
+import { confirmedOrders, draftProds, openProds, orderTotal, pendingSuppliers, publishedOrders } from '../../mock/selectors'
 
 export function OpsDashboardPage() {
     const { state } = useMock()
@@ -24,14 +24,16 @@ export function OpsDashboardPage() {
         <Page>
             <Hello title="工作台" />
             <Kpis>
-                <Kpi k="待客户发布" v={toPublish.length} d="已确认价格，等客户发布" />
-                <Kpi k="已发布" v={finding.length} d="在订单市场未接满" />
-                <Kpi k="在挂派单包" v={openPkgs(state).length} d="等供应商接单" />
+                {/* ★ 「待安排生产」是运营自己的待办：客户确认了价，零件等着被组进生产订单 */}
+                <Kpi k="待安排生产" v={toPublish.length} d="已确认价格，等运营组包" alert={toPublish.length > 0} />
+                <Kpi k="组包中" v={draftProds(state).length} d="草稿，还没挂出去" />
+                <Kpi k="在挂生产订单" v={openProds(state).length} d="等供应商接单" />
+                <Kpi k="已安排生产" v={finding.length} d="产能还没锁满的客户订单" />
                 <Kpi k="待考察供应商" v={pending.length} d="已提交材料" alert={pending.length > 0} />
             </Kpis>
 
             <Card>
-                <CardHead title="已确认价格，等客户发布" />
+                <CardHead title="已确认价格，等运营组包" />
                 {toPublish.length ? (
                     <CardBody flush>
                         <TableWrap>
