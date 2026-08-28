@@ -2,14 +2,15 @@
  * 订单详情 —— **整条链都在这一页推进**。
  *
  *   草稿中    往里加零件，每个零件传自己的图纸
- *   ↓ 发布订单（草稿变正式）
+ *   ↓ 提交订单（草稿转正式，进入估价）
  *   待估价 → 已估价
  *   ↓ 确认价格（在报价页）
- *   待发布
- *   ↓ 发布到订单市场
- *   已发布 → 已接单 → 待生产 → 生产中 → 生产完成 → 物流配送中
+ *   待安排生产
+ *   ↓ **平台**把零件组进生产订单并挂到订单市场（客户这边没有这个动作）
+ *   已安排生产 → 已接单 → 待生产 → 生产中 → 生产完成 → 物流配送中
  *
- * ★ 两个「发布」不是一回事：前一个是草稿转正式，后一个是挂到订单市场。
+ * ★★ 客户只有「提交」这一个发起动作。以前这里还有个「发布到订单市场」按钮，
+ *   是错的 —— 零件怎么组成生产订单、什么时候放给供应商看，是运营的判断。
  *
  * ★ 零件建在订单里面，图纸挂在零件上。三层从属：订单 → 零件 → 图纸。
  *
@@ -53,7 +54,7 @@ export function OrderDetailPage() {
 
     const submit = () => {
         if (!order.parts.length) return setErr('请先录入零件')
-        if (!canSubmit) return setErr(`还有 ${notReady} 个零件信息不全，补齐后方可发布`)
+        if (!canSubmit) return setErr(`还有 ${notReady} 个零件信息不全，补齐后方可提交`)
         act((s) => submitOrder(s, order.id))
     }
 
@@ -79,7 +80,7 @@ export function OrderDetailPage() {
 
             {draft && notReady > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    {notReady} 个零件信息不全，整单暂不可发布。报价按订单出具，需全部零件齐备。
+                    {notReady} 个零件信息不全，整单暂不可提交。报价按订单出具，需全部零件齐备。
                 </Banner>
             )}
             {order.status === 'pricing' && (
@@ -96,11 +97,6 @@ export function OrderDetailPage() {
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
                     报价已生成，确认价格后由平台安排生产。
                     <Link to={`/customer/quotes/${order.quoteId}`} style={{ marginLeft: 8 }}>去看报价 →</Link>
-                </Banner>
-            )}
-            {order.status === 'toPublish' && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>
-                    价格已确认。发布到订单市场后，供应商按零件分别接单。
                 </Banner>
             )}
 
@@ -203,7 +199,7 @@ export function OrderDetailPage() {
                     <CardBody>
                         <Empty
                             text="暂无零件"
-                            sub="录入零件后可发布订单，进入估价"
+                            sub="录入零件后提交，进入估价"
                             action={<Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>
                                 ＋ 录入零件
                             </Link>}
@@ -215,7 +211,7 @@ export function OrderDetailPage() {
                         left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>＋ 添加零件</Link>}
                         right={
                             <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit}>
-                                {canSubmit ? `发布订单（${ready} 个零件）→` : `还差 ${notReady} 个零件`}
+                                {canSubmit ? `提交订单（${ready} 个零件）→` : `还差 ${notReady} 个零件`}
                             </button>
                         }
                     />

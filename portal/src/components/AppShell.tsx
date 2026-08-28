@@ -195,7 +195,7 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
 const CUST_NAV: NavItem[] = [
     { sec: '交易' },
     { to: '/customer', ic: '◫', n: '概览' },
-    // ★ 订单是整条链的主干：建订单 → 加零件 → 询价 → 确认 → 发布
+    // ★ 订单是整条链的主干：建订单 → 加零件 → 提交 → 确认价格 →（平台安排生产）
     { to: '/customer/orders', ic: '▣', n: '我的订单' },
     { to: '/customer/quotes', ic: '€', n: '我的报价' },
 ]

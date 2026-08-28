@@ -1,5 +1,5 @@
 /**
- * 我的订单。整条链的入口 —— 建订单、往里加零件、发布订单，都从这里进。
+ * 我的订单。整条链的入口 —— 建订单、往里加零件、提交订单，都从这里进。
  */
 
 import { useState } from 'react'
@@ -33,7 +33,7 @@ export function OrderListPage() {
         <Page>
             <Hello
                 title="我的订单"
-                sub="录入零件后发布，进入估价"
+                sub="录入零件后提交，进入估价"
                 right={
                     <>
                         <Pill tone="ne" dot={false}>共 {orders.length} 单</Pill>
