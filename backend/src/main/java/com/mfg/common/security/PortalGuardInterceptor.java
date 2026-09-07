@@ -64,7 +64,10 @@ public class PortalGuardInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) throws Exception {
 
-        String segment = firstSegment(request.getRequestURI());
+        // ★ 用解码后的路径，不用 request.getRequestURI()：后者是原始 URI，
+        //   /%6fps/... 在它眼里不是 ops，而 handler 匹配用的是解码后的 /ops/...
+        //   —— 两边看不同的路径，闸门就形同虚设。见 RequestPaths 的类注释。
+        String segment = RequestPaths.firstSegment(RequestPaths.decodedPathWithinApi(request, apiPrefix));
         if (segment == null || UNGUARDED.contains(segment)) {
             return true;
         }
@@ -91,22 +94,6 @@ public class PortalGuardInterceptor implements HandlerInterceptor {
         }
 
         return true;
-    }
-
-    /** 取 API 前缀之后的第一个路径段。 */
-    private String firstSegment(String uri) {
-        String path = uri;
-        if (!apiPrefix.isEmpty() && path.startsWith(apiPrefix)) {
-            path = path.substring(apiPrefix.length());
-        }
-        while (path.startsWith("/")) {
-            path = path.substring(1);
-        }
-        if (path.isEmpty()) {
-            return null;
-        }
-        int slash = path.indexOf('/');
-        return slash < 0 ? path : path.substring(0, slash);
     }
 
     private UserPrincipal currentPrincipal() {

@@ -6,7 +6,11 @@
 
 spring:
   datasource:
-    url: jdbc:postgresql://localhost:5432/mfg_test
+    # ★ 默认值是 CI 的形状（services 直接占 5432 / 6379）。
+    #   本机 5432 往往被别的 postgres 占着（见 .env 的注释），docker compose 的
+    #   postgres-test 映射到 ${POSTGRES_TEST_PORT}，跑 mvn verify 前用环境变量指过去：
+    #     TEST_DB_URL=jdbc:postgresql://localhost:5443/mfg_test TEST_DB_PASSWORD=mfg TEST_REDIS_PORT=6380
+    url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/mfg_test}
     username: ${TEST_DB_USERNAME:mfg}
     password: ${TEST_DB_PASSWORD:}
 
@@ -20,8 +24,8 @@ spring:
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${TEST_REDIS_HOST:localhost}
+      port: ${TEST_REDIS_PORT:6379}
       database: 15          # 专用 db，每个测试前 flush，避免串味
 
 app:

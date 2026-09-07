@@ -1,6 +1,7 @@
 package com.mfg.platform.access;
 
 import com.mfg.common.security.PartyType;
+import com.mfg.common.security.RequestPaths;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -75,7 +76,9 @@ public class AccessInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        String path = stripPrefix(request.getRequestURI());
+        // ★ 解码后的路径，和 handler 匹配用的是同一条 —— 原始 URI 里的 %6fps 在路由表里
+        //   什么都匹配不上，于是"未注册 = 放行"，细粒度权限就被编码绕过了。
+        String path = RequestPaths.decodedPathWithinApi(request, apiPrefix);
         var rule = registry.resolve(path, request.getMethod());
         if (rule.isEmpty()) {
             // 未注册 = 增量接入期间放行。见类注释。
@@ -97,14 +100,6 @@ public class AccessInterceptor implements HandlerInterceptor {
 
     private static boolean isReadOnly(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
-    }
-
-    /** 剥掉 API 前缀，得到路由表里登记的形状（{@code /ops/...}）。 */
-    private String stripPrefix(String uri) {
-        if (!apiPrefix.isEmpty() && uri.startsWith(apiPrefix)) {
-            return uri.substring(apiPrefix.length());
-        }
-        return uri;
     }
 
     private UserPrincipal currentPrincipal() {
