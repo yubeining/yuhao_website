@@ -52,3 +52,10 @@ done
 chmod 600 "$tmp"
 mv -f "$tmp" "$ENV_FILE"
 echo "[apply-env] $count key(s) written to $ENV_FILE (previous copy kept as .env.prev)"
+
+# 把应用实际会用到的【非密钥】项回显出来，排查"到底连的是谁"不用再猜。
+# 密码类一律不打；DB_URL 里若带了 ?user= / password= 也打码。
+echo "[apply-env] effective non-secret values:"
+grep -E '^(SERVER_PORT|DB_URL|DB_USERNAME|REDIS_HOST|REDIS_PORT|STORAGE_PROVIDER|STORAGE_S3_ENDPOINT|STORAGE_S3_REGION|STORAGE_S3_BUCKET|DEV_LOGIN_ENABLED)=' "$ENV_FILE" \
+    | sed -E 's/(password=)[^&"]*/\1***/I; s/(user=)[^&"]*/\1***/I' \
+    | sed 's/^/    /' || true
