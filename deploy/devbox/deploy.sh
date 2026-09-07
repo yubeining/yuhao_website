@@ -25,8 +25,9 @@ STOP_TIMEOUT="${STOP_TIMEOUT:-30}"
 mkdir -p "$LOG_DIR"
 
 # ---------- 环境变量 ----------
-# ★ 真值只在 DevBox 上的 .env 里，绝不进 git、也绝不由 Actions 传过来。
-#   Actions 只送 jar，不碰任何密钥 —— 这样 GitHub 侧被攻破也拿不到数据库口令。
+# ★ 真值在 GitHub Secrets / Variables，每次部署由 apply-env.sh 覆盖进这个 .env
+#   （2026-09-07 起；之前是只在 DevBox 上手填）。这个文件不进 git。
+#   apply-env.sh 覆盖前会留一份 .env.prev，回滚时要一并还原，见文末。
 if [ -f "$APP_DIR/.env" ]; then
     set -a
     # shellcheck disable=SC1091
@@ -127,6 +128,8 @@ start_app
 
 if wait_healthy; then
     log "deploy OK"
+    # 新配置已被证明能用，备份不再需要
+    rm -f "$APP_DIR/.env.prev"
     exit 0
 fi
 
@@ -142,6 +145,16 @@ fi
 log "rolling back to previous version"
 stop_app
 mv -f "$JAR_PREV" "$JAR_CUR"
+# ★ 配置也要回滚：本次部署刚由 apply-env.sh 覆盖过 .env。
+#   口令填错时只回滚 jar 不回滚配置，旧版拿着同一个错口令一样起不来。
+if [ -f "$APP_DIR/.env.prev" ]; then
+    log "restoring previous .env"
+    mv -f "$APP_DIR/.env.prev" "$APP_DIR/.env"
+    set -a
+    # shellcheck disable=SC1091
+    . "$APP_DIR/.env"
+    set +a
+fi
 start_app
 
 if wait_healthy; then

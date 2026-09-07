@@ -19,9 +19,17 @@ DevBox:8080 ──▶ https://mhswbrrnpspx.sealosbja.site
    └──▶ Sealos Redis（内网）
 ```
 
-**★ GitHub 侧不保存任何数据库口令。**Actions 只有一把 SSH 私钥；
-`DB_PASSWORD` / `JWT_SECRET` 只存在于 DevBox 上的 `/home/devbox/app/.env`。
-这样 GitHub token 泄露不会连带泄露数据。
+**★ 口令的唯一真源是 GitHub Secrets**（2026-09-07 起）。每次部署，workflow 把
+`DB_PASSWORD` / `JWT_SECRET` / `REDIS_PASSWORD` / `STORAGE_S3_*` 覆盖进 DevBox 的
+`/home/devbox/app/.env`（`deploy/devbox/apply-env.sh`）。DevBox 是容器，删了重建
+或换一台，`.env` 就没了 —— 所以它只是缓存，不是真源。
+
+> 之前（2026-08-02）的设计相反：GitHub 不碰任何数据口令，只有一把 SSH 私钥。
+> 那样 GitHub token 泄露的爆炸半径更小，但 `.env` 没有任何备份。改掉的取舍见
+> `changelog/2026-09-07_secrets-from-github/`。
+>
+> ★ GitHub Secrets **存进去就看不到了**（只能更新或删除），这是设计如此。
+> 你自己要另留一份（密码管理器）。
 
 ---
 
@@ -162,7 +170,8 @@ ssh -i <私钥> -p <端口> devbox@<主机> 'bash /tmp/bootstrap.sh'
 3. 装 `/home/devbox/project/entrypoint.sh` —— **DevBox 是容器不是虚拟机，
    通常没有 systemd**。没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。
 
-然后**编辑 `.env` 填真值**：
+然后**编辑 `.env` 填地址类的值**（口令类不用填 —— 第 3 步配进 GitHub 后，
+第一次部署会自动覆盖进来；地址类也可以配成 GitHub Variables 省掉这一步）：
 
 ```bash
 ssh -i <私钥> -p <端口> devbox@<主机>
@@ -200,6 +209,17 @@ vi /home/devbox/app/.env
 | `DEVBOX_PORT` | SSH 端口 | ✅ |
 | `DEVBOX_USER` | 通常是 `devbox` | ✅ |
 | `DEVBOX_KNOWN_HOSTS` | `ssh-keyscan -p <端口> <主机>` 的输出 | 建议 |
+| `DB_PASSWORD` | 第 1 步记下的（Sealos 数据库 → 连接信息里随时能看） | ✅ |
+| `JWT_SECRET` | `openssl rand -base64 48` 生成，≥ 32 字节，**不与本地共用** | ✅ |
+| `REDIS_PASSWORD` | 第 1 步记下的；Redis 没设口令就不用配 | 按需 |
+| `STORAGE_S3_ACCESS_KEY` / `STORAGE_S3_SECRET_KEY` | Sealos 对象存储 → 桶 → 访问密钥 | 图纸域上线前 |
+
+以上口令项每次部署都会覆盖进 DevBox 的 `.env`；**缺 `DB_PASSWORD` 或 `JWT_SECRET` 部署直接失败**，
+不会等到应用起不来才发现。
+
+非口令项走同一页的 **Variables** 标签（可选，没配就用 workflow 里的默认值或 DevBox `.env` 现有值）：
+`DB_URL` / `DB_USERNAME` / `REDIS_HOST` / `REDIS_PORT` / `STORAGE_PROVIDER` /
+`STORAGE_S3_ENDPOINT` / `STORAGE_S3_REGION` / `STORAGE_S3_BUCKET`。
 
 > `DEVBOX_KNOWN_HOSTS` 不填也能跑 —— workflow 会退化成每次现扫主机公钥，
 > 并在日志里打出扫到的内容和一条 warning。现扫的问题是**无法防中间人**：

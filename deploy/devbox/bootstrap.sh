@@ -150,12 +150,15 @@ log "app dir: $APP_DIR"
 
 if [ ! -f "$APP_DIR/.env" ]; then
     cat >"$APP_DIR/.env" <<'ENVEOF'
-# ★★ 生产配置。这个文件【只存在于 DevBox 上】，不进 git、不经过 GitHub。
+# ★★ 生产配置。这个文件不进 git。
 #
-#    GitHub Actions 只负责把 app.jar 送过来，从不接触这里的任何值 ——
-#    这样即使 GitHub 侧的 token 泄露，数据库口令也不会跟着泄露。
+#    2026-09-07 起：口令类（DB_PASSWORD / JWT_SECRET / REDIS_PASSWORD / STORAGE_S3_*）
+#    的真源是 GitHub Secrets，每次部署由 deploy/devbox/apply-env.sh 覆盖进来 ——
+#    下面这些占位符不用手填，第一次部署就会被写上。
+#    DevBox 删了重建也不丢：跑一次本脚本 + 点一次部署，配置全回来。
 #
-#    改完这个文件后需要重新部署（或手动重启）才生效。
+#    地址类（DB_URL / REDIS_HOST …）可以手填，也可以配成 GitHub Variables 由部署覆盖。
+#    直接改这个文件的项，下次部署时若 GitHub 上有同名配置会被覆盖回去。
 
 # ---------- 端口 ----------
 # Sealos DevBox 的网络配置里对外暴露的端口
