@@ -157,7 +157,8 @@ jobs:
           CFG_STORAGE_S3_SECRET_KEY: ${{ secrets.STORAGE_S3_SECRET_KEY }}
           # --- 非密钥（Variables；误建成 Secret 也认）---
           CFG_DB_URL: ${{ vars.DB_URL || secrets.DB_URL }}
-          CFG_DB_USERNAME: ${{ vars.DB_USERNAME || secrets.DB_USERNAME }}
+          # 默认 postgres：Sealos 数据库控制台给的口令就是这个用户的（2026-09-07 决定）
+          CFG_DB_USERNAME: ${{ vars.DB_USERNAME || secrets.DB_USERNAME || 'postgres' }}
           CFG_REDIS_HOST: ${{ vars.REDIS_HOST || secrets.REDIS_HOST }}
           CFG_REDIS_PORT: ${{ vars.REDIS_PORT || secrets.REDIS_PORT }}
           CFG_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER || 's3' }}
