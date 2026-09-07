@@ -17,7 +17,12 @@ JAR_CUR="$APP_DIR/app.jar"
 JAR_PREV="$APP_DIR/app.jar.prev"
 PID_FILE="$APP_DIR/app.pid"
 LOG_DIR="$APP_DIR/logs"
+# ★ app.log 现在【由应用的 Logback 自己写并自动轮转】（见 application.yml
+#   logging.file.name + logback.rollingpolicy）。所以 nohup 不再重定向到它 ——
+#   否则两个写手同写一个文件，内容交织、轮转错乱。
+#   nohup 只接 boot.log：JVM 崩溃、OOM、Logback 起来之前的输出这些捞不到别处的。
 LOG_FILE="$LOG_DIR/app.log"
+BOOT_LOG="$LOG_DIR/boot.log"
 
 HEALTH_TIMEOUT="${HEALTH_TIMEOUT:-120}"
 STOP_TIMEOUT="${STOP_TIMEOUT:-30}"
@@ -105,7 +110,9 @@ stop_app() {
 start_app() {
     log "starting"
     # shellcheck disable=SC2086
-    nohup java ${JAVA_OPTS:-} -jar "$JAR_CUR" >>"$LOG_FILE" 2>&1 &
+    # -DLOG_PATH 告诉 Logback 把 app.log 写进 $LOG_DIR（绝对路径），
+    # 不受 nohup 启动时 cwd 的影响。
+    nohup java ${JAVA_OPTS:-} -DLOG_PATH="$LOG_DIR" -jar "$JAR_CUR" >>"$BOOT_LOG" 2>&1 &
     echo $! >"$PID_FILE"
     log "pid $(cat "$PID_FILE")"
 }
@@ -135,7 +142,10 @@ fi
 
 # ---------- 回滚 ----------
 log "deploy FAILED, last 60 lines of app log:"
-tail -n 60 "$LOG_FILE" >&2 || true
+tail -n 60 "$LOG_FILE" >&2 2>/dev/null || true
+# Logback 起来之前就崩的（配置错、OOM、JVM 参数错）在 boot.log 里，app.log 可能是空的
+log "--- boot.log (pre-logback / crash output) ---"
+tail -n 20 "$BOOT_LOG" >&2 2>/dev/null || true
 
 if [ ! -f "$JAR_PREV" ]; then
     log "no previous version to roll back to; leaving the app down"

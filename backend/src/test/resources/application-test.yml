@@ -57,3 +57,6 @@ app:
 logging:
   level:
     com.mfg: DEBUG
+  # 测试不落 logs/ —— 写进 target/（gitignore），跑测试不留垃圾文件
+  file:
+    name: target/test.log

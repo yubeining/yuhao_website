@@ -50,5 +50,6 @@ Thumbs.db
 
 # --- 本地临时 ---
 *.log
+logs/
 tmp/
 .claude/local/

@@ -155,3 +155,18 @@ logging:
     com.mfg: INFO
     # 排查 SQL 时临时打开，不要留在生产配置里
     org.hibernate.SQL: WARN
+  pattern:
+    # ★ 每行日志带上请求 traceId（由 RequestTraceFilter 塞进 MDC）。
+    #   Spring Boot 会把这个片段注进控制台和文件两套默认 pattern 里。
+    #   一个请求跨多行日志、并发交织时，靠这个 id 把它们串起来。
+    correlation: "[%X{traceId:-}] "
+  file:
+    # ★ 配了这个才有【文件 + 自动轮转】。LOG_PATH 由 deploy.sh 传绝对路径；
+    #   本地开发不传 → 落进当前目录的 logs/（已 gitignore）。
+    #   没有它就只有 stdout，DevBox 靠 shell 重定向成一个永不切割的大文件（磁盘迟早满）。
+    name: ${LOG_PATH:logs}/app.log
+  logback:
+    rollingpolicy:
+      max-file-size: 50MB       # 单个文件到 50MB 就切
+      max-history: 14           # 保留 14 天，更早的自动删
+      total-size-cap: 2GB       # 所有归档合计上限，超了从最旧的删
