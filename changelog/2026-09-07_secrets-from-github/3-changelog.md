@@ -38,7 +38,14 @@ STORAGE_S3_BUCKET="aprx7mvw-yuhao-oss"                              ← 追加
 
 ### 线上结果
 
-（待填）
+2026-09-07 部署成功，线上 `commit=196315e`、`/actuator/health` 200。
+
+过程中踩到两点，都已修在本分支：
+1. 第一次真跑：`DB_PASSWORD` 与线上库不一致（Sealos 控制台给的口令属于 `postgres`，不是 `mfg_app`）。
+   回滚按设计还原了 `.env.prev`，旧版 9 秒内恢复服务。
+2. 用户名：库用户是 `postgres` 不是 `mfg_app`。`DB_USERNAME` 被误建成 Secret（workflow 初版只读
+   `vars.*`），故加了 `secrets.DB_USERNAME` 回退并兜底默认 `postgres`（commit c88c99c / 196315e），
+   同时让 apply-env.sh 回显生效的非密钥值（DB_URL/DB_USERNAME/… 密码打码），排查不再靠猜。
 
 ## 部署清单
 
