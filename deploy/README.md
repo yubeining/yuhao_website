@@ -221,6 +221,10 @@ vi /home/devbox/app/.env
 `DB_URL` / `DB_USERNAME` / `REDIS_HOST` / `REDIS_PORT` / `STORAGE_PROVIDER` /
 `STORAGE_S3_ENDPOINT` / `STORAGE_S3_REGION` / `STORAGE_S3_BUCKET`。
 
+> ★ 对象存储有两个端点：`STORAGE_S3_ENDPOINT` 填**内网**地址（服务端 put/get 走它，
+> 不出集群）；再配一个 `STORAGE_S3_PUBLIC_ENDPOINT` 填**外网**地址 —— 给欧洲客户浏览器
+> 用的图纸签名 URL 走它。不配 public 的话会回落到内网地址，客户点了打不开。
+
 > `DEVBOX_KNOWN_HOSTS` 不填也能跑 —— workflow 会退化成每次现扫主机公钥，
 > 并在日志里打出扫到的内容和一条 warning。现扫的问题是**无法防中间人**：
 > 有人劫持了 DNS 或网络，你的私钥就直接送到对方手里了。

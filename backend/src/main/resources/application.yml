@@ -98,13 +98,31 @@ app:
   storage:
     # ★ 存储位置全部走配置 —— 将来若欧洲客户要求数据驻留，
     #   拆区靠改配置而不是改业务代码（设计文档 D1）
-    provider: ${STORAGE_PROVIDER:gcs}
-    private-bucket: ${STORAGE_PRIVATE_BUCKET:mfg-private}
-    public-bucket: ${STORAGE_PUBLIC_BUCKET:mfg-public}
+    provider: ${STORAGE_PROVIDER:s3}   # s3 | memory（memory 仅本地/测试）
     signed-url-ttl-seconds: 900       # 15 分钟。图纸签名 URL 要短
     # 允许上传的类型，按 magic bytes 校验（不信扩展名）
     allowed-drawing-types: STEP,STP,IGES,IGS,X_T,SLDPRT,DWG,DXF,PDF,ZIP
     max-drawing-size-mb: 500
+    s3:
+      # ★ endpoint 是【内网】地址（服务端 put/get 走它，不出集群）；
+      #   public-endpoint 是【外网】地址，给浏览器用的签名 URL 走它（见 StorageConfig）。
+      #   不填 public-endpoint 时回落到 endpoint（本地开发两者同一个外网地址）。
+      endpoint: ${STORAGE_S3_ENDPOINT:}
+      public-endpoint: ${STORAGE_S3_PUBLIC_ENDPOINT:}
+      region: ${STORAGE_S3_REGION:us-east-1}
+      bucket: ${STORAGE_S3_BUCKET:}
+      access-key: ${STORAGE_S3_ACCESS_KEY:}
+      secret-key: ${STORAGE_S3_SECRET_KEY:}
+      path-style: ${STORAGE_S3_PATH_STYLE:true}   # MinIO / Sealos 必须为 true
+
+  # ---------- 线程池（见 config/AsyncConfig） ----------
+  async:
+    core-pool-size: ${ASYNC_CORE_POOL_SIZE:4}
+    max-pool-size: ${ASYNC_MAX_POOL_SIZE:16}
+    queue-capacity: ${ASYNC_QUEUE_CAPACITY:500}
+    await-termination-seconds: 20     # 和 server.shutdown: graceful 对齐
+  scheduler:
+    pool-size: ${SCHEDULER_POOL_SIZE:2}
 
   quote:
     # 报价五道护栏的配置项（设计文档 3 §4）
