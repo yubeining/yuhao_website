@@ -7,7 +7,7 @@
 
 > **当前状态：骨架可运行，业务功能为 0。**
 > 数据库 31 张表已建好，端级隔离 / 认证 / 迁移 / 响应外壳这些地基已跑通，
-> 但 `backend/.../domain/` 下 14 个业务包全是空的。见文末「已完成 / 未完成」。
+> 但 `backend/.../domain/` 下 13 个业务包全是空的。见文末「已完成 / 未完成」。
 
 ---
 
@@ -182,7 +182,7 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 
 **已跑通**
 
-- 4 个迁移 → 31 张表 + 1 视图 + 1 触发器（拆单不变式），开机自动应用、内容 hash 漂移检测
+- 5 个迁移 → 31 张表 + 1 视图 + 1 触发器（拆单不变式），开机自动应用、内容 hash 漂移检测
 - 端级硬闸门：同一个 token 敲本端 200、敲他端 403 `common.wrong_portal`
 - JWT 签发解析（principal id 用 `UUID` 不用 `String`，见 CLAUDE.md C6）
 - `@CurrentUser` / `@CurrentParty` 参数解析器
@@ -192,7 +192,7 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 
 **还没有**
 
-- `domain/` 下 14 个业务包全空 —— RFQ、报价、订单、生产、质检、发货一个都没实现
+- `domain/` 下 13 个业务包全空 —— RFQ、报价、订单、生产、质检、发货一个都没实现
 - 真实登录（三端三种方式）
 - 对象存储接入、图纸脱敏 / 水印、`file_access_log` 落库
 - 定时任务（报价过期扫描、汇率同步…）—— 每一个都要按条目加 Redis 锁
