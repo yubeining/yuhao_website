@@ -89,4 +89,12 @@ public final class CacheKeys {
     public static String publicRateLimit(String scope, String ipHash) {
         return global("ratelimit", scope, ipHash);
     }
+
+    /**
+     * 通用限流 key。{@code scope} = 被限的动作（如 {@code login} / {@code lead}），
+     * {@code subject} = 被限的主体（邮箱 / ipHash / 手机号）。按"谁在做什么动作"计数。
+     */
+    public static String rateLimit(String scope, String subject) {
+        return global("ratelimit", scope, subject);
+    }
 }
