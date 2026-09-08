@@ -9,7 +9,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -24,7 +24,7 @@ import java.util.UUID;
  * <h3>★ 本类同时是三个 JPA 坑的活体样本（CLAUDE.md §6）</h3>
  *
  * <ol>
- *   <li><b>时间</b>：字段用 {@link OffsetDateTime} 且显式声明
+ *   <li><b>时间</b>：字段用 {@link Instant} 且显式声明
  *       {@code columnDefinition = "timestamp with time zone"}。
  *       用 {@code LocalDateTime} 会和 schema 的 {@code timestamptz} <b>静默漂移</b> ——
  *       写进去的时间少了时区信息，跨时区读出来就是错的，而且没有任何报错。</li>
@@ -85,7 +85,7 @@ public class AuditEvent {
 
     @Column(name = "created_at", nullable = false,
             columnDefinition = "timestamp with time zone")
-    private OffsetDateTime createdAt;
+    private Instant createdAt;
 
     protected AuditEvent() {
         // JPA 要求的无参构造
@@ -93,7 +93,7 @@ public class AuditEvent {
 
     public AuditEvent(String action, String targetType, String targetId,
                       UUID actorUserId, UUID actorPartyId,
-                      Map<String, Object> payload, OffsetDateTime createdAt) {
+                      Map<String, Object> payload, Instant createdAt) {
         this.action = action;
         this.targetType = targetType;
         this.targetId = targetId;
@@ -135,7 +135,7 @@ public class AuditEvent {
         return ipHash;
     }
 
-    public OffsetDateTime getCreatedAt() {
+    public Instant getCreatedAt() {
         return createdAt;
     }
 }

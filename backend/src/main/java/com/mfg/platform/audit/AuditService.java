@@ -5,7 +5,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Map;
 import java.util.UUID;
 
@@ -44,7 +44,7 @@ public class AuditService {
                     action, targetType, targetId,
                     actorUserId, actorPartyId,
                     payload == null ? Map.of() : payload,
-                    OffsetDateTime.now()));
+                    Instant.now()));
         } catch (RuntimeException e) {
             // 只记 action，不记 payload —— payload 里可能有 id，日志不该成为第二份数据源
             log.error("failed to write audit event: action={}", action, e);

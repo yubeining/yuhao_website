@@ -1,5 +1,6 @@
 package com.mfg.platform.idempotency;
 
+import com.mfg.common.cache.CacheKeys;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.service.RedisService;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -27,8 +28,6 @@ import java.util.UUID;
 @Component
 public class IdempotencyAspect {
 
-    private static final String PREFIX = "idempotent:";
-
     private final RedisService redis;
     private final SpelExpressionParser parser = new SpelExpressionParser();
     private final ParameterNameDiscoverer paramNames = new DefaultParameterNameDiscoverer();
@@ -41,8 +40,8 @@ public class IdempotencyAspect {
     public Object around(ProceedingJoinPoint pjp, Idempotent idempotent) throws Throwable {
         MethodSignature signature = (MethodSignature) pjp.getSignature();
         Method method = signature.getMethod();
-        String key = PREFIX + method.getDeclaringClass().getSimpleName() + "#" + method.getName()
-                + ":" + resolveKey(idempotent.key(), method, pjp.getArgs());
+        String target = method.getDeclaringClass().getSimpleName() + "#" + method.getName();
+        String key = CacheKeys.idempotency(target, resolveKey(idempotent.key(), method, pjp.getArgs()));
 
         String fence = UUID.randomUUID().toString();
         if (!redis.tryLock(key, fence, idempotent.ttlSeconds())) {

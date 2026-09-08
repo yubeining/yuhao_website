@@ -97,4 +97,20 @@ public final class CacheKeys {
     public static String rateLimit(String scope, String subject) {
         return global("ratelimit", scope, subject);
     }
+
+    // ---------- 认证 ----------
+
+    /** refresh token 在 Redis 里的 key。 */
+    public static String refreshToken(String token) {
+        return global("auth", "refresh", token);
+    }
+
+    // ---------- 幂等（@Idempotent）----------
+
+    /**
+     * 幂等锁 key。{@code target} = 被保护的方法标识（类#方法），{@code arg} = 业务 key（SpEL 求值）。
+     */
+    public static String idempotency(String target, String arg) {
+        return global("idempotent", target, arg);
+    }
 }

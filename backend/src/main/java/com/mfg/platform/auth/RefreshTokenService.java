@@ -1,5 +1,6 @@
 package com.mfg.platform.auth;
 
+import com.mfg.common.cache.CacheKeys;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
 import com.mfg.common.service.RedisService;
@@ -23,8 +24,6 @@ import java.util.UUID;
 @Service
 public class RefreshTokenService {
 
-    private static final String PREFIX = "auth:refresh:";
-
     private final RedisService redis;
     private final int ttlSeconds;
 
@@ -37,7 +36,7 @@ public class RefreshTokenService {
     /** 签发一个新 refresh token 并落 Redis。 */
     public String issue(PartyType portal, UUID userId) {
         String token = UUID.randomUUID().toString().replace("-", "");
-        redis.set(PREFIX + token, portal.name() + ":" + userId, ttlSeconds);
+        redis.set(CacheKeys.refreshToken(token), portal.name() + ":" + userId, ttlSeconds);
         return token;
     }
 
@@ -62,7 +61,7 @@ public class RefreshTokenService {
     /** 撤销（登出）。已经不存在也无所谓（幂等）。 */
     public void revoke(String token) {
         if (token != null && !token.isBlank()) {
-            redis.delete(PREFIX + token);
+            redis.delete(CacheKeys.refreshToken(token));
         }
     }
 
@@ -70,12 +69,12 @@ public class RefreshTokenService {
         if (token == null || token.isBlank()) {
             throw new BusinessException(401, "auth.refresh_invalid");
         }
-        String value = redis.get(PREFIX + token, String.class);
+        String value = redis.get(CacheKeys.refreshToken(token), String.class);
         if (value == null) {
             throw new BusinessException(401, "auth.refresh_invalid");
         }
         // 立即删除 = 一次性 + 轮换（并发同 token 刷新极端下可能都读到，属可接受的小窗口）
-        redis.delete(PREFIX + token);
+        redis.delete(CacheKeys.refreshToken(token));
         int sep = value.indexOf(':');
         if (sep <= 0) {
             throw new BusinessException(401, "auth.refresh_invalid");
