@@ -29,7 +29,7 @@ public record PagedResponse<T>(
     public static <E, T> PagedResponse<T> of(Page<E> page, Function<E, T> mapper) {
         return new PagedResponse<>(
                 page.getContent().stream().map(mapper).toList(),
-                page.getNumber(),
+                page.getNumber() + 1,
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages());
