@@ -13,6 +13,7 @@ import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.time.Instant;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -83,14 +84,19 @@ public class JwtService {
 
     private String issue(UserPrincipal principal, long ttlSeconds) {
         Instant now = Instant.now();
+        // ★ 用可变 Map 而不是 Map.of：运营（OPERATOR）没有 partyId（D23，不属任何 party），
+        //   pid 这一项对运营缺席；Map.of 不允许 null 值。
+        Map<String, Object> claims = new HashMap<>();
+        if (principal.partyId() != null) {
+            claims.put(CLAIM_PARTY_ID, principal.partyId().toString());
+        }
+        claims.put(CLAIM_PARTY_TYPE, principal.partyType().name());
+        claims.put(CLAIM_EMAIL, principal.email() == null ? "" : principal.email());
+        claims.put(CLAIM_LOCALE, principal.locale() == null ? "en" : principal.locale());
+        claims.put(CLAIM_ROLES, List.copyOf(principal.roles() == null ? Set.of() : principal.roles()));
         return Jwts.builder()
                 .subject(principal.id().toString())
-                .claims(Map.of(
-                        CLAIM_PARTY_ID, principal.partyId().toString(),
-                        CLAIM_PARTY_TYPE, principal.partyType().name(),
-                        CLAIM_EMAIL, principal.email() == null ? "" : principal.email(),
-                        CLAIM_LOCALE, principal.locale() == null ? "en" : principal.locale(),
-                        CLAIM_ROLES, List.copyOf(principal.roles() == null ? Set.of() : principal.roles())))
+                .claims(claims)
                 .issuedAt(Date.from(now))
                 .expiration(Date.from(now.plusSeconds(ttlSeconds)))
                 .signWith(key)
@@ -116,10 +122,12 @@ public class JwtService {
 
             PartyType partyType = PartyType.valueOf(claims.get(CLAIM_PARTY_TYPE, String.class));
             String email = claims.get(CLAIM_EMAIL, String.class);
+            // pid 对运营缺席 → partyId 为 null
+            String pid = claims.get(CLAIM_PARTY_ID, String.class);
 
             return new UserPrincipal(
                     UUID.fromString(claims.getSubject()),
-                    UUID.fromString(claims.get(CLAIM_PARTY_ID, String.class)),
+                    pid == null || pid.isEmpty() ? null : UUID.fromString(pid),
                     partyType,
                     email == null || email.isEmpty() ? null : email,
                     claims.get(CLAIM_LOCALE, String.class),

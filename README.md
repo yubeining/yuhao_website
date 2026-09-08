@@ -80,15 +80,23 @@ cd portal && npm run dev      # :5173，API 自动 proxy 到 :3001
 
 ### ★ 开发登录
 
-真实登录（客户邮箱密码 / 供应商手机验证码 / 内部企微扫码）都还没做。
-临时用 `DevAuthController` 顶着 —— **默认关闭**，本地开发要显式打开：
+**账号密码登录已做**（三个端，`POST /api/v1/auth/login`，`portalType` = CUSTOMER/SUPPLIER/OPERATOR）。
+供应商暂时也走密码，手机验证码 / 企微扫码是后续。旧的 `DevAuthController` 后门已删除。
+
+本地开发打开种子账号（默认关闭），启动时自动建三个测试号：
 
 ```bash
-DEV_LOGIN_ENABLED=true mvn spring-boot:run
+DEV_SEED_ENABLED=true mvn spring-boot:run
 ```
 
-它不校验任何凭据就能签出任意端的 token（含 OPERATOR）。
-**真实登录做完的那个 PR 里，连同 `DevAuthController` 和前端的 `services/auth.ts#devLogin` 一起删掉。**
+| 端 | 账号 | 密码 |
+|---|---|---|
+| 内部后台 | `ops@mfg.local`（portalType `OPERATOR`） | `dev12345` |
+| 客户端 | `customer@mfg.local`（`CUSTOMER`） | `dev12345` |
+| 供应商端 | `supplier@mfg.local`（`SUPPLIER`） | `dev12345` |
+
+> **★ 生产 `.env` 里 `DEV_SEED_ENABLED` 必须是 `false`。**生产的运营管理员另配。
+> 前端的 `services/auth.ts#devLogin` 还没清（前端仍跑在 mock 上），接真后端时一起改。
 
 ---
 
@@ -128,8 +136,8 @@ curl localhost:3001/actuator/health        # {"status":"UP"}
 2. 在 DevBox 上跑一次 `deploy/devbox/bootstrap.sh`，然后填 `/home/devbox/app/.env`
 3. 在 GitHub 配 `DEVBOX_SSH_KEY` / `DEVBOX_HOST` / `DEVBOX_PORT` / `DEVBOX_USER`
 
-> **★ `.env` 里的 `DEV_LOGIN_ENABLED` 必须是 `false`。**
-> 它是不校验凭据就能签 OPERATOR token 的后门，生产打开等于把内部后台完全公开。
+> **★ `.env` 里的 `DEV_SEED_ENABLED` 必须是 `false`。**
+> 它会播种带已知弱口令的测试账号，生产打开等于放三个公开后门账号。
 
 本地也可以用 Docker 跑完整镜像：
 
@@ -182,7 +190,7 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 
 **已跑通**
 
-- 5 个迁移 → 31 张表 + 1 视图 + 1 触发器（拆单不变式），开机自动应用、内容 hash 漂移检测
+- 6 个迁移 → 31 张表 + ops_user + 1 视图 + 1 触发器（拆单不变式），开机自动应用、内容 hash 漂移检测
 - 端级硬闸门：同一个 token 敲本端 200、敲他端 403 `common.wrong_portal`
 - JWT 签发解析（principal id 用 `UUID` 不用 `String`，见 CLAUDE.md C6）
 - `@CurrentUser` / `@CurrentParty` 参数解析器
@@ -193,9 +201,9 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 **还没有**
 
 - `domain/` 下 13 个业务包全空 —— RFQ、报价、订单、生产、质检、发货一个都没实现
-- 真实登录（三端三种方式）
-- 对象存储接入、图纸脱敏 / 水印、`file_access_log` 落库
+- 真实登录：账号密码（三端）+ refresh token **已做**；供应商手机验证码 / 内部企微扫码 **待做**
+- 对象存储服务已接（S3/Sealos OSS，见 `platform/storage`）；图纸脱敏 / 水印、`file_access_log` 落库 **待做**
 - 定时任务（报价过期扫描、汇率同步…）—— 每一个都要按条目加 Redis 锁
-- 任何测试。`src/test/` 下只有一个 `application-test.yml`
+- 平台层已有单测 + IT（鉴权 / 存储 / 限流 / 通知 / 登录）；业务域测试随域一起写
 - `site/` 官网
 - 零停机部署。DevBox 单实例，部署期间有几十秒不可用

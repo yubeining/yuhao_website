@@ -81,11 +81,15 @@ app:
     refresh-token-ttl-seconds: 2592000
 
   auth:
-    dev-login:
-      # ★★★ 后门。不校验任何凭据就能签出任意端的 token（含 OPERATOR）。
-      #   默认 false —— 只有本地开发显式打开（DEV_LOGIN_ENABLED=true）。
-      #   真实登录做完的那个 PR 里，连同 DevAuthController 一起删掉。
-      enabled: ${DEV_LOGIN_ENABLED:false}
+    login:
+      # 登录限流：同一 (受众+账号) 窗口内的尝试上限，防爆破（RateLimiter）
+      max-attempts: ${LOGIN_MAX_ATTEMPTS:10}
+      window-seconds: ${LOGIN_WINDOW_SECONDS:300}
+    dev-seed:
+      # ★ 开发种子账号：三个端各一个测试号（见 DevAccountSeeder）。
+      #   ★★ 生产必须 false。生产的运营管理员另配，不靠种子。
+      enabled: ${DEV_SEED_ENABLED:false}
+      password: ${DEV_SEED_PASSWORD:dev12345}
 
   cache:
     key-prefix: "mfg:"
