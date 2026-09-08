@@ -8,12 +8,13 @@ import { BrandSide } from '../../components/brand'
 import { BigButton, Checkbox, ErrMsg, Field, FieldRow, Input, Select } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
-import { findUserByMail, signup } from '../../mock/actions'
+import { register } from '../../services/auth'
+import { ApiError } from '../../services/core/http'
 
 const COUNTRIES = ['Germany', 'Austria', 'Switzerland', 'Netherlands', '其他']
 
 export function RegisterPage() {
-    const { state, act, t } = useMock()
+    const { t } = useMock()
     const navigate = useNavigate()
     const c = t.reg
 
@@ -24,13 +25,33 @@ export function RegisterPage() {
     const [pw, setPw] = useState('')
     const [agree, setAgree] = useState(false)
     const [err, setErr] = useState<string | null>(null)
+    const [busy, setBusy] = useState(false)
 
-    const submit = () => {
+    const submit = async () => {
+        if (busy) return
         if (!company || !mail || !pw) return setErr('请填写公司名称、邮箱和密码')
-        if (findUserByMail(state, mail)) return setErr('这个邮箱已经注册过了')
+        if (pw.length < 8) return setErr('密码至少 8 位')
         if (!agree) return setErr('请先同意服务条款与隐私政策')
-        act((s) => signup(s, { company, country, name, mail, pw }))
-        navigate('/auth/verify')
+        setErr(null)
+        setBusy(true)
+        try {
+            // 客户自助注册(供应商是邀请制,不走这里)
+            await register({
+                portalType: 'CUSTOMER',
+                orgName: company,
+                country: country === '其他' ? undefined : country,
+                email: mail.trim(),
+                password: pw,
+                displayName: name || mail.trim(),
+            })
+            // 注册与登录解耦:建号成功后回登录页
+            navigate('/auth/signin?registered=1', { replace: true })
+        } catch (e) {
+            setErr(e instanceof ApiError && e.code === 409 ? '这个邮箱已经注册过了'
+                : e instanceof ApiError ? e.messageCode : '注册失败,请重试')
+        } finally {
+            setBusy(false)
+        }
     }
 
     return (

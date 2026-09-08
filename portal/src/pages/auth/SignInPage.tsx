@@ -1,5 +1,9 @@
 /**
- * 登录。三端共用一个入口 —— 登录后按身份分流，不让用户先选自己是谁。
+ * 外部登录(客户 / 供应商)—— 接真后端 /auth/login。
+ *
+ * ★ 只凭邮箱 + 密码:是客户还是供应商由后端按账号所属组织推出,不让用户先选自己是谁。
+ * ★ 内部(运营)是<b>另一条独立入口</b> /auth/internal/signin(OpsSignInPage),两个页面不混。
+ * ★ UI 文案暂仍取自原型的 t(i18n 尚未单独迁移);登录动作已是真实调用。
  */
 
 import { useState } from 'react'
@@ -8,39 +12,44 @@ import { BrandSide, OAuthIcons } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
-import { currentRole, login } from '../../mock/actions'
-import type { RoleName } from '../../mock/types'
-
-const HOME: Record<RoleName, string> = {
-    customer: '/customer',
-    supplier: '/supplier/hall',
-    ops: '/ops/dashboard',
-}
+import { externalLogin } from '../../services/auth'
+import { ApiError } from '../../services/core/http'
+import { HOME_BY_TYPE, setSession } from '../../auth/session'
 
 export function SignInPage() {
-    const { state, actWith, t } = useMock()
+    const { t } = useMock()
     const navigate = useNavigate()
     const location = useLocation()
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
     const [err, setErr] = useState<string | null>(null)
+    const [busy, setBusy] = useState(false)
     const c = t.login
 
-    const submit = () => {
-        const failure = actWith((s) => login(s, mail, pw))
-        if (failure) {
-            setErr(failure)
-            return
+    const submit = async () => {
+        if (busy) return
+        setErr(null)
+        setBusy(true)
+        try {
+            const token = await externalLogin(mail.trim(), pw)
+            setSession({
+                accessToken: token.accessToken,
+                refreshToken: token.refreshToken,
+                partyType: token.portalType,
+                displayName: token.displayName,
+                locale: token.locale,
+            })
+            const home = HOME_BY_TYPE[token.portalType]
+            // 被守卫弹回来的人带着原地址,登录后送他回去;跨端地址不认,避免又被弹一次
+            const from = (location.state as { from?: string } | null)?.from
+            const prefix = '/' + home.split('/')[1]
+            navigate(from && from.startsWith(prefix) ? from : home, { replace: true })
+        } catch (e) {
+            setErr(e instanceof ApiError && e.code === 401 ? '账号或密码错误'
+                : e instanceof ApiError ? e.messageCode : '登录失败,请重试')
+        } finally {
+            setBusy(false)
         }
-        // 从新状态里读身份决定去哪 —— 客户 / 供应商 / 内部的落地页不同
-        const home = actWith((s) => {
-            const r = currentRole(s)
-            return r ? HOME[r.role] : '/'
-        })
-        // 被守卫弹回来的人带着原地址，登录后送他回去；跨端的地址不认，避免又被弹一次
-        const from = (location.state as { from?: string } | null)?.from
-        const prefix = '/' + home.split('/')[1]
-        navigate(from && from.startsWith(prefix) ? from : home, { replace: true })
     }
 
     return (
@@ -69,7 +78,7 @@ export function SignInPage() {
                         <a href="#">{c.forgot}</a>
                     </div>
 
-                    <BigButton onClick={submit}>{c.submit}</BigButton>
+                    <BigButton onClick={submit}>{busy ? '…' : c.submit}</BigButton>
 
                     <div className="orline"><span>{c.or}</span></div>
                     <div className="oauths">
@@ -77,29 +86,12 @@ export function SignInPage() {
                         <button className="oauth" type="button">{OAuthIcons.google}Google</button>
                     </div>
 
-                    {/* 演示账号：填进表单而不是直接跳过登录 —— 跳过的话没人会看见登录页长什么样 */}
-                    <div className="demo">
-                        <div className="dt">{c.demo}</div>
-                        <div className="row">
-                            {state.db.users.map((u) => (
-                                <button key={u.id} className="acc" type="button"
-                                    title={`${u.mail} · 密码 ${u.pw}`}
-                                    onClick={() => { setMail(u.mail); setPw(u.pw); setErr(null) }}>
-                                    <span className="av">{u.name.slice(-1)}</span>
-                                    <span className="a1">
-                                        {u.roles.map((r) => t.roles[r.role]).join(' + ')}
-                                    </span>
-                                </button>
-                            ))}
-                        </div>
-                        <div style={{ fontSize: 11, color: 'var(--faint)', marginTop: 8, textAlign: 'center' }}>
-                            {c.demoHint}
-                        </div>
-                    </div>
-
                     <div className="fnote">{c.note}</div>
                     <div className="fnote" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
                         {c.invited}<Link to="/auth/invite">{c.invitedA}</Link>
+                    </div>
+                    <div className="fnote" style={{ marginTop: 8 }}>
+                        内部员工?<Link to="/auth/internal/signin"> 从这里登录</Link>
                     </div>
                 </div>
             </div>

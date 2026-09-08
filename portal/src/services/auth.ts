@@ -2,34 +2,68 @@ import { publicRequest } from './core/http'
 import type { PartyType } from '../auth/session'
 
 /**
- * 登录相关接口。
+ * 认证接口 —— 对接真后端(§ mock→real 迁移的第一块)。
  *
- * ★ 目前只有开发用的 dev-login —— 真正的三端登录还没做：
- *     客户端    邮箱 + 密码，自助注册后人工审核
- *     供应商端  手机号 + 验证码，邀请制开户
- *     内部后台  企微扫码 / 邮箱密码
- *
- *   三种登录方式的响应形状应当一致（都返回下面这个 DevLoginResponse 的形状），
- *   这样前端的登录后处理只有一份。
+ * 内外两条独立入口(和后端一致,页面不混):
+ *   外部(客户/供应商)  /auth/login          只凭账号+密码,受众由后端按账号所属组织推出
+ *   内部(运营)         /auth/internal/login  恒 OPERATOR
+ * 注册只对外部:/auth/register(建组织 + 首个用户)。
  */
 
-export interface LoginResponse {
+export interface TokenResponse {
     accessToken: string
-    partyType: PartyType
+    refreshToken: string
+    portalType: PartyType
     displayName: string
     locale: string
 }
 
-/**
- * ★★ 仅开发环境可用。后端默认关闭（app.auth.dev-login.enabled=false），
- *    关闭时这个接口根本不存在，调用返回 404。
- *
- *    生产环境启用它 = 任何人都能给自己签一个 OPERATOR token。
- *    做真实登录时【连同后端的 DevAuthController 一起删掉】，不要留着"以防万一"。
- */
-export function devLogin(partyType: PartyType): Promise<LoginResponse> {
-    return publicRequest<LoginResponse>('/auth/dev-login', {
+export interface RegisterInput {
+    portalType: 'CUSTOMER' | 'SUPPLIER'
+    orgName: string
+    country?: string
+    email: string
+    password: string
+    displayName: string
+}
+
+export interface UserView {
+    id: string
+    orgId: string
+    email: string
+    displayName: string
+    status: string
+    locale: string | null
+}
+
+/** 外部登录:账号 + 密码。 */
+export function externalLogin(account: string, password: string): Promise<TokenResponse> {
+    return publicRequest<TokenResponse>('/auth/login', {
         method: 'POST',
-        body: { partyType },
+        body: { account, password },
+    })
+}
+
+/** 内部(运营)登录:独立入口。 */
+export function opsLogin(account: string, password: string): Promise<TokenResponse> {
+    return publicRequest<TokenResponse>('/auth/internal/login', {
+        method: 'POST',
+        body: { account, password },
+    })
+}
+
+/** 外部自助注册:建公司 + 首个用户。 */
+export function register(input: RegisterInput): Promise<UserView> {
+    return publicRequest<UserView>('/auth/register', {
+        method: 'POST',
+        body: input,
+    })
+}
+
+/** 登出:撤销 refresh token(幂等)。 */
+export function logout(refreshToken: string): Promise<void> {
+    return publicRequest<void>('/auth/logout', {
+        method: 'POST',
+        body: { refreshToken },
     })
 }

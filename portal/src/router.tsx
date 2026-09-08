@@ -3,6 +3,7 @@ import { PortalGuard, RootRedirect } from './components/PortalGuard'
 import { CustomerShell, OpsShell, SupplierShell } from './components/AppShell'
 
 import { SignInPage } from './pages/auth/SignInPage'
+import { OpsSignInPage } from './pages/auth/OpsSignInPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 import { VerifyPage } from './pages/auth/VerifyPage'
 import { InvitePage } from './pages/auth/InvitePage'
@@ -65,6 +66,7 @@ export const router = createBrowserRouter([
         children: [
             { index: true, element: <Navigate to="/auth/signin" replace /> },
             { path: 'signin', element: <SignInPage /> },
+            { path: 'internal/signin', element: <OpsSignInPage /> },
             { path: 'register', element: <RegisterPage /> },
             { path: 'verify', element: <VerifyPage /> },
             { path: 'invite', element: <InvitePage /> },
@@ -77,7 +79,7 @@ export const router = createBrowserRouter([
     {
         path: '/customer',
         element: (
-            <PortalGuard required="customer">
+            <PortalGuard required="CUSTOMER">
                 <CustomerShell><Outlet /></CustomerShell>
             </PortalGuard>
         ),
@@ -98,7 +100,7 @@ export const router = createBrowserRouter([
     {
         path: '/supplier',
         element: (
-            <PortalGuard required="supplier">
+            <PortalGuard required="SUPPLIER">
                 <SupplierOutlet />
             </PortalGuard>
         ),
@@ -118,7 +120,7 @@ export const router = createBrowserRouter([
     {
         path: '/ops',
         element: (
-            <PortalGuard required="ops">
+            <PortalGuard required="OPERATOR">
                 <OpsShell><Outlet /></OpsShell>
             </PortalGuard>
         ),

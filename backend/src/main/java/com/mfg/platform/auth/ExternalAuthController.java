@@ -9,7 +9,6 @@ import com.mfg.platform.identity.dto.UserView;
 import com.mfg.platform.ratelimit.RateLimit;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -40,9 +39,7 @@ public class ExternalAuthController {
         this.tokenIssuer = tokenIssuer;
     }
 
-    public record ExternalLoginRequest(@NotNull PartyType portalType,
-                                        @NotBlank String account,
-                                        @NotBlank String password) {
+    public record ExternalLoginRequest(@NotBlank String account, @NotBlank String password) {
     }
 
     /** 自助注册:建组织 + 首个用户。按来源 IP 限流(防批量刷号)。 */
@@ -53,17 +50,12 @@ public class ExternalAuthController {
         return UserView.of(created);
     }
 
-    /** 外部登录。仅 CUSTOMER / SUPPLIER;按 (端+账号) 限流。 */
-    @RateLimit(scope = "login", key = "#request.portalType + ':' + #request.account.toLowerCase()",
+    /** 外部登录:只凭账号+密码,受众由账号所属组织推出(运营账号不在此表,自然登不进)。按账号限流。 */
+    @RateLimit(scope = "login", key = "#request.account.toLowerCase()",
             limit = "${app.auth.login.max-attempts}", windowSeconds = "${app.auth.login.window-seconds}")
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody ExternalLoginRequest request) {
-        if (request.portalType() == PartyType.OPERATOR) {
-            // 运营请走 /auth/internal/login,不在外部入口
-            throw new BusinessException(400, "auth.portal_invalid");
-        }
-        return tokenIssuer.login(
-                authService.authenticateExternal(request.portalType(), request.account(), request.password()));
+        return tokenIssuer.login(authService.authenticateExternal(request.account(), request.password()));
     }
 
     @PostMapping("/refresh")

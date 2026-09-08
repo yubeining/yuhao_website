@@ -25,6 +25,8 @@ export type PartyType = 'CUSTOMER' | 'SUPPLIER' | 'OPERATOR'
 
 export interface Session {
     accessToken: string
+    /** 不透明 refresh token（撤销/续期用）。旧数据可能没有,允许缺省。 */
+    refreshToken?: string
     partyType: PartyType
     displayName: string
     locale: string
@@ -73,9 +75,16 @@ export function subscribeSession(listener: () => void): () => void {
     }
 }
 
-/** 各 principal type 的落地页。 */
+/** 各 principal type 的落地页（和 router.tsx 的实际路由一致）。 */
 export const HOME_BY_TYPE: Record<PartyType, string> = {
-    CUSTOMER: '/customer/rfqs',
-    SUPPLIER: '/supplier/quotes',
+    CUSTOMER: '/customer',
+    SUPPLIER: '/supplier/hall',
     OPERATOR: '/ops/dashboard',
+}
+
+/** 各受众的登录页 —— 内外两条独立入口(和后端 /auth vs /auth/internal 对齐)。 */
+export const SIGNIN_BY_TYPE: Record<PartyType, string> = {
+    CUSTOMER: '/auth/signin',
+    SUPPLIER: '/auth/signin',
+    OPERATOR: '/auth/internal/signin',
 }

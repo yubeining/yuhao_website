@@ -60,9 +60,9 @@ class AuthFlowIT {
         assertThat(reg.path("data").path("email").asText()).isEqualTo(email);
         assertThat(reg.path("data").path("orgId").asText()).isNotBlank();
 
-        // 登录
+        // 登录:只凭账号+密码,受众由后端推出
         JsonNode login = post("/auth/login",
-                new ExternalAuthController.ExternalLoginRequest(PartyType.CUSTOMER, email, "password123"), null);
+                new ExternalAuthController.ExternalLoginRequest(email, "password123"), null);
         assertThat(login.path("data").path("portalType").asText()).isEqualTo("CUSTOMER");
         String token = login.path("data").path("accessToken").asText();
         assertThat(token).isNotBlank();
@@ -85,7 +85,7 @@ class AuthFlowIT {
         post("/auth/register",
                 new RegisterRequest(PartyType.CUSTOMER, "Beta", "FR", email, "password123", "Bob"), null);
         String token = post("/auth/login",
-                new ExternalAuthController.ExternalLoginRequest(PartyType.CUSTOMER, email, "password123"), null)
+                new ExternalAuthController.ExternalLoginRequest(email, "password123"), null)
                 .path("data").path("accessToken").asText();
 
         ResponseEntity<String> res = rawGet("/supplier/organization", token);
@@ -108,10 +108,15 @@ class AuthFlowIT {
     }
 
     @Test
-    void externalLoginRejectsOperatorPortal() throws Exception {
+    void opsAccountCannotLoginViaExternalEndpoint() throws Exception {
+        // 运营号只在 ops_user 表,外部登录查的是 external_user —— 天然登不进(401,不是 200)
+        String email = "opsx-" + UUID.randomUUID() + "@example.com";
+        Organization internal = organizations.save(new Organization(Organization.Type.INTERNAL, "HQ2", null));
+        opsUsers.save(new OpsUser(internal.getId(), email, "Op", passwordEncoder.encode("password123")));
+
         ResponseEntity<String> res = rawPost("/auth/login",
-                new ExternalAuthController.ExternalLoginRequest(PartyType.OPERATOR, "x@example.com", "password123"));
-        assertThat(res.getStatusCode().value()).isEqualTo(400);
+                new ExternalAuthController.ExternalLoginRequest(email, "password123"), null);
+        assertThat(res.getStatusCode().value()).isEqualTo(401);
     }
 
     // ---------- helpers ----------

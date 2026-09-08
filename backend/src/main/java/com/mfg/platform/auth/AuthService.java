@@ -71,14 +71,23 @@ public class AuthService {
 
     // ---------- 外部(客户 / 供应商)----------
 
+    /**
+     * 外部登录:只凭 account + password —— <b>受众(客户/供应商)从用户所在组织的 type 推出</b>,
+     * 不用调用方声明(external_user 的 email 全局唯一,一个账号唯一对应一家公司)。
+     */
     @Transactional(readOnly = true)
-    public Authenticated authenticateExternal(PartyType portal, String account, String rawPassword) {
+    public Authenticated authenticateExternal(String account, String rawPassword) {
         ExternalUser u = externalUsers.findByEmail(normalize(account)).orElse(null);
         if (u == null || u.getStatus() != ExternalUser.Status.ACTIVE
                 || !matches(rawPassword, u.getPasswordHash())) {
             throw new BusinessException(401, BAD_CREDENTIALS);
         }
-        Organization org = requireMatchingOrg(u.getOrgId(), portal);
+        Organization org = organizations.findById(u.getOrgId()).orElse(null);
+        // 外部账号必须挂在客户/供应商组织下;组织停用或异常(指到 INTERNAL)一律拒
+        if (org == null || org.getStatus() != Organization.Status.ACTIVE
+                || audienceOf(org.getType()) == PartyType.OPERATOR) {
+            throw new BusinessException(401, BAD_CREDENTIALS);
+        }
         return new Authenticated(externalPrincipal(u, org), u.getDisplayName());
     }
 

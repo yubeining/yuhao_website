@@ -13,6 +13,9 @@ import { useState, type ReactNode } from 'react'
 import { Logo } from './brand'
 import { useMock } from '../mock/MockProvider'
 import { currentCompany, currentUser, findCompany, logout } from '../mock/actions'
+import { useSession } from '../auth/useSession'
+import { clearSession } from '../auth/session'
+import { logout as apiLogout } from '../services/auth'
 
 export interface NavItem {
     /** 分组标题。给了 sec 就只渲染标题，其余字段忽略。 */
@@ -104,14 +107,29 @@ const ID_SLOTS: [('customer' | 'supplier'), string][] = [
  */
 function UserMenu({ sub }: { sub: string }) {
     const { state, act } = useMock()
+    const session = useSession()
     const navigate = useNavigate()
     const [open, setOpen] = useState(false)
 
     const user = currentUser(state)
-    if (!user) return null
-    const switchable = user.roles.some((r) => r.role !== 'ops')
+    // 身份显示优先用真实登录态(已接后端);mock user 仅在原型演示时兜底
+    const displayName = user?.name ?? session?.displayName ?? '用户'
+    if (!user && !session) return null
+    // 身份切换是原型 mock 专属功能(一个人多身份),真实登录态下暂不提供
+    const switchable = !!user && user.roles.some((r) => r.role !== 'ops')
+
+    const signOut = () => {
+        // 撤销后端 refresh token(尽力而为,失败也要本地登出)
+        if (session?.refreshToken) {
+            void apiLogout(session.refreshToken).catch(() => undefined)
+        }
+        clearSession()
+        act(logout)
+        navigate('/auth/signin', { replace: true })
+    }
 
     const pickRole = (i: number) => {
+        if (!user) return
         act((s) => {
             s.session.roleIndex = i
         })
@@ -122,15 +140,15 @@ function UserMenu({ sub }: { sub: string }) {
     return (
         <div className="gwrap">
             <button className="guser" type="button" onClick={() => setOpen((v) => !v)}>
-                <span className="av">{user.name.slice(-1)}</span>
+                <span className="av">{displayName.slice(-1)}</span>
                 <span>
-                    <span className="un">{user.name}</span>
+                    <span className="un">{displayName}</span>
                     <span className="ur">{sub}</span>
                 </span>
             </button>
             {open && (
                 <div className="idmenu down">
-                    {switchable && (
+                    {switchable && user && (
                         <>
                             <div className="imt">切换身份</div>
                             {ID_SLOTS.map(([role, label]) => {
@@ -153,10 +171,7 @@ function UserMenu({ sub }: { sub: string }) {
                             <div className="imd" />
                         </>
                     )}
-                    <button className="out" type="button" onClick={() => {
-                        act(logout)
-                        navigate('/auth/signin')
-                    }}>
+                    <button className="out" type="button" onClick={signOut}>
                         退出登录
                     </button>
                 </div>
