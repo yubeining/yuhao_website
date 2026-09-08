@@ -3,6 +3,7 @@ package com.mfg.config;
 import com.mfg.common.security.CurrentPartyArgumentResolver;
 import com.mfg.common.security.CurrentUserArgumentResolver;
 import com.mfg.common.security.PortalGuardInterceptor;
+import com.mfg.common.web.PageQueryArgumentResolver;
 import com.mfg.platform.observability.MdcUserContextInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
@@ -44,13 +45,16 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final String apiPrefix;
     private final PortalGuardInterceptor portalGuardInterceptor;
     private final MdcUserContextInterceptor mdcUserContextInterceptor;
+    private final AppProperties props;
 
     public WebMvcConfig(@Value("${app.api.prefix:}") String apiPrefix,
                         PortalGuardInterceptor portalGuardInterceptor,
-                        MdcUserContextInterceptor mdcUserContextInterceptor) {
+                        MdcUserContextInterceptor mdcUserContextInterceptor,
+                        AppProperties props) {
         this.apiPrefix = apiPrefix == null ? "" : apiPrefix;
         this.portalGuardInterceptor = portalGuardInterceptor;
         this.mdcUserContextInterceptor = mdcUserContextInterceptor;
+        this.props = props;
     }
 
     @Override
@@ -72,5 +76,7 @@ public class WebMvcConfig implements WebMvcConfigurer {
     public void addArgumentResolvers(List<HandlerMethodArgumentResolver> resolvers) {
         resolvers.add(new CurrentUserArgumentResolver());
         resolvers.add(new CurrentPartyArgumentResolver());
+        AppProperties.Web.Page page = props.web().page();
+        resolvers.add(new PageQueryArgumentResolver(page.defaultSize(), page.maxSize()));
     }
 }

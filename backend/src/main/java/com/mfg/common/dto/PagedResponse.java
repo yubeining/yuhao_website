@@ -11,7 +11,7 @@ import java.util.function.Function;
  */
 public record PagedResponse<T>(
         List<T> items,
-        int page,
+        int page,          // 1-based，和 PageQuery 一致（Spring 内部 0-based，出口 +1）
         int pageSize,
         long total,
         int totalPages) {
@@ -19,7 +19,7 @@ public record PagedResponse<T>(
     public static <T> PagedResponse<T> of(Page<T> page) {
         return new PagedResponse<>(
                 page.getContent(),
-                page.getNumber(),
+                page.getNumber() + 1,
                 page.getSize(),
                 page.getTotalElements(),
                 page.getTotalPages());

@@ -17,7 +17,21 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
 public record AppProperties(
         @DefaultValue Async async,
         @DefaultValue Scheduler scheduler,
-        @DefaultValue Auth auth) {
+        @DefaultValue Auth auth,
+        @DefaultValue Web web) {
+
+    /** Web 层通用参数（分页等）。 */
+    public record Web(@DefaultValue Page page) {
+
+        /**
+         * 分页封顶 —— 全局统一,不分受众/接口。size 上限防 {@code pageSize=1000000} 拖库。
+         * 内外之分是 controller / 路径层的事(端级闸门),不进分页组件。
+         */
+        public record Page(
+                @DefaultValue("20") int defaultSize,
+                @DefaultValue("200") int maxSize) {
+        }
+    }
 
     /** 通用异步池 + 通知专用池（见 AsyncConfig）。 */
     public record Async(

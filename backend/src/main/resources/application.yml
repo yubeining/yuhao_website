@@ -99,6 +99,12 @@ app:
   api:
     prefix: /api/v1
 
+  web:
+    # 分页封顶：全局统一,防 pageSize=1000000 拖库。内外之分由路径层(端级闸门)管,不进这里。
+    page:
+      default-size: ${PAGE_DEFAULT_SIZE:20}
+      max-size: ${PAGE_MAX_SIZE:200}
+
   jwt:
     secret: ${JWT_SECRET:}            # 必填，至少 32 字节；启动时校验，太短直接起不来
     access-token-ttl-seconds: 7200
