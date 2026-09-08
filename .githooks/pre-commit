@@ -66,10 +66,17 @@ gate_non_ascii() {
     run_gate "Java 非 ASCII 字面量" python3 scripts/check-non-ascii-literals.py
 }
 
+# --- 5. 禁止数据库外键（CLAUDE.md §4）---
+gate_no_foreign_keys() {
+    git diff --cached --name-only | grep -q '^database/migrations/.*\.sql$' || return 0
+    run_gate "禁止外键" python3 scripts/check-no-foreign-keys.py
+}
+
 gate_migration_filename
 gate_secrets
 gate_conflict_markers
 gate_non_ascii
+gate_no_foreign_keys
 
 if [ "$FAILED" -ne 0 ]; then
     echo "" >&2

@@ -72,6 +72,9 @@ jobs:
       - name: Java 非 ASCII 字符串字面量
         run: python3 scripts/check-non-ascii-literals.py "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
 
+      - name: 禁止数据库外键
+        run: python3 scripts/check-no-foreign-keys.py "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
   # ---- 编译 + 单测 ----
   backend-test:
     name: 后端编译 + 单测
