@@ -20,6 +20,7 @@
         <java.version>21</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <aws.sdk.version>2.31.0</aws.sdk.version>
+        <spring.ai.version>1.0.0</spring.ai.version>
         <!-- 迁移回归测试组：跑真实迁移文件建库，验证迁移本身的正确性。
              默认排除（慢），CI 里单独一个 job 跑。 -->
         <failsafe.excludedGroups>migration-regression</failsafe.excludedGroups>
@@ -38,6 +39,15 @@
                 <groupId>software.amazon.awssdk</groupId>
                 <artifactId>bom</artifactId>
                 <version>${aws.sdk.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <!-- Spring AI —— 统一管版本。用它的 OpenAI 兼容 client 打 Sealos 的
+                 OpenAI 兼容端点（改 base-url）；对外藏在我们自己的 AiService 接口后面。 -->
+            <dependency>
+                <groupId>org.springframework.ai</groupId>
+                <artifactId>spring-ai-bom</artifactId>
+                <version>${spring.ai.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -117,6 +127,13 @@
         <dependency>
             <groupId>software.amazon.awssdk</groupId>
             <artifactId>s3</artifactId>
+        </dependency>
+
+        <!-- AI —— Spring AI 的 OpenAI 兼容 client（base-url 指向 Sealos aiproxy）。
+             版本走 spring-ai-bom。业务只依赖我们自己的 AiService，不直接碰它。 -->
+        <dependency>
+            <groupId>org.springframework.ai</groupId>
+            <artifactId>spring-ai-starter-model-openai</artifactId>
         </dependency>
 
         <!-- CSV / Excel 导入导出（供应商报价 Excel 模板导入用） -->
