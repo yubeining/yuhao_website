@@ -155,7 +155,11 @@ jobs:
           CFG_REDIS_PASSWORD: ${{ secrets.REDIS_PASSWORD }}
           CFG_STORAGE_S3_ACCESS_KEY: ${{ secrets.STORAGE_S3_ACCESS_KEY }}
           CFG_STORAGE_S3_SECRET_KEY: ${{ secrets.STORAGE_S3_SECRET_KEY }}
+          # AI 网关 key（可选：没配则应用照常启动，只是不能调 AI）
+          CFG_AI_API_KEY: ${{ secrets.AI_API_KEY }}
           # --- 非密钥（Variables；误建成 Secret 也认）---
+          CFG_AI_BASE_URL: ${{ vars.AI_BASE_URL || 'https://aiproxy.bja.sealos.run' }}
+          CFG_AI_MODEL: ${{ vars.AI_MODEL || 'deepseek-chat' }}
           CFG_DB_URL: ${{ vars.DB_URL || secrets.DB_URL }}
           # 默认 postgres：Sealos 数据库控制台给的口令就是这个用户的（2026-09-07 决定）
           CFG_DB_USERNAME: ${{ vars.DB_USERNAME || secrets.DB_USERNAME || 'postgres' }}
