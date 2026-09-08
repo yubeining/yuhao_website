@@ -12,6 +12,7 @@ import org.springframework.scheduling.annotation.EnableScheduling;
  * 用 {@code RedisService.tryLock/releaseLock}。多 pod 部署下没有锁就是重复执行。
  */
 @SpringBootApplication
+@org.springframework.boot.context.properties.ConfigurationPropertiesScan
 @EnableScheduling
 public class MfgApplication {
 

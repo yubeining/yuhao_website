@@ -5,7 +5,7 @@ import com.mfg.common.security.UserPrincipal;
 import com.mfg.common.service.RateLimiter;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.beans.factory.annotation.Value;
+import com.mfg.config.AppProperties;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
@@ -33,14 +33,13 @@ public class LoginController {
 
     public LoginController(AuthService authService, JwtService jwtService,
                            RefreshTokenService refreshTokens, RateLimiter rateLimiter,
-                           @Value("${app.auth.login.max-attempts:10}") int maxAttempts,
-                           @Value("${app.auth.login.window-seconds:300}") int windowSeconds) {
+                           AppProperties props) {
         this.authService = authService;
         this.jwtService = jwtService;
         this.refreshTokens = refreshTokens;
         this.rateLimiter = rateLimiter;
-        this.maxAttempts = maxAttempts;
-        this.window = Duration.ofSeconds(windowSeconds);
+        this.maxAttempts = props.auth().login().maxAttempts();
+        this.window = Duration.ofSeconds(props.auth().login().windowSeconds());
     }
 
     public record LoginRequest(@NotNull PartyType portalType,

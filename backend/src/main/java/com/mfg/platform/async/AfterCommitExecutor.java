@@ -48,21 +48,29 @@ public class AfterCommitExecutor {
      *             持久化上下文已经关闭，别在里面碰懒加载的实体，需要数据就先取好值传进来。
      */
     public void execute(Runnable task) {
+        executeOn(executor, task);
+    }
+
+    /**
+     * 同 {@link #execute}，但指定在哪个线程池跑 —— 让不同子系统的副作用落到各自的池
+     * （如通知走 notificationExecutor），互不拖累。
+     */
+    public void executeOn(Executor target, Runnable task) {
         if (TransactionSynchronizationManager.isSynchronizationActive()) {
             TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
                 @Override
                 public void afterCommit() {
-                    submit(task);
+                    submit(target, task);
                 }
             });
         } else {
             // 没有事务上下文 —— 无所谓"提交后"，直接异步跑
-            submit(task);
+            submit(target, task);
         }
     }
 
-    private void submit(Runnable task) {
-        executor.execute(() -> {
+    private void submit(Executor target, Runnable task) {
+        target.execute(() -> {
             try {
                 task.run();
             } catch (RuntimeException e) {

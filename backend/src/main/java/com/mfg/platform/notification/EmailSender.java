@@ -1,5 +1,6 @@
 package com.mfg.platform.notification;
 
+import com.mfg.common.util.SensitiveData;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
@@ -43,7 +44,8 @@ public class EmailSender implements NotificationSender {
         JavaMailSender mailSender = mailSenderProvider.getIfAvailable();
         if (!enabled || mailSender == null) {
             // 只记日志 —— 收件人打码，别把完整邮箱写进日志（PII）
-            log.info("[email log-only] to={} subject={}", mask(request.recipient()), request.subject());
+            log.info("[email log-only] to={} subject={}",
+                    SensitiveData.maskEmail(request.recipient()), request.subject());
             return;
         }
         SimpleMailMessage message = new SimpleMailMessage();
@@ -54,17 +56,5 @@ public class EmailSender implements NotificationSender {
         message.setSubject(request.subject());
         message.setText(request.body());
         mailSender.send(message);
-    }
-
-    /** {@code john@example.com} → {@code j***@example.com}，日志里不落完整邮箱。 */
-    private static String mask(String email) {
-        if (email == null) {
-            return "null";
-        }
-        int at = email.indexOf('@');
-        if (at <= 0) {
-            return "***";
-        }
-        return email.charAt(0) + "***" + email.substring(at);
     }
 }

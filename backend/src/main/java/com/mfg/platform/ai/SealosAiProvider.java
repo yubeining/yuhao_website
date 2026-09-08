@@ -14,23 +14,28 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * {@link AiService} 的 Spring AI 实现 —— 通过 OpenAI 兼容 client 打 Sealos aiproxy。
+ * Sealos aiproxy 的 {@link AiProvider}（Spring AI 的 OpenAI 兼容 client，base-url 指向 aiproxy）。
  *
  * <p>装配（base-url / api-key / 默认模型）全走 {@code spring.ai.openai.*} 配置，
  * Spring Boot 自动配好 {@link ChatModel}，这里只拿来用。请求可覆盖模型 / 温度 / maxTokens
  * （每次调用带 {@link OpenAiChatOptions}）。
  */
 @Service
-public class SpringAiService implements AiService {
+public class SealosAiProvider implements AiProvider {
 
     private final ChatModel chatModel;
 
-    public SpringAiService(ChatModel chatModel) {
+    public SealosAiProvider(ChatModel chatModel) {
         this.chatModel = chatModel;
     }
 
     @Override
-    public AiResult chat(AiRequest request) {
+    public String name() {
+        return "sealos";
+    }
+
+    @Override
+    public AiResult call(AiRequest request) {
         List<Message> messages = new ArrayList<>();
         if (request.system() != null && !request.system().isBlank()) {
             messages.add(new SystemMessage(request.system()));

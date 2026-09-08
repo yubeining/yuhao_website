@@ -1,11 +1,14 @@
 package com.mfg.platform.notification;
 
+import com.mfg.config.AsyncConfig;
 import com.mfg.platform.async.AfterCommitExecutor;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.stereotype.Service;
 
 import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.Executor;
 
 /**
  * 通知统一入口。按渠道分发到对应的 {@link NotificationSender}。
@@ -28,8 +31,11 @@ public class NotificationService {
 
     private final Map<NotificationChannel, NotificationSender> byChannel;
     private final AfterCommitExecutor afterCommit;
+    private final Executor notificationExecutor;
 
-    public NotificationService(List<NotificationSender> senders, AfterCommitExecutor afterCommit) {
+    public NotificationService(List<NotificationSender> senders, AfterCommitExecutor afterCommit,
+                              @Qualifier(AsyncConfig.NOTIFICATION_EXECUTOR) Executor notificationExecutor) {
+        this.notificationExecutor = notificationExecutor;
         Map<NotificationChannel, NotificationSender> map = new EnumMap<>(NotificationChannel.class);
         for (NotificationSender sender : senders) {
             NotificationSender existing = map.put(sender.channel(), sender);
@@ -43,9 +49,9 @@ public class NotificationService {
         this.afterCommit = afterCommit;
     }
 
-    /** 业务通知：事务提交后异步发，失败只记日志。 */
+    /** 业务通知：事务提交后、在【通知专用池】异步发，失败只记日志。 */
     public void notify(NotificationRequest request) {
-        afterCommit.execute(() -> dispatch(request));
+        afterCommit.executeOn(notificationExecutor, () -> dispatch(request));
     }
 
     /** 同步发，需要立刻知道结果时用（如 OTP）。失败抛 {@link NotificationException}。 */

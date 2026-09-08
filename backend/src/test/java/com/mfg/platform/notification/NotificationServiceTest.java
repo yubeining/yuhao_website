@@ -46,7 +46,7 @@ class NotificationServiceTest {
     void notifyDispatchesToTheRightChannel() {
         FakeSender email = new FakeSender(NotificationChannel.EMAIL);
         FakeSender wechat = new FakeSender(NotificationChannel.WECHAT);
-        NotificationService service = new NotificationService(List.of(email, wechat), afterCommit);
+        NotificationService service = new NotificationService(List.of(email, wechat), afterCommit, Runnable::run);
 
         service.notify(NotificationRequest.email("a@b.com", "hi", "body"));
         service.notify(NotificationRequest.weChat("wxuser", "hi", "body"));
@@ -60,7 +60,7 @@ class NotificationServiceTest {
     @Test
     void sendNowReturnsWhenSenderSucceeds() {
         FakeSender email = new FakeSender(NotificationChannel.EMAIL);
-        NotificationService service = new NotificationService(List.of(email), afterCommit);
+        NotificationService service = new NotificationService(List.of(email), afterCommit, Runnable::run);
 
         service.sendNow(NotificationRequest.email("a@b.com", "s", "b"));
 
@@ -71,7 +71,7 @@ class NotificationServiceTest {
     void sendNowThrowsWhenNoSenderForChannel() {
         // 只注册 email，发 wechat → 无 sender
         NotificationService service =
-                new NotificationService(List.of(new FakeSender(NotificationChannel.EMAIL)), afterCommit);
+                new NotificationService(List.of(new FakeSender(NotificationChannel.EMAIL)), afterCommit, Runnable::run);
 
         assertThatThrownBy(() -> service.sendNow(NotificationRequest.weChat("u", "s", "b")))
                 .isInstanceOf(NotificationException.class)
@@ -82,7 +82,7 @@ class NotificationServiceTest {
     void sendNowWrapsSenderFailure() {
         FakeSender email = new FakeSender(NotificationChannel.EMAIL);
         email.toThrow = new RuntimeException("smtp down");
-        NotificationService service = new NotificationService(List.of(email), afterCommit);
+        NotificationService service = new NotificationService(List.of(email), afterCommit, Runnable::run);
 
         assertThatThrownBy(() -> service.sendNow(NotificationRequest.email("a@b.com", "s", "b")))
                 .isInstanceOf(NotificationException.class)
@@ -93,7 +93,7 @@ class NotificationServiceTest {
     void rejectsTwoSendersForSameChannel() {
         assertThatThrownBy(() -> new NotificationService(
                 List.of(new FakeSender(NotificationChannel.EMAIL), new FakeSender(NotificationChannel.EMAIL)),
-                afterCommit))
+                afterCommit, Runnable::run))
                 .isInstanceOf(IllegalStateException.class);
     }
 }

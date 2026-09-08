@@ -2,7 +2,7 @@ package com.mfg.platform.auth;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import com.mfg.config.AppProperties;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -31,11 +31,10 @@ public class DevAccountSeeder implements ApplicationRunner {
     private final PasswordEncoder passwordEncoder;
     private final String password;
 
-    public DevAccountSeeder(JdbcTemplate jdbc, PasswordEncoder passwordEncoder,
-                            @Value("${app.auth.dev-seed.password:dev12345}") String password) {
+    public DevAccountSeeder(JdbcTemplate jdbc, PasswordEncoder passwordEncoder, AppProperties props) {
         this.jdbc = jdbc;
         this.passwordEncoder = passwordEncoder;
-        this.password = password;
+        this.password = props.auth().devSeed().password();
     }
 
     @Override

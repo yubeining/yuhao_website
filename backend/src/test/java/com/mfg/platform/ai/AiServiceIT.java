@@ -33,7 +33,7 @@ class AiServiceIT {
 
     @Test
     void chatReachesTheModelAndReturnsContent() {
-        AiResult result = aiService.chat(new AiRequest(
+        AiResult result = aiService.chat(new AiRequest(null,
                 "You are a test bot. Reply with exactly one word.",
                 "Reply with exactly: PONG", null, 0.0, 20));
 

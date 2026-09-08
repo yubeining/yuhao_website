@@ -3,9 +3,8 @@ package com.mfg.platform.auth;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
 import org.junit.jupiter.api.Test;
+import com.mfg.support.AbstractIntegrationTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
 
@@ -15,9 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 /**
  * Refresh token 对着<b>真实 Redis</b> 的测试（§9）：签发、轮换、旧的作废、撤销。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@ActiveProfiles("test")
-class RefreshTokenServiceIT {
+class RefreshTokenServiceIT extends AbstractIntegrationTest {
 
     @Autowired
     private RefreshTokenService refreshTokens;

@@ -2,7 +2,6 @@ package com.mfg.config;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.scheduling.annotation.AsyncConfigurer;
@@ -44,23 +43,33 @@ public class AsyncConfig implements AsyncConfigurer {
 
     public static final String APP_EXECUTOR = "appTaskExecutor";
 
+    /**
+     * ★ 通知这类"慢的外部 I/O"（发邮件 / 微信）用独立池，和通用池隔离 ——
+     * 外部服务变慢时只堵住自己的池，不会把通用异步任务一起拖垮（爆炸半径隔离）。
+     * 别的子系统要独立池就照这个再加一个 bean（每子系统一个池，WeAct/webox 都是这么做的）。
+     */
+    public static final String NOTIFICATION_EXECUTOR = "notificationExecutor";
+
     private final int corePoolSize;
     private final int maxPoolSize;
     private final int queueCapacity;
     private final int awaitTerminationSeconds;
     private final int schedulerPoolSize;
+    private final int notifCore;
+    private final int notifMax;
+    private final int notifQueue;
 
-    public AsyncConfig(
-            @Value("${app.async.core-pool-size:4}") int corePoolSize,
-            @Value("${app.async.max-pool-size:16}") int maxPoolSize,
-            @Value("${app.async.queue-capacity:500}") int queueCapacity,
-            @Value("${app.async.await-termination-seconds:20}") int awaitTerminationSeconds,
-            @Value("${app.scheduler.pool-size:2}") int schedulerPoolSize) {
-        this.corePoolSize = corePoolSize;
-        this.maxPoolSize = maxPoolSize;
-        this.queueCapacity = queueCapacity;
-        this.awaitTerminationSeconds = awaitTerminationSeconds;
-        this.schedulerPoolSize = schedulerPoolSize;
+    public AsyncConfig(AppProperties props) {
+        AppProperties.Async async = props.async();
+        AppProperties.Async.Notification notif = async.notification();
+        this.corePoolSize = async.corePoolSize();
+        this.maxPoolSize = async.maxPoolSize();
+        this.queueCapacity = async.queueCapacity();
+        this.awaitTerminationSeconds = async.awaitTerminationSeconds();
+        this.schedulerPoolSize = props.scheduler().poolSize();
+        this.notifCore = notif.corePoolSize();
+        this.notifMax = notif.maxPoolSize();
+        this.notifQueue = notif.queueCapacity();
     }
 
     /**
@@ -74,6 +83,21 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.setQueueCapacity(queueCapacity);
         executor.setThreadNamePrefix("mfg-async-");
         // 背压：队列满 → 提交线程自己执行，不丢任务、不无限堆积
+        executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
+        executor.setWaitForTasksToCompleteOnShutdown(true);
+        executor.setAwaitTerminationSeconds(awaitTerminationSeconds);
+        executor.initialize();
+        return executor;
+    }
+
+    /** 通知专用池（慢的外部发信隔离，见 NOTIFICATION_EXECUTOR 注释）。 */
+    @Bean(name = NOTIFICATION_EXECUTOR)
+    public ThreadPoolTaskExecutor notificationExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setCorePoolSize(notifCore);
+        executor.setMaxPoolSize(notifMax);
+        executor.setQueueCapacity(notifQueue);
+        executor.setThreadNamePrefix("mfg-notify-");
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(awaitTerminationSeconds);

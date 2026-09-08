@@ -81,10 +81,17 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,prometheus   # + Prometheus 抓取端点
   endpoint:
     health:
       show-details: never             # 不对外暴露依赖详情
+      probes:
+        enabled: true                 # 拆出 /health/liveness 与 /health/readiness（k8s 探针）
+  prometheus:
+    metrics:
+      export:
+        enabled: true
+  # 公共标签由 MetricsConfig 加（application / environment），便于多环境区分
 
 app:
   # ★ 全局 API 前缀。在 MVC 层生效，不是 Tomcat context-path。

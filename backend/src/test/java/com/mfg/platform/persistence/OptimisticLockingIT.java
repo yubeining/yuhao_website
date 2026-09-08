@@ -3,11 +3,9 @@ package com.mfg.platform.persistence;
 import com.mfg.platform.auth.OpsUser;
 import com.mfg.platform.auth.OpsUserRepository;
 import org.junit.jupiter.api.Test;
+import com.mfg.support.AbstractIntegrationTest;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.OptimisticLockingFailureException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.test.context.ActiveProfiles;
 
 import java.util.UUID;
 
@@ -21,15 +19,10 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  * 把行的 version +1（模拟"别人抢先改了"），再保存这个已经过期的实体 —— Hibernate 的
  * {@code UPDATE ... WHERE id=? AND version=旧值} 影响 0 行，抛乐观锁异常。
  */
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
-@ActiveProfiles("test")
-class OptimisticLockingIT {
+class OptimisticLockingIT extends AbstractIntegrationTest {
 
     @Autowired
     private OpsUserRepository opsUsers;
-
-    @Autowired
-    private JdbcTemplate jdbc;
 
     @Test
     void staleUpdateIsRejected() {
