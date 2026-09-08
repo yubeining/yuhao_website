@@ -6,6 +6,7 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.MappedSuperclass;
+import jakarta.persistence.Version;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
@@ -62,6 +63,23 @@ public abstract class BaseEntity {
     @Column(name = "updated_at", columnDefinition = "timestamp with time zone", nullable = false)
     private Instant updatedAt;
 
+    /**
+     * 乐观锁版本号。并发"读-改-写"同一行时，后写的会检测到版本已变、更新失败
+     * （抛 {@code OptimisticLockingFailureException}），而不是无声覆盖别人的改动（丢更新）。
+     *
+     * <p>Hibernate 自动维护：insert 时置 0，每次 update +1，并把它加进
+     * {@code WHERE id=? AND version=?}。影响行数为 0 = 被人抢先改过。
+     *
+     * <p>★ 关键并发不变式（报价接受、拆单、接单唯一）另有 DB 层显式护栏（条件更新 /
+     * FOR UPDATE / 唯一约束），不靠这个；这一层兜的是普通记录的并发编辑。
+     *
+     * <p><b>新建继承 BaseEntity 的实体时，其表必须带 {@code version bigint NOT NULL DEFAULT 0}</b>
+     * （ddl-auto=validate 会校验该列存在）。DB 默认 0 保证非 Hibernate 的插入（如种子）也合法。
+     */
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version;
+
     public UUID getId() {
         return id;
     }
@@ -72,6 +90,10 @@ public abstract class BaseEntity {
 
     public Instant getUpdatedAt() {
         return updatedAt;
+    }
+
+    public Long getVersion() {
+        return version;
     }
 
     /**
