@@ -39,6 +39,29 @@ CREATE TABLE public.app_setting (
     CONSTRAINT app_setting_value_type_chk CHECK ((value_type = ANY (ARRAY['STRING'::text, 'NUMBER'::text, 'BOOL'::text, 'JSON'::text])))
 );
 
+-- Name: customer_order; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.customer_order (
+    id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    created_by_user_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+-- Name: customer_order_part; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.customer_order_part (
+    id uuid NOT NULL,
+    customer_order_id uuid NOT NULL,
+    part_design_id uuid NOT NULL,
+    part_no text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
 -- Name: dict; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.dict (
@@ -68,6 +91,31 @@ CREATE TABLE public.external_user (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
     CONSTRAINT external_user_status_chk CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
+);
+
+-- Name: ops_order; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.ops_order (
+    id uuid NOT NULL,
+    created_by_user_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+-- Name: ops_order_part; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.ops_order_part (
+    id uuid NOT NULL,
+    ops_order_id uuid NOT NULL,
+    part_design_id uuid NOT NULL,
+    part_no text NOT NULL,
+    upstream_part_id uuid NOT NULL,
+    source_customer_order_id uuid NOT NULL,
+    source_customer_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
 );
 
 -- Name: ops_user; Type: TABLE; Schema: public; Owner: -
@@ -101,6 +149,18 @@ CREATE TABLE public.organization (
     CONSTRAINT organization_type_chk CHECK ((type = ANY (ARRAY['INTERNAL'::text, 'CUSTOMER'::text, 'SUPPLIER'::text])))
 );
 
+-- Name: part_design; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.part_design (
+    id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    code text NOT NULL,
+    name text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
 -- Name: role; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.role (
@@ -114,6 +174,32 @@ CREATE TABLE public.role (
     version bigint DEFAULT 0 NOT NULL,
     CONSTRAINT role_scope_chk CHECK ((scope = ANY (ARRAY['INTERNAL'::text, 'EXTERNAL'::text]))),
     CONSTRAINT role_status_chk CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
+);
+
+-- Name: supplier_order; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_order (
+    id uuid NOT NULL,
+    supplier_org_id uuid NOT NULL,
+    accepted_by_user_id uuid,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
+-- Name: supplier_order_part; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_order_part (
+    id uuid NOT NULL,
+    supplier_order_id uuid NOT NULL,
+    part_design_id uuid NOT NULL,
+    part_no text NOT NULL,
+    upstream_part_id uuid NOT NULL,
+    source_customer_order_id uuid NOT NULL,
+    source_customer_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
 );
 
 -- Name: user_role; Type: TABLE; Schema: public; Owner: -
@@ -133,6 +219,16 @@ CREATE TABLE public.user_role (
 ALTER TABLE ONLY public.app_setting
     ADD CONSTRAINT app_setting_pkey PRIMARY KEY (id);
 
+-- Name: customer_order_part customer_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_order_part
+    ADD CONSTRAINT customer_order_part_pkey PRIMARY KEY (id);
+
+-- Name: customer_order customer_order_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_order
+    ADD CONSTRAINT customer_order_pkey PRIMARY KEY (id);
+
 -- Name: dict dict_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.dict
@@ -142,6 +238,16 @@ ALTER TABLE ONLY public.dict
 
 ALTER TABLE ONLY public.external_user
     ADD CONSTRAINT external_user_pkey PRIMARY KEY (id);
+
+-- Name: ops_order_part ops_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.ops_order_part
+    ADD CONSTRAINT ops_order_part_pkey PRIMARY KEY (id);
+
+-- Name: ops_order ops_order_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.ops_order
+    ADD CONSTRAINT ops_order_pkey PRIMARY KEY (id);
 
 -- Name: ops_user ops_user_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -153,10 +259,25 @@ ALTER TABLE ONLY public.ops_user
 ALTER TABLE ONLY public.organization
     ADD CONSTRAINT organization_pkey PRIMARY KEY (id);
 
+-- Name: part_design part_design_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.part_design
+    ADD CONSTRAINT part_design_pkey PRIMARY KEY (id);
+
 -- Name: role role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.role
     ADD CONSTRAINT role_pkey PRIMARY KEY (id);
+
+-- Name: supplier_order_part supplier_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_order_part
+    ADD CONSTRAINT supplier_order_part_pkey PRIMARY KEY (id);
+
+-- Name: supplier_order supplier_order_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_order
+    ADD CONSTRAINT supplier_order_pkey PRIMARY KEY (id);
 
 -- Name: user_role user_role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -166,6 +287,22 @@ ALTER TABLE ONLY public.user_role
 -- Name: app_setting_key_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX app_setting_key_uk ON public.app_setting USING btree (config_key);
+
+-- Name: customer_order_org_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_org_idx ON public.customer_order USING btree (customer_org_id);
+
+-- Name: customer_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_part_design_idx ON public.customer_order_part USING btree (part_design_id);
+
+-- Name: customer_order_part_no_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX customer_order_part_no_uk ON public.customer_order_part USING btree (part_no);
+
+-- Name: customer_order_part_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_part_order_idx ON public.customer_order_part USING btree (customer_order_id);
 
 -- Name: dict_type_code_uk; Type: INDEX; Schema: public; Owner: -
 
@@ -179,6 +316,22 @@ CREATE UNIQUE INDEX external_user_email_uk ON public.external_user USING btree (
 
 CREATE INDEX external_user_org_idx ON public.external_user USING btree (org_id);
 
+-- Name: ops_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_part_design_idx ON public.ops_order_part USING btree (part_design_id);
+
+-- Name: ops_order_part_no_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX ops_order_part_no_uk ON public.ops_order_part USING btree (part_no);
+
+-- Name: ops_order_part_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_part_order_idx ON public.ops_order_part USING btree (ops_order_id);
+
+-- Name: ops_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_part_upstream_idx ON public.ops_order_part USING btree (upstream_part_id);
+
 -- Name: ops_user_email_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX ops_user_email_uk ON public.ops_user USING btree (email);
@@ -191,9 +344,37 @@ CREATE INDEX ops_user_org_idx ON public.ops_user USING btree (org_id);
 
 CREATE INDEX organization_type_idx ON public.organization USING btree (type);
 
+-- Name: part_design_customer_code_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX part_design_customer_code_uk ON public.part_design USING btree (customer_org_id, code);
+
+-- Name: part_design_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_design_customer_idx ON public.part_design USING btree (customer_org_id);
+
 -- Name: role_scope_code_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX role_scope_code_uk ON public.role USING btree (scope, code);
+
+-- Name: supplier_order_org_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_org_idx ON public.supplier_order USING btree (supplier_org_id);
+
+-- Name: supplier_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_design_idx ON public.supplier_order_part USING btree (part_design_id);
+
+-- Name: supplier_order_part_no_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX supplier_order_part_no_uk ON public.supplier_order_part USING btree (part_no);
+
+-- Name: supplier_order_part_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_order_idx ON public.supplier_order_part USING btree (supplier_order_id);
+
+-- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_upstream_idx ON public.supplier_order_part USING btree (upstream_part_id);
 
 -- Name: user_role_role_idx; Type: INDEX; Schema: public; Owner: -
 
