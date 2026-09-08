@@ -2,6 +2,8 @@ package com.mfg.config;
 
 import com.mfg.platform.auth.JwtAuthFilter;
 import org.springframework.beans.factory.annotation.Value;
+import static org.springframework.security.config.Customizer.withDefaults;
+import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpStatus;
@@ -41,10 +43,20 @@ public class SecurityConfig {
 
     private final String apiPrefix;
     private final JwtAuthFilter jwtAuthFilter;
+    private final String contentSecurityPolicy;
 
-    public SecurityConfig(@Value("${app.api.prefix:}") String apiPrefix, JwtAuthFilter jwtAuthFilter) {
+    public SecurityConfig(@Value("${app.api.prefix:}") String apiPrefix,
+                          JwtAuthFilter jwtAuthFilter,
+                          @Value("${app.storage.s3.public-endpoint:}") String storagePublicEndpoint,
+                          @Value("${app.storage.s3.endpoint:}") String storageEndpoint) {
         this.apiPrefix = apiPrefix == null ? "" : apiPrefix;
         this.jwtAuthFilter = jwtAuthFilter;
+        // 图纸/图片走对象存储的签名 URL(外网域名),CSP 的 img/connect 要放行它 ——
+        // 域名不写死,从存储配置推出(§C3:存储位置全走配置)。取 public-endpoint,没有则回落 endpoint。
+        String storageOrigin = originOf(
+                storagePublicEndpoint != null && !storagePublicEndpoint.isBlank()
+                        ? storagePublicEndpoint : storageEndpoint);
+        this.contentSecurityPolicy = buildCsp(storageOrigin);
     }
 
     @Bean
@@ -56,6 +68,15 @@ public class SecurityConfig {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .logout(AbstractHttpConfigurer::disable)
                 .sessionManagement(s -> s.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+
+                // ★ 安全响应头 —— 防 XSS 兜底(CSP)+ 防点击劫持/嗅探。
+                //   CSP 是关键:即便前端某处被注入脚本,也只能加载同源脚本、禁 inline/eval,
+                //   注入的代码跑不起来、也连不出去。script-src 'self':vite 产物全是同源打包,不用 CDN。
+                .headers(h -> h
+                        .contentSecurityPolicy(csp -> csp.policyDirectives(contentSecurityPolicy))
+                        .frameOptions(fo -> fo.deny())
+                        .contentTypeOptions(withDefaults())
+                        .referrerPolicy(rp -> rp.policy(ReferrerPolicy.SAME_ORIGIN)))
 
                 .authorizeHttpRequests(auth -> auth
                         // 探针。show-details: never，不泄露依赖状态
@@ -81,6 +102,41 @@ public class SecurityConfig {
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+
+    /**
+     * 组装 CSP。默认全 {@code 'self'};把对象存储的外网 origin 放进 img/media/connect ——
+     * 图纸预览({@code <img>})和签名 URL 上传下载({@code fetch})都指向它。
+     * {@code style-src 'unsafe-inline'}:前端有内联样式,先放开;以后用 nonce/hash 收紧。
+     */
+    private static String buildCsp(String storageOrigin) {
+        String ext = storageOrigin == null ? "" : " " + storageOrigin;
+        return "default-src 'self'; "
+                + "script-src 'self'; "
+                + "style-src 'self' 'unsafe-inline'; "
+                + "img-src 'self' data: blob:" + ext + "; "
+                + "font-src 'self' data:; "
+                + "connect-src 'self'" + ext + "; "
+                + "object-src 'none'; "
+                + "base-uri 'self'; "
+                + "form-action 'self'; "
+                + "frame-ancestors 'none'";
+    }
+
+    /** 从 URL 取 {@code scheme://host[:port]};空/非法返回 null(那就 CSP 里不加额外 origin)。 */
+    private static String originOf(String url) {
+        if (url == null || url.isBlank()) {
+            return null;
+        }
+        try {
+            java.net.URI u = java.net.URI.create(url.trim());
+            if (u.getScheme() == null || u.getHost() == null) {
+                return null;
+            }
+            return u.getScheme() + "://" + u.getHost() + (u.getPort() == -1 ? "" : ":" + u.getPort());
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
