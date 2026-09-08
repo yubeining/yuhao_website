@@ -66,11 +66,11 @@ spring:
   #   真正调 AI 才会因假 key 失败（本地/CI 不调 AI 就不受影响）。
   ai:
     openai:
-      base-url: ${AI_BASE_URL:https://aiproxy.bja.sealos.run}
-      api-key: ${AI_API_KEY:not-configured}
+      base-url: ${SEALOS_AI_BASE_URL:https://aiproxy.bja.sealos.run}
+      api-key: ${SEALOS_AI_API_KEY:not-configured}
       chat:
         options:
-          model: ${AI_MODEL:deepseek-chat}
+          model: ${SEALOS_AI_MODEL:deepseek-chat}
           temperature: 0.2
     # 关掉对不需要的模型类型的自动装配探测，避免多余告警
     embedding:
