@@ -13,6 +13,9 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noClasses;
 import static com.tngtech.archunit.lang.syntax.ArchRuleDefinition.noFields;
 import static com.tngtech.archunit.library.GeneralCodingRules.NO_CLASSES_SHOULD_ACCESS_STANDARD_STREAMS;
@@ -67,6 +70,16 @@ class ArchitectureTest {
     @Test
     void noJavaUtilLogging() {
         NO_CLASSES_SHOULD_USE_JAVA_UTIL_LOGGING.check(mainClasses);
+    }
+
+    /** §4：时间一律用 Instant，不用 LocalDateTime（JVM 时区静默漂移）/ OffsetDateTime。 */
+    @Test
+    void useInstantNotLocalOrOffsetDateTime() {
+        noFields()
+                .should().haveRawType(LocalDateTime.class)
+                .orShould().haveRawType(OffsetDateTime.class)
+                .because("CLAUDE.md 4: timestamps use Instant, not LocalDateTime/OffsetDateTime")
+                .check(mainClasses);
     }
 
     /** 分层：controller 不直接依赖 repository（域四层就位后生效；现在还没 controller 包，故允许空）。 */

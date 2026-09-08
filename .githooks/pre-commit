@@ -72,11 +72,25 @@ gate_no_foreign_keys() {
     run_gate "禁止外键" python3 scripts/check-no-foreign-keys.py
 }
 
+# --- 6. schema.sql 同步（CLAUDE.md §5）---
+gate_schema_sync() {
+    git diff --cached --name-only | grep -q '^database/migrations/.*\.sql$' || return 0
+    run_gate "schema.sql 同步" python3 scripts/check-schema-sync.py
+}
+
+# --- 7. 禁止硬编码 API 前缀（CLAUDE.md §1）---
+gate_api_prefix() {
+    git diff --cached --name-only | grep -q '^backend/src/main/java/.*\.java$' || return 0
+    run_gate "硬编码 API 前缀" python3 scripts/check-hardcoded-api-prefix.py
+}
+
 gate_migration_filename
 gate_secrets
 gate_conflict_markers
 gate_non_ascii
 gate_no_foreign_keys
+gate_schema_sync
+gate_api_prefix
 
 if [ "$FAILED" -ne 0 ]; then
     echo "" >&2

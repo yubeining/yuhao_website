@@ -75,6 +75,12 @@ jobs:
       - name: 禁止数据库外键
         run: python3 scripts/check-no-foreign-keys.py "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
 
+      - name: schema.sql 同步
+        run: python3 scripts/check-schema-sync.py "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
+      - name: 禁止硬编码 API 前缀
+        run: python3 scripts/check-hardcoded-api-prefix.py "${{ steps.range.outputs.base }}" "${{ steps.range.outputs.head }}"
+
   # ---- 编译 + 单测 ----
   backend-test:
     name: 后端编译 + 单测
