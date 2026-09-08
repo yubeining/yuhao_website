@@ -6,8 +6,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -78,7 +76,7 @@ public class PortalGuardInterceptor implements HandlerInterceptor {
             return true;
         }
 
-        UserPrincipal principal = currentPrincipal();
+        UserPrincipal principal = AuthContext.currentPrincipal();
         if (principal == null) {
             // 未认证。JwtAuthFilter 已经跑过了，到这里还没有 principal 说明没带/带错 token
             deny(response, HttpStatus.UNAUTHORIZED, "common.unauthenticated");
@@ -94,15 +92,6 @@ public class PortalGuardInterceptor implements HandlerInterceptor {
         }
 
         return true;
-    }
-
-    private UserPrincipal currentPrincipal() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return null;
-        }
-        Object p = auth.getPrincipal();
-        return p instanceof UserPrincipal up ? up : null;
     }
 
     private void deny(HttpServletResponse response, HttpStatus status, String messageCode)

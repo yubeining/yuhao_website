@@ -2,6 +2,7 @@ package com.mfg.platform.access;
 
 import com.mfg.common.security.PartyType;
 import com.mfg.common.security.RequestPaths;
+import com.mfg.common.security.AuthContext;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,8 +10,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.web.servlet.HandlerInterceptor;
 
@@ -66,7 +65,7 @@ public class AccessInterceptor implements HandlerInterceptor {
                              HttpServletResponse response,
                              Object handler) throws Exception {
 
-        UserPrincipal principal = currentPrincipal();
+        UserPrincipal principal = AuthContext.currentPrincipal();
         if (principal == null || principal.partyType() != PartyType.OPERATOR) {
             // 非 ops 端 —— 端级闸门已经判过了，这里不重复管辖
             return true;
@@ -100,14 +99,6 @@ public class AccessInterceptor implements HandlerInterceptor {
 
     private static boolean isReadOnly(String method) {
         return "GET".equalsIgnoreCase(method) || "HEAD".equalsIgnoreCase(method);
-    }
-
-    private UserPrincipal currentPrincipal() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return null;
-        }
-        return auth.getPrincipal() instanceof UserPrincipal up ? up : null;
     }
 
     private void deny(HttpServletResponse response) throws IOException {

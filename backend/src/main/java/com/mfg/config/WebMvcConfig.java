@@ -4,6 +4,7 @@ import com.mfg.common.security.CurrentPartyArgumentResolver;
 import com.mfg.common.security.CurrentUserArgumentResolver;
 import com.mfg.common.security.PortalGuardInterceptor;
 import com.mfg.platform.access.AccessInterceptor;
+import com.mfg.platform.observability.MdcUserContextInterceptor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.bind.annotation.RestController;
@@ -47,13 +48,16 @@ public class WebMvcConfig implements WebMvcConfigurer {
     private final String apiPrefix;
     private final PortalGuardInterceptor portalGuardInterceptor;
     private final AccessInterceptor accessInterceptor;
+    private final MdcUserContextInterceptor mdcUserContextInterceptor;
 
     public WebMvcConfig(@Value("${app.api.prefix:}") String apiPrefix,
                         PortalGuardInterceptor portalGuardInterceptor,
-                        AccessInterceptor accessInterceptor) {
+                        AccessInterceptor accessInterceptor,
+                        MdcUserContextInterceptor mdcUserContextInterceptor) {
         this.apiPrefix = apiPrefix == null ? "" : apiPrefix;
         this.portalGuardInterceptor = portalGuardInterceptor;
         this.accessInterceptor = accessInterceptor;
+        this.mdcUserContextInterceptor = mdcUserContextInterceptor;
     }
 
     @Override
@@ -66,6 +70,8 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         String pattern = apiPrefix + "/**";
+        // order(0)：认证之后最先跑，把 userId/portal 补进 MDC，后面闸门的日志也带上
+        registry.addInterceptor(mdcUserContextInterceptor).addPathPatterns(pattern).order(0);
         registry.addInterceptor(portalGuardInterceptor).addPathPatterns(pattern).order(1);
         registry.addInterceptor(accessInterceptor).addPathPatterns(pattern).order(2);
     }

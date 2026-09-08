@@ -1,8 +1,6 @@
 package com.mfg.common.security;
 
 import org.springframework.core.MethodParameter;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.support.WebDataBinderFactory;
 import org.springframework.web.context.request.NativeWebRequest;
 import org.springframework.web.method.support.HandlerMethodArgumentResolver;
@@ -28,15 +26,6 @@ public class CurrentUserArgumentResolver implements HandlerMethodArgumentResolve
                                   ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
-        return currentPrincipal();
-    }
-
-    /** 取当前 principal；未认证返回 null。 */
-    static UserPrincipal currentPrincipal() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return null;
-        }
-        return auth.getPrincipal() instanceof UserPrincipal up ? up : null;
+        return AuthContext.currentPrincipal();
     }
 }

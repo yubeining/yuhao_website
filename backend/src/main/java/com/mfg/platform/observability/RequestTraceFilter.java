@@ -4,6 +4,9 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import com.mfg.common.web.ClientIp;
+import com.mfg.common.web.MdcKeys;
+import com.mfg.common.web.RequestContext;
 import org.slf4j.MDC;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -42,7 +45,6 @@ import java.util.UUID;
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class RequestTraceFilter extends OncePerRequestFilter {
 
-    public static final String MDC_KEY = "traceId";
     public static final String HEADER = "X-Request-Id";
 
     private static final int MAX_INCOMING_LENGTH = 64;
@@ -52,12 +54,16 @@ public class RequestTraceFilter extends OncePerRequestFilter {
                                     @NonNull HttpServletResponse response,
                                     @NonNull FilterChain chain) throws ServletException, IOException {
         String traceId = resolve(request.getHeader(HEADER));
-        MDC.put(MDC_KEY, traceId);
+        // 统一上下文：traceId + clientIp 进 RequestContext，服务层不用传 request 也能拿
+        RequestContext.begin(traceId, ClientIp.of(request));
+        MDC.put(MdcKeys.TRACE_ID, traceId);
         response.setHeader(HEADER, traceId);
         try {
             chain.doFilter(request, response);
         } finally {
-            MDC.remove(MDC_KEY);
+            // ★ 线程池复用线程 —— 必须清，否则串到下一个请求
+            MDC.remove(MdcKeys.TRACE_ID);
+            RequestContext.clear();
         }
     }
 

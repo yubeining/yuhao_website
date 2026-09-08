@@ -33,7 +33,7 @@ public class CurrentPartyArgumentResolver implements HandlerMethodArgumentResolv
                                   ModelAndViewContainer mavContainer,
                                   NativeWebRequest webRequest,
                                   WebDataBinderFactory binderFactory) {
-        UserPrincipal principal = CurrentUserArgumentResolver.currentPrincipal();
+        UserPrincipal principal = AuthContext.currentPrincipal();
         if (principal == null || principal.partyId() == null) {
             throw new IllegalStateException(
                     "@CurrentParty requires an authenticated principal, but none was present on "

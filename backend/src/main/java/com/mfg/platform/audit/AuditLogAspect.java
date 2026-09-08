@@ -1,5 +1,6 @@
 package com.mfg.platform.audit;
 
+import com.mfg.common.security.AuthContext;
 import com.mfg.common.security.UserPrincipal;
 import org.aspectj.lang.JoinPoint;
 import org.aspectj.lang.annotation.AfterReturning;
@@ -10,8 +11,6 @@ import org.springframework.core.ParameterNameDiscoverer;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.expression.spel.standard.SpelExpressionParser;
 import org.springframework.expression.spel.support.StandardEvaluationContext;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.Method;
@@ -50,7 +49,7 @@ public class AuditLogAspect {
         String targetId = auditLog.targetId().isBlank()
                 ? null : resolve(auditLog.targetId(), method, joinPoint.getArgs());
 
-        UserPrincipal actor = currentPrincipal();
+        UserPrincipal actor = AuthContext.currentPrincipal();
         Map<String, Object> payload = new HashMap<>();
         payload.put("method", method.getDeclaringClass().getSimpleName() + "#" + method.getName());
 
@@ -72,13 +71,5 @@ public class AuditLogAspect {
         }
         Object value = parser.parseExpression(expression).getValue(context);
         return value == null ? null : value.toString();
-    }
-
-    private static UserPrincipal currentPrincipal() {
-        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || !auth.isAuthenticated()) {
-            return null;
-        }
-        return auth.getPrincipal() instanceof UserPrincipal up ? up : null;
     }
 }

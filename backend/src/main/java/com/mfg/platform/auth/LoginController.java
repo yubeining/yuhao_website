@@ -2,15 +2,12 @@ package com.mfg.platform.auth;
 
 import com.mfg.common.security.PartyType;
 import com.mfg.common.security.UserPrincipal;
-import com.mfg.common.service.RateLimiter;
+import com.mfg.platform.ratelimit.RateLimit;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
-import com.mfg.config.AppProperties;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.time.Duration;
 
 /**
  * 账号密码登录 —— 三个端共用一个入口，请求里带 {@code portalType} 区分受众。
@@ -27,19 +24,12 @@ public class LoginController {
     private final AuthService authService;
     private final JwtService jwtService;
     private final RefreshTokenService refreshTokens;
-    private final RateLimiter rateLimiter;
-    private final int maxAttempts;
-    private final Duration window;
 
     public LoginController(AuthService authService, JwtService jwtService,
-                           RefreshTokenService refreshTokens, RateLimiter rateLimiter,
-                           AppProperties props) {
+                           RefreshTokenService refreshTokens) {
         this.authService = authService;
         this.jwtService = jwtService;
         this.refreshTokens = refreshTokens;
-        this.rateLimiter = rateLimiter;
-        this.maxAttempts = props.auth().login().maxAttempts();
-        this.window = Duration.ofSeconds(props.auth().login().windowSeconds());
     }
 
     public record LoginRequest(@NotNull PartyType portalType,
@@ -57,13 +47,14 @@ public class LoginController {
                                 String portalType, String displayName, String locale) {
     }
 
+    // ★ 先限流再验密码：按 (受众+账号) 计数，挡住对单个账号的爆破（固定窗口 + fail-open，超限 429）。
+    //   阈值走配置（LOGIN_MAX_ATTEMPTS / LOGIN_WINDOW_SECONDS 可覆盖），不写死在代码里。
+    @RateLimit(scope = "login",
+            key = "#request.portalType + ':' + #request.account.toLowerCase()",
+            limit = "${app.auth.login.max-attempts}",
+            windowSeconds = "${app.auth.login.window-seconds}")
     @PostMapping("/auth/login")
     public TokenResponse login(@RequestBody LoginRequest request) {
-        // ★ 先限流再验密码：按 (受众+账号) 计数，挡住对单个账号的爆破
-        //   （固定窗口 + fail-open，见 RateLimiter；超限抛 429）
-        rateLimiter.enforce("login", request.portalType() + ":" + request.account().toLowerCase(),
-                maxAttempts, window);
-
         AuthService.Authenticated auth =
                 authService.authenticate(request.portalType(), request.account(), request.password());
         return issue(auth);
