@@ -53,3 +53,9 @@ Thumbs.db
 logs/
 tmp/
 .claude/local/
+
+# ★ 本项目的 AI 协作资产(skill / command / rules)就放在仓库里，跟着代码走。
+#   全局 gitignore 把 .claude/rules/ 当成"每人自装的 webox 工具包"排除了，
+#   这里显式反选回来 —— 我们这几份是项目自己的，不是那套工具包。
+!.claude/rules/
+!.claude/rules/**
