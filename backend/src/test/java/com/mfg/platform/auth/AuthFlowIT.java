@@ -81,6 +81,26 @@ class AuthFlowIT {
         assertThat(members.path("data").path("page").asInt()).isEqualTo(1);   // 1-based
     }
 
+    /**
+     * 供应商不能自助注册 —— 设计文档 1 §D5「邀请制开户，不做自助注册」。
+     *
+     * <p>★ 这条钉的是受众边界。受众是本系统的安全边界(CLAUDE.md §3:路径前缀即受众)，
+     * 而注册请求里的 portalType 是<b>匿名调用方自己填的</b>。放行 SUPPLIER
+     * 等于公网上任何人都能给自己开一个供应商账号、登进供应商端。曾经就是这样，
+     * 而且线上验证过确实返回 200。
+     */
+    @Test
+    void supplierCannotSelfRegister() throws Exception {
+        String email = "sup-" + UUID.randomUUID() + "@example.com";
+        ResponseEntity<String> res = rawPost("/auth/register",
+                new RegisterRequest(PartyType.SUPPLIER, "Shenzhen Works", "CN", email, "password123", "Sam"), null);
+        assertThat(res.getStatusCode().value()).isEqualTo(400);
+
+        // 组织也不该被建出来：拒绝要发生在写库之前
+        assertThat(organizations.findAll())
+                .noneMatch(o -> "Shenzhen Works".equals(o.getName()));
+    }
+
     @Test
     void customerTokenCannotHitSupplierPortal() throws Exception {
         String email = "c2-" + UUID.randomUUID() + "@example.com";

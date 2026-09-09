@@ -30,17 +30,32 @@ public class IdentityService {
     }
 
     /**
-     * 外部自助注册:建组织 + 首个用户,立即 ACTIVE。
+     * 外部自助注册:建组织 + 首个用户。
      *
-     * @throws BusinessException 400 {@code auth.register_portal_invalid}(传了 OPERATOR)
+     * <h3>★ 只有客户能自助注册。供应商不行。</h3>
+     *
+     * <p>设计文档 1 §D5 明确:供应商<b>邀请制开户,不做自助注册</b>(供应商是个位数,
+     * 靠线下谈来的)。文档 5 §2 也写着供应商端先不做。
+     *
+     * <p>这里原本按调用方传的 {@code portalType} 直接建 SUPPLIER 组织 ——
+     * 意味着<b>公网上任何人都能给自己开一个供应商账号并登进供应商端</b>。
+     * 而受众是本系统的安全边界(CLAUDE.md §3:路径前缀即受众),
+     * 让匿名调用方自己填受众等于把边界交给对方。2026-09-09 堵掉。
+     *
+     * <p>待确认:客户注册后<b>立即 ACTIVE</b> 这件事没有出处。文档 2 §4 写的是
+     * 「官网自助注册 → 人工审核激活」,文档 5 Q2 写的是「可浏览/询价,
+     * <b>首次下单前必须人工完成 KYC + 条款签署</b>」。当前实现是注册完直接能登。
+     * 下单功能还没建,所以暂不改动,但建之前必须先把这道闸门定下来。
+     *
+     * @throws BusinessException 400 {@code auth.register_portal_invalid}(传了 OPERATOR 或 SUPPLIER)
      *                          / 409 {@code auth.email_taken}
      */
     @Transactional
     public ExternalUser register(RegisterRequest req) {
         Organization.Type orgType = switch (req.portalType()) {
             case CUSTOMER -> Organization.Type.CUSTOMER;
-            case SUPPLIER -> Organization.Type.SUPPLIER;
-            case OPERATOR -> throw new BusinessException(400, "auth.register_portal_invalid");
+            // 供应商走邀请制(文档 1 D5),不能自助开户
+            case SUPPLIER, OPERATOR -> throw new BusinessException(400, "auth.register_portal_invalid");
         };
         String email = normalizeEmail(req.email());
         // 唯一索引是最终防线;这里先查一次给出干净的 409,而不是等约束抛 DataIntegrityViolation
