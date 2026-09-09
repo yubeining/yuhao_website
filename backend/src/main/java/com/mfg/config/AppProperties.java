@@ -52,18 +52,12 @@ public record AppProperties(
     public record Scheduler(@DefaultValue("2") int poolSize) {
     }
 
-    public record Auth(@DefaultValue Login login, @DefaultValue DevSeed devSeed) {
+    public record Auth(@DefaultValue Login login) {
 
         /** 登录限流：同一(受众+账号)窗口内尝试上限。 */
         public record Login(
                 @DefaultValue("10") int maxAttempts,
                 @DefaultValue("300") int windowSeconds) {
-        }
-
-        /** 开发种子账号（生产必须 false）。 */
-        public record DevSeed(
-                @DefaultValue("false") boolean enabled,
-                @DefaultValue("dev12345") String password) {
         }
     }
 }

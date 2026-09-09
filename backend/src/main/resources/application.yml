@@ -117,11 +117,6 @@ app:
       # 登录限流：同一 (受众+账号) 窗口内的尝试上限，防爆破（RateLimiter）
       max-attempts: ${LOGIN_MAX_ATTEMPTS:10}
       window-seconds: ${LOGIN_WINDOW_SECONDS:300}
-    dev-seed:
-      # ★ 开发种子账号：三个端各一个测试号（见 DevAccountSeeder）。
-      #   ★★ 生产必须 false。生产的运营管理员另配，不靠种子。
-      enabled: ${DEV_SEED_ENABLED:false}
-      password: ${DEV_SEED_PASSWORD:dev12345}
 
   cache:
     key-prefix: "mfg:"
@@ -136,8 +131,12 @@ app:
     #   拆区靠改配置而不是改业务代码（设计文档 D1）
     provider: ${STORAGE_PROVIDER:s3}   # s3 | memory（memory 仅本地/测试）
     signed-url-ttl-seconds: 900       # 15 分钟。图纸签名 URL 要短
-    # 允许上传的类型，按 magic bytes 校验（不信扩展名）
+    # 允许上传的类型，按 magic bytes 校验（不信扩展名）。清单出处：设计文档 2 §5.2。
+    # ★ 文档那句清单的结尾还有「常见图片」，这里没有 —— 客户拍的照片/截图会被拒收。
+    #   这是没人拍过板的收窄，用之前先确认要不要把图片加回来。
     allowed-drawing-types: STEP,STP,IGES,IGS,X_T,SLDPRT,DWG,DXF,PDF,ZIP
+    # ★ 500 这个数字【没有出处】。文档 2 只说「STEP 文件几十到几百 MB」，那是描述不是上限。
+    #   保留是因为总得有个防护值，但它是工程兜底，不是定好的业务政策 —— 别当政策引用。
     max-drawing-size-mb: 500
     s3:
       # ★ endpoint 是【内网】地址（服务端 put/get 走它，不出集群）；
@@ -161,19 +160,20 @@ app:
     pool-size: ${SCHEDULER_POOL_SIZE:2}
 
   quote:
-    # 报价五道护栏的配置项（设计文档 3 §4）
-    default-validity-days: 15
-    # 汇率 buffer 按有效期分档：天数 → 百分比
-    fx-buffer-tiers:
-      7: 0.010
-      15: 0.020
-      30: 0.030
-    # 审批阈值。金额单位 EUR
+    # ★ 本节目前【没有任何代码读它】。报价域一开工，写代码的人会把这里当成已拍板的输入 ——
+    #   所以只留有出处的，没出处的一律不留占位数字。
+    default-validity-days: 15         # 设计文档 5 Q6：「15 天。做成可配置」
     approval:
-      second-approver-amount-threshold: ${QUOTE_SECOND_APPROVER_THRESHOLD:20000}
-      second-approver-margin-threshold: ${QUOTE_SECOND_APPROVER_MARGIN:0.12}
-      # 毛利为负 → 硬阻断，不允许提交审批
+      # 设计文档 11 D14【已拍板】：先做最简版 —— 毛利为负硬阻断 + 单人审批。
       block-negative-margin: true
+      # ★ 这里原本还有 second-approver-amount-threshold: 20000（EUR）
+      #   和 second-approver-margin-threshold: 0.12，2026-09-09 删掉了。
+      #   两个数字都是编的：D14 原话是「金额分档、第二人复核【后面再加】」，
+      #   文档 5 Q7 至今写着「待你给具体数字」。留着会被当成"二次审批线已定"。
+    # ★ 汇率 buffer 分档表原本写了 7天→1.0% / 15天→2.0% / 30天→3.0%，一并删掉。
+    #   分档【结构】有出处（文档 3 护栏 4：「做成有效期天数 → buffer% 的分档表」），
+    #   但三个档位边界是编的，而且 7 天档的 1.0% 还低于文档建议的 2–3%。
+    #   要用先定数值，别拿这三个凑数 —— 它直接进报价成本，客户实付。
 
   notification:
     email:
