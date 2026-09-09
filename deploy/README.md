@@ -165,7 +165,15 @@ ssh -i <私钥> -p <端口> devbox@<主机> 'bash /tmp/bootstrap.sh'
 
 `bootstrap.sh` 做三件事：
 
-1. 装 `openjdk-25-jdk-headless`（已有 25+ 就跳过）
+1. **备好 JDK 25 并把位置记在 `/home/devbox/app/jdk.env`**（已有 25+ 就直接用）。
+   顺序：已装的 25+ → apt 的 `openjdk-25-jdk-headless` → **Temurin 25 tarball**（源里没有时自动走这条，不需要 sudo）。
+
+   > ★ 为什么要落一个 `jdk.env`，而不是靠系统默认的 `java`：
+   > CI 是**非交互 ssh**（`ssh host "bash build.sh"`），**不读 `~/.bashrc`**；
+   > 而且 Ubuntu 装了新 JDK 也**不会**自动把 `java` 切过去。
+   > 于是会出现"JDK 25 明明装上了，构建却仍用 21 报 release version 25 not supported"——
+   > 装上了却没用上，是这里最难查的坑。
+   > `build.sh` / `deploy.sh` / `entrypoint.sh` 都 source 这个文件，三者必定用同一个 JDK。
 2. 建 `/home/devbox/app/` 和 `.env` 模板
 3. 装 `/home/devbox/project/entrypoint.sh` —— **DevBox 是容器不是虚拟机，
    通常没有 systemd**。没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。

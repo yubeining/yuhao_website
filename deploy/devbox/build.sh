@@ -37,6 +37,15 @@ set -euo pipefail
 
 APP_DIR="${APP_DIR:-/home/devbox/app}"
 SRC_DIR="${SRC_DIR:-$APP_DIR/src}"
+
+# ★ 非交互 ssh（CI 就是 ssh host "bash build.sh"）不读 ~/.bashrc，
+#   系统默认 java 也未必是 25。JDK 位置由 bootstrap 写在 jdk.env 里，这里认它。
+if [ -f "$APP_DIR/jdk.env" ]; then
+    . "$APP_DIR/jdk.env"
+    PATH="$JAVA_HOME/bin:$PATH"
+    export JAVA_HOME PATH
+fi
+
 STAGE="${1:-all}"
 
 # ★ commit 由调用方通过 MFG_COMMIT 传入，不再从 git 读（见上）。

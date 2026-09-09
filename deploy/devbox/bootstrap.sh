@@ -68,24 +68,64 @@ fi
 
 # ---------- 1. JDK 25 ----------
 # ★ 要 JDK 不是 JRE —— 在这台机器上编译，javac 只在 JDK 里。
-#   headless 版本：完整 JDK 会拖进 X11 / 字体依赖，纯 HTTP 服务一个都用不上。
 # ★ 版本下限必须是 25（pom 的 java.version=25，21 编不了）。
-#   这里的正则以前写的是 2[1-9]，会把已装的 javac 21 判成合格从而永远不升级 —— 已收紧。
+#   以前这里的正则写的是 2[1-9]，会把已装的 javac 21 判成合格、从而永远不升级 —— 已收紧。
+#
+# ★★ 这一段刻意【不依赖】两件不可靠的事：
+#    1) 发行版源里有没有 openjdk-25 —— Ubuntu LTS 常常没有。装不到就退回 Temurin tarball。
+#    2) 系统默认的 java 指向谁 —— 装了新 JDK，Ubuntu 也不会自动把 java 切过去；
+#       而且 CI 是【非交互 ssh】（ssh host "bash build.sh"），根本不读 ~/.bashrc。
+#    所以装完把 JAVA_HOME 写进 $APP_DIR/jdk.env，由 build.sh / deploy.sh / entrypoint 自己 source。
+#    "装上了却没用上" 是这里最容易踩、也最难查的坑。
+mkdir -p "$APP_DIR"
+JDK_HOME=""
+
+# (a) 已经有 25+ 就直接用
 if command -v javac >/dev/null 2>&1 \
-   && javac -version 2>&1 | grep -qE 'javac 2[5-9]|javac [3-9][0-9]'; then
-    log "javac ok: $(javac -version 2>&1)"
-else
-    log "installing openjdk-25-jdk-headless"
-    $SUDO apt-get update -qq
-    if ! $SUDO apt-get install -y --no-install-recommends openjdk-25-jdk-headless; then
-        # ★ 不要静默退回 21 —— 那样能装上却编不了，报错发生在 mvn 阶段、离病根很远。
-        log "ERROR: openjdk-25-jdk-headless not available in this distro's repos."
-        log "       Fix one of these, then re-run:"
-        log "         a) enable a repo that carries JDK 25 (backports / PPA), or"
-        log "         b) install a Temurin 25 tarball and put its bin on PATH."
-        exit 1
+   && javac -version 2>&1 | grep -qE 'javac (2[5-9]|[3-9][0-9])'; then
+    JDK_HOME="$(dirname "$(dirname "$(readlink -f "$(command -v javac)")")")"
+    log "found existing JDK: $(javac -version 2>&1) at $JDK_HOME"
+fi
+
+# (b) 试发行版源
+if [ -z "$JDK_HOME" ]; then
+    log "trying apt: openjdk-25-jdk-headless"
+    $SUDO apt-get update -qq || true
+    if $SUDO apt-get install -y --no-install-recommends openjdk-25-jdk-headless >/dev/null 2>&1; then
+        JDK_HOME="$(ls -d /usr/lib/jvm/java-25-openjdk-* 2>/dev/null | head -1)"
+        log "installed from apt: $JDK_HOME"
+    else
+        log "apt has no openjdk-25 here — falling back to Temurin tarball"
     fi
 fi
+
+# (c) Temurin tarball：不需要发行版支持，也不需要 sudo
+if [ -z "$JDK_HOME" ] || [ ! -x "$JDK_HOME/bin/javac" ]; then
+    case "$(uname -m)" in
+        x86_64|amd64)  TEMURIN_ARCH=x64 ;;
+        aarch64|arm64) TEMURIN_ARCH=aarch64 ;;
+        *) log "ERROR: unsupported arch $(uname -m)"; exit 1 ;;
+    esac
+    JDK_HOME="$APP_DIR/jdk25"
+    if [ ! -x "$JDK_HOME/bin/javac" ]; then
+        log "downloading Temurin 25 ($TEMURIN_ARCH) into $JDK_HOME"
+        mkdir -p "$JDK_HOME"
+        TEMURIN_URL="https://api.adoptium.net/v3/binary/latest/25/ga/linux/$TEMURIN_ARCH/jdk/hotspot/normal/eclipse"
+        if command -v curl >/dev/null 2>&1; then
+            curl -fsSL "$TEMURIN_URL" | tar -xz -C "$JDK_HOME" --strip-components=1
+        else
+            wget -qO- "$TEMURIN_URL" | tar -xz -C "$JDK_HOME" --strip-components=1
+        fi
+    fi
+fi
+
+# 校验后落盘 —— 后面所有脚本都认这个文件，不认 PATH 上的 java
+if ! "$JDK_HOME/bin/javac" -version 2>&1 | grep -qE 'javac (2[5-9]|[3-9][0-9])'; then
+    log "ERROR: $JDK_HOME is not a JDK 25+"
+    exit 1
+fi
+printf 'JAVA_HOME=%s\n' "$JDK_HOME" > "$APP_DIR/jdk.env"
+log "JDK ready: $("$JDK_HOME/bin/javac" -version 2>&1)  ->  recorded in $APP_DIR/jdk.env"
 
 # ---------- 2. Maven + Node，配国内镜像 ----------
 if command -v mvn >/dev/null 2>&1; then
@@ -234,6 +274,8 @@ if [ ! -f "$ENTRYPOINT" ] || ! grep -q "app.jar" "$ENTRYPOINT" 2>/dev/null; then
 set -euo pipefail
 APP_DIR=/home/devbox/app
 [ -f "$APP_DIR/.env" ] && { set -a; . "$APP_DIR/.env"; set +a; }
+# ★ JDK 位置由 bootstrap 写死在这里 —— 不依赖容器默认的 java（可能还是旧版本）
+[ -f "$APP_DIR/jdk.env" ] && { . "$APP_DIR/jdk.env"; PATH="$JAVA_HOME/bin:$PATH"; export JAVA_HOME PATH; }
 mkdir -p "$APP_DIR/logs"
 
 # 官网静态站，独立端口。放在后台起 —— 它挂了不该影响平台。
