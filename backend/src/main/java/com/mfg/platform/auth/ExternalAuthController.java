@@ -50,8 +50,15 @@ public class ExternalAuthController {
         return UserView.of(created);
     }
 
-    /** 外部登录:只凭账号+密码,受众由账号所属组织推出(运营账号不在此表,自然登不进)。按账号限流。 */
-    @RateLimit(scope = "login", key = "#request.account.toLowerCase()",
+    /**
+     * 外部登录:只凭账号+密码,受众由账号所属组织推出(运营账号不在此表,自然登不进)。按账号限流。
+     *
+     * <p>★ 限流 key 必须和 {@code AuthService.normalize()} 用<b>同一套规整</b>(trim + toLowerCase)。
+     * 两边不一致 = 限流白做:少一个 trim,攻击者在邮箱前加一个空格就换到另一个计数桶,
+     * 而登录查用户时 trim 掉了,打的还是同一个账号 —— 每加一个空格就白送一整轮尝试次数。
+     * 改这里的时候连 {@code normalize()} 一起改,别只改一边。
+     */
+    @RateLimit(scope = "login", key = "#request.account.trim().toLowerCase()",
             limit = "${app.auth.login.max-attempts}", windowSeconds = "${app.auth.login.window-seconds}")
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody ExternalLoginRequest request) {

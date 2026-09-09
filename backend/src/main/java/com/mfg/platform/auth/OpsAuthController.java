@@ -35,7 +35,7 @@ public class OpsAuthController {
     }
 
     /** 运营登录。按账号限流(和外部同一套阈值,不同 scope)。 */
-    @RateLimit(scope = "login-ops", key = "#request.account.toLowerCase()",
+    @RateLimit(scope = "login-ops", key = "#request.account.trim().toLowerCase()",
             limit = "${app.auth.login.max-attempts}", windowSeconds = "${app.auth.login.window-seconds}")
     @PostMapping("/login")
     public TokenResponse login(@Valid @RequestBody OpsLoginRequest request) {
