@@ -15,7 +15,7 @@ import java.util.UUID;
  */
 @Entity
 @Table(name = "ops_order_part")
-public class OpsOrderPart extends BaseEntity {
+class OpsOrderPart extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "ops_order_id", columnDefinition = "uuid", nullable = false)

@@ -12,7 +12,7 @@ import java.util.UUID;
 /** 供应商接的订单。骨架:归属供应商 + 接单人。无外键。 */
 @Entity
 @Table(name = "supplier_order")
-public class SupplierOrder extends BaseEntity {
+class SupplierOrder extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "supplier_org_id", columnDefinition = "uuid", nullable = false)

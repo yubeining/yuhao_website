@@ -12,7 +12,7 @@ import java.util.UUID;
 /** 运营"组装"出来的订单。和客户/供应商订单不直连,靠零件派生链关联。无外键。 */
 @Entity
 @Table(name = "ops_order")
-public class OpsOrder extends BaseEntity {
+class OpsOrder extends BaseEntity {
 
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "created_by_user_id", columnDefinition = "uuid")
