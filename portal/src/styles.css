@@ -69,6 +69,10 @@ a:hover{text-decoration:underline;}
 
 /* ═══════════════════════════════ 登录 / 注册 */
 .auth{min-height:100vh;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);}
+/* 单栏变体：内部登录页没有品牌栏（不对外，不需要营销位）。
+   没有它的话，第二列会空着一大片，卡片被挤到屏幕左边约 1/4 处 —— 在 formside 上
+   写 margin:0 auto 是治不好的，那只在它自己那一列里居中。 */
+.auth.solo{grid-template-columns:minmax(0,1fr);}
 @media (max-width:900px){.auth{grid-template-columns:1fr;} .auth .brandside{display:none;}}
 .brandside{background:var(--deep);color:var(--deep-ink);padding:48px 54px;display:flex;
   flex-direction:column;position:relative;overflow:hidden;}

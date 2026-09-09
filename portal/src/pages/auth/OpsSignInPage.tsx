@@ -43,8 +43,8 @@ export function OpsSignInPage() {
     }
 
     return (
-        <div className="auth">
-            <div className="formside" style={{ margin: '0 auto' }}>
+        <div className="auth solo">
+            <div className="formside">
                 <div className="formwrap">
                     <div style={{ fontSize: 12, letterSpacing: 2, color: 'var(--faint)', marginBottom: 8 }}>
                         融一智造 · 内部后台
