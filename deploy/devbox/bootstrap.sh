@@ -267,34 +267,15 @@ fi
 #   没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。
 ENTRYPOINT=/home/devbox/project/entrypoint.sh
 mkdir -p "$(dirname "$ENTRYPOINT")"
-if [ ! -f "$ENTRYPOINT" ] || ! grep -q "app.jar" "$ENTRYPOINT" 2>/dev/null; then
-    cat >"$ENTRYPOINT" <<'EPEOF'
-#!/usr/bin/env bash
-# DevBox 容器启动时执行。由 deploy/devbox/bootstrap.sh 生成。
-set -euo pipefail
-APP_DIR=/home/devbox/app
-[ -f "$APP_DIR/.env" ] && { set -a; . "$APP_DIR/.env"; set +a; }
-# ★ JDK 位置由 bootstrap 写死在这里 —— 不依赖容器默认的 java（可能还是旧版本）
-[ -f "$APP_DIR/jdk.env" ] && { . "$APP_DIR/jdk.env"; PATH="$JAVA_HOME/bin:$PATH"; export JAVA_HOME PATH; }
-mkdir -p "$APP_DIR/logs"
-
-# 官网静态站，独立端口。放在后台起 —— 它挂了不该影响平台。
-if [ -f "$APP_DIR/site/serve.mjs" ]; then
-    PORT="${SITE_PORT:-8081}" nohup node "$APP_DIR/site/serve.mjs" \
-        >>"$APP_DIR/logs/site.log" 2>&1 &
-fi
-
-# 平台是主进程：用 exec 让它成为 PID 1，直接收到 SIGTERM 而不是等被 KILL
-if [ -f "$APP_DIR/app.jar" ]; then
-    exec java ${JAVA_OPTS:-} -jar "$APP_DIR/app.jar" >>"$APP_DIR/logs/app.log" 2>&1
-fi
-echo "no app.jar yet — waiting for the first deploy"
-sleep infinity
-EPEOF
-    chmod +x "$ENTRYPOINT"
-    log "installed $ENTRYPOINT"
+# ★ 正本在仓库里（deploy/devbox/entrypoint.sh），这里只负责安装，不再内联生成。
+#   以前是内联生成 + 「已存在就不覆盖」，导致改了永远同步不过来、只能上机器手改。
+#   现在每次部署由 deploy.sh 重新安装，改文件 → 点 Action 就生效。
+if [ -f "$SRC_DIR/deploy/devbox/entrypoint.sh" ]; then
+    install -m 0755 "$SRC_DIR/deploy/devbox/entrypoint.sh" "$ENTRYPOINT"
+    log "installed $ENTRYPOINT (from repo)"
 else
-    log "entrypoint already references app.jar, leaving it alone"
+    # bootstrap 常常是单独 scp 过来先跑的，那时还没有源码 —— 交给首次部署安装。
+    log "source not synced yet; deploy.sh will install $ENTRYPOINT on the first deploy"
 fi
 
 log ""

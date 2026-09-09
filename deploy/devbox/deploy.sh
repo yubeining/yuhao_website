@@ -22,6 +22,15 @@ if [ -f "$APP_DIR/jdk.env" ]; then
 fi
 
 JAR_NEW="$APP_DIR/app.jar.new"
+
+# ★ 每次部署都把 entrypoint 正本装过去 —— 它是容器重启/多副本时的启动入口。
+#   放在这里而不是 bootstrap，是为了让「改 entrypoint → 点 Action」就能生效。
+SRC_DIR="${SRC_DIR:-$APP_DIR/src}"
+if [ -f "$SRC_DIR/deploy/devbox/entrypoint.sh" ]; then
+    mkdir -p /home/devbox/project
+    install -m 0755 "$SRC_DIR/deploy/devbox/entrypoint.sh" /home/devbox/project/entrypoint.sh
+fi
+
 JAR_CUR="$APP_DIR/app.jar"
 JAR_PREV="$APP_DIR/app.jar.prev"
 PID_FILE="$APP_DIR/app.pid"

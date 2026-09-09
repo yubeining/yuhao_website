@@ -29,7 +29,7 @@ RUN npm run build
 # ============================================================
 # 阶段 2 —— 后端
 # ============================================================
-FROM maven:3.9-eclipse-temurin-21 AS backend-build
+FROM maven:3.9-eclipse-temurin-25 AS backend-build
 
 WORKDIR /src
 
@@ -57,7 +57,7 @@ RUN mvn -B -f backend/pom.xml clean package -DskipTests \
 # ============================================================
 # 阶段 3 —— 运行时
 # ============================================================
-FROM eclipse-temurin:21-jre
+FROM eclipse-temurin:25-jre
 
 # ★ 运行时阶段【不装任何包】。
 #
