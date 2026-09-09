@@ -328,6 +328,14 @@ CREATE UNIQUE INDEX ops_order_part_no_uk ON public.ops_order_part USING btree (p
 
 CREATE INDEX ops_order_part_order_idx ON public.ops_order_part USING btree (ops_order_id);
 
+-- Name: ops_order_part_source_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_part_source_customer_idx ON public.ops_order_part USING btree (source_customer_id);
+
+-- Name: ops_order_part_source_customer_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_part_source_customer_order_idx ON public.ops_order_part USING btree (source_customer_order_id);
+
 -- Name: ops_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX ops_order_part_upstream_idx ON public.ops_order_part USING btree (upstream_part_id);
@@ -371,6 +379,14 @@ CREATE UNIQUE INDEX supplier_order_part_no_uk ON public.supplier_order_part USIN
 -- Name: supplier_order_part_order_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_order_idx ON public.supplier_order_part USING btree (supplier_order_id);
+
+-- Name: supplier_order_part_source_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_source_customer_idx ON public.supplier_order_part USING btree (source_customer_id);
+
+-- Name: supplier_order_part_source_customer_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_source_customer_order_idx ON public.supplier_order_part USING btree (source_customer_order_id);
 
 -- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
