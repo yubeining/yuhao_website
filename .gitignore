@@ -59,3 +59,11 @@ tmp/
 #   这里显式反选回来 —— 我们这几份是项目自己的，不是那套工具包。
 !.claude/rules/
 !.claude/rules/**
+
+# 原型产物，不进仓库。
+# ★ portal/public/ 会被 vite 原样拷进构建产物，而非 API 路径在后端一律 permitAll ——
+#   放进来的任何文件都是【免登录公开下载】。目前这里只有原型演示用的 deck.html 和
+#   几份 mock JSON，不该发出去。
+# ★ 将来真需要一个公开静态资源（favicon / robots.txt 这类），在下面显式反选那一个文件，
+#   不要把整个目录放开 —— 默认公开是危险的方向。
+portal/public/
