@@ -20,7 +20,11 @@ export function SupplierProfilePage() {
                     c.status === 'active' ? (
                         <>
                             {c.tier && <Tier tier={c.tier} />}
-                            <Pill tone="ok">{c.scope}</Pill>
+                            {/* ★ 这个值是运营在资质审核时填进来的真数据，但它【不参与任何过滤】——
+                                canGrab 只看 status。用绿色 ok 底色显示会读成"市场已按这个范围向我开放"，
+                                实际上全都能抢。降成中性底色，并注明尚未生效。 */}
+                            <Pill tone="ne">{c.scope}</Pill>
+                            <span className="fnote">（记录用，暂未参与派单过滤）</span>
                         </>
                     ) : (
                         <Pill tone="wa">资质考察中</Pill>

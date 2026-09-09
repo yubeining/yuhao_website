@@ -94,8 +94,10 @@ export function QuoteDetailPage() {
                             )}
                         </CardBody>
                         {quote.status === 'open' ? (
+                            /* ★「谢绝」按钮已删：无 onClick，而且 types.ts 自己注明
+                               "谢绝之后订单怎么走还没定"。流程没定就先摆一个按钮，
+                               客户会以为自己可以拒绝报价。定了再加。 */
                             <CardFoot
-                                left={<button className="btn" type="button">谢绝</button>}
                                 right={<button className="btn pri" type="button" onClick={confirm}>确认价格</button>}
                             />
                         ) : order ? (

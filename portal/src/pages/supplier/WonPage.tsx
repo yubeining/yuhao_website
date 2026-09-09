@@ -50,8 +50,10 @@ export function WonPage() {
                                                 {signed ? <Pill tone="ok">已签署</Pill> : <Pill tone="wa">待签署</Pill>}
                                             </td>
                                             <td style={{ textAlign: 'right' }}>
+                                                {/* ★「看合同」按钮已删：无 onClick，也没有任何合同文件。
+                                                    供应商点它是想找合同正本，找不到比没有这个按钮更糟。 */}
                                                 {signed ? (
-                                                    <button className="btn sm" type="button">看合同</button>
+                                                    <span className="muted">已签</span>
                                                 ) : (
                                                     <button className="btn sm pri" type="button"
                                                         onClick={() => ct && act((s) => sign(s, ct.id))}>

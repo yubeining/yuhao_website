@@ -84,9 +84,9 @@ function GlobalNav({ badge, areas, currentPath, sub }: Pick<Props, 'badge' | 'ar
                     <span className="gsub">{badge}</span>
                 )}
                 <span className="gsp" />
-                {/* ★ 消息系统没做，所以不给未读红点 —— 红点是状态，不是装饰，
-                    亮着而点进去什么都没有，用户就再也不信这个红点了。 */}
-                <button className="gico" title="消息" type="button">✉</button>
+                {/* ★ 消息按钮整个删掉（2026-09-09）。原先只去掉了未读红点、留着按钮，
+                    但按钮本身同样是一句承诺：没有消息系统，点了什么都不会发生。
+                    红点是状态、按钮是入口，没有后端时两个都不该在。 */}
                 <UserMenu sub={sub} />
             </div>
         </div>

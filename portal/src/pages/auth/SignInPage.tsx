@@ -8,7 +8,7 @@
 
 import { useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { BrandSide, OAuthIcons } from '../../components/brand'
+import { BrandSide } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
@@ -73,18 +73,15 @@ export function SignInPage() {
                     </Field>
                     <ErrMsg>{err}</ErrMsg>
 
-                    <div className="inprow">
-                        <span style={{ flex: 1 }} />
-                        <a href="#">{c.forgot}</a>
-                    </div>
+                    {/* ★「忘记密码」已删：href="#"，后端没有重置端点。
+                        被锁在外面的人正是最会点它的人，点了没反应比没有更糟。 */}
 
                     <BigButton onClick={submit}>{busy ? '…' : c.submit}</BigButton>
 
-                    <div className="orline"><span>{c.or}</span></div>
-                    <div className="oauths">
-                        <button className="oauth" type="button">{OAuthIcons.wechat}{c.wx}</button>
-                        <button className="oauth" type="button">{OAuthIcons.google}Google</button>
-                    </div>
+                    {/* ★ 微信 / Google 登录按钮已删（2026-09-09）。
+                        两个按钮都没有 onClick，后端也没有任何 OAuth 端点 ——
+                        它们既点不动，又向用户承诺了平台支持第三方登录。
+                        真做 OAuth 的时候再加回来，连着后端一起加。 */}
 
                     <div className="fnote">{c.note}</div>
                     <div className="fnote" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>

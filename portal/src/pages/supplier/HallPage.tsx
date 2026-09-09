@@ -56,10 +56,8 @@ export function HallPage() {
 
     return (
         <Page>
-            <div className="hsearch">
-                <input placeholder="搜零件名、材料、生产订单号" />
-                <button type="button">搜索</button>
-            </div>
+            {/* ★ 搜索框已删（2026-09-09）：按钮无 onClick、输入框无 state，搜不动。
+                更糟的是搜不到会被当成"市场里没有这类活"，而不是"这个框是假的"。 */}
 
             <div className="card" style={{ marginBottom: 4 }}>
                 <div className="cbody" style={{ padding: '4px 18px' }}>

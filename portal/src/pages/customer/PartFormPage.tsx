@@ -175,7 +175,13 @@ export function PartFormPage() {
                     <div className="attach">
                         <div className="attach-hd">
                             <span className="attach-k">附件</span>
-                            <span className="attach-hint">图纸文件 · STEP / PDF / 原生 CAD</span>
+                            {/* ★ 文件本身【没有上传到任何地方】—— 只把 name/size 存进 sessionStorage
+                                （types.ts 自己也注明了这点）。客户会以为图纸已经交到平台，
+                                据此提交订单，而运营那边什么都收不到。在文件存储接通之前如实说明。 */}
+                            <span className="attach-hint">
+                                图纸文件 · STEP / PDF / 原生 CAD ——
+                                <b>文件存储尚未接入，这里只记录文件名，文件不会被上传</b>
+                            </span>
                             <span className="sp" />
                             <button className="btn sm" type="button" onClick={() => input.current?.click()}>
                                 ＋ 上传附件

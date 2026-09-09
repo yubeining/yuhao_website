@@ -111,7 +111,13 @@ export function OpsOnboardingPage() {
                         </Field>
                     </FieldRow>
                     {err && <div className="errmsg" style={{ marginBottom: 12 }}>{err}</div>}
-                    <button className="btn pri" type="button" onClick={sendInvite}>生成并发送邀请</button>
+                    {/* ★ 只往本地 db 塞一条邀请记录，【不发任何邮件】。
+                        原文写「生成并发送邀请」，运营会以为供应商已经收到，不再跟进 ——
+                        而对方那边一直没动静。按钮只说它真做的那件事。 */}
+                    <button className="btn pri" type="button" onClick={sendInvite}>生成邀请链接</button>
+                    <div className="fnote" style={{ marginTop: 8 }}>
+                        <b>邮件发送尚未接入</b> —— 链接生成后需自行转给对方。
+                    </div>
                 </CardBody>
                 {state.db.invites.length > 0 && (
                     <CardBody flush style={{ borderTop: '1px solid var(--line)' }}>
