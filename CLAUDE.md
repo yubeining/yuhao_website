@@ -74,10 +74,69 @@ backend/src/main/java/com/mfg/
 └── domain/          业务核心，一个业务域一个包
 ```
 
+### 业务域划分：模块化单体（Modular Monolith）
+
+一个进程、一个库，但 `domain/` 下**按业务域切成自治模块**：域内自己管自己，
+域与域之间只能看到对方**发布的契约**（接口 + DTO + 事件），碰不到对方的实体、仓库和内部服务。
+
+**这不是为了将来拆微服务，是为了现在**：改一个域不牵动另一个域，出了问题只用看一个域。
+
+> 本节只管 `domain/`。`platform/` 和 `common/` 是共享基建，本来就是给所有域用的，不适用。
+
+**★ 边界的执行者是 Java 访问修饰符，不是接口**
+
+写一个 `public interface PriceQuery` 并**不构成边界** —— 只要 `PriceQueryImpl` 也是 public，
+别人照样 `@Autowired PriceQueryImpl`，IDE 还会贴心地帮他补全。
+接口只是契约的形状，**真正拦住人的是编译器**：实现类、Entity、Repository 一律 **package-private**。
+
+**★ package-private 不跨子包 —— 这是真实取舍，不是风格问题**
+
+一旦把实现类放进 `order/internal/` 并声明为包私有，`order` 包自己也访问不到它。所以：
+
+| 域的大小 | 结构 | 封装由谁保证 |
+|---|---|---|
+| 小（默认） | **扁平一层**，实现类包私有 | **编译器**，绕不过去 |
+| 大到必须拆子包 | 子包里的类只能是 public | **降级到测试期**，只能靠 ArchUnit 卡 |
+
+**默认扁平。** 想拆子包之前先问一句：这个域是不是本来就该拆成两个域。
+
+```
+domain/order/
+├── OrderService.java              public interface     ← 对外唯一契约
+├── OrderInfo.java                 public record        ← 出参 DTO，不是 Entity
+├── OrderCreatedEvent.java         public record        ← 对外事件
+├── OrderServiceImpl.java          package-private
+├── CustomerOrder.java             package-private      ← Entity 绝不出域
+└── CustomerOrderRepository.java   package-private
+```
+
+**★ 域间通信三条硬规矩**
+
+1. **不共享 Entity。** 跨域一律传 DTO / record。
+   一旦别的域拿得到 `CustomerOrder` 实体，它就能顺手改状态、还能顺着对象图把整棵树拖出来 —— 边界当场作废。
+2. **不跨域 join。** **每张表归属唯一的域**；不同域的表之间不联表查询（本系统本来就无外键，见 §4）。
+   真要跨域查，做**读模型**（单独一张宽表，由事件驱动更新），不要写联表 SQL。
+   这条最难坚持，也最值钱 —— 它是将来能不能拆开的唯一决定因素。
+3. **单向依赖用接口，双向依赖用事件。**
+   A 调 B 用接口；如果 B 反过来又要感知 A 的变化，**不要互相注入**（那是循环依赖的开始），
+   反向那条改成领域事件。
+   **规矩跟着数走：谁的数据，谁来判。** 把 B 的业务规则写进 A，是制造循环依赖的头号原因。
+
+**★ 规矩必须进 CI**
+
+以上全靠自觉的话，三个月内会被绕干净，而且 code review 看不出来
+（`@Autowired` 一个不该碰的类，代码能跑、测试也过）。
+ArchUnit 里钉死：**域之间不得循环依赖、不得引用别的域的 Entity / Repository、只允许依赖对方发布的契约**。
+
+**划域的判据**：一个域 = 一组「一起变」的业务概念。拿不准就**停下来问**（同下面规则 5），
+不许先混着写、以后再拆 —— **拆域比拆表还贵**。
+
 **规则**
 
-1. 域内固定四层：`controller/ service/ repository/ dto/`。单文件域保持扁平。
-2. **定时任务 / 外部适配器 / 数据回填一律进 `service/`** —— 不另开 `scheduler/` `adapter/` 目录。
+1. **域内默认扁平一层**，实现类 / Entity / Repository 一律 package-private（见上）。
+   大到必须分子包时才分，且要清楚：**封装从编译期降级成了测试期**，靠 ArchUnit 兜。
+2. **定时任务 / 外部适配器 / 数据回填是域内实现**，和其他实现类一样平铺在域包里（包私有），
+   不另开 `scheduler/` `adapter/` 目录。
 3. **不用 DDD 分层**（`api/application/domain/infrastructure`）。
    本系统以 CRUD 为主，为个别有领域逻辑的模块套全局 DDD 是过度设计。
 4. 测试目录镜像主代码结构。
