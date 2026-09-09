@@ -16,7 +16,7 @@
 ```
 .
 ├── CLAUDE.md              ★ 工程规范（唯一真源，也是 AI 助手的上下文）
-├── backend/               Spring Boot 3.5 / Java 21
+├── backend/               Spring Boot 4.1 / Java 25
 │   └── src/main/resources/static/    ← portal 的构建产物落在这里（gitignored）
 ├── portal/                Vite + React 19 SPA —— 客户端 + 供应商端 + 内部后台
 ├── site/                  公司官网（SSG，独立部署，尚未开始）
@@ -47,7 +47,7 @@
 
 ## 快速开始
 
-前置：**JDK 21**、**Maven 3.9+**、**Node 20+**、Docker。
+前置：**JDK 25**、**Maven 3.9+**、**Node 20+**、Docker。
 
 ```bash
 # 1. 激活 git hooks（每个 clone / worktree 跑一次，git 不会自动带过来）

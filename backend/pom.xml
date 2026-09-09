@@ -7,7 +7,7 @@
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
-        <version>3.5.4</version>
+        <version>4.1.1</version>
         <relativePath/>
     </parent>
 
@@ -17,10 +17,10 @@
     <name>mfg-backend</name>
 
     <properties>
-        <java.version>21</java.version>
+        <java.version>25</java.version>
         <jjwt.version>0.12.6</jjwt.version>
         <aws.sdk.version>2.31.0</aws.sdk.version>
-        <spring.ai.version>1.0.0</spring.ai.version>
+        <spring.ai.version>2.0.1</spring.ai.version>
         <!-- 迁移回归测试组：跑真实迁移文件建库，验证迁移本身的正确性。
              默认排除（慢），CI 里单独一个 job 跑。 -->
         <failsafe.excludedGroups>migration-regression</failsafe.excludedGroups>
@@ -59,10 +59,17 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
+
+        <!-- Boot 4：Jackson 自动配置（ObjectMapper bean）拆成了独立模块，
+             starter-web 不再自带。RedisService 等按类型注入 ObjectMapper，必须显式引。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-jackson</artifactId>
+        </dependency>
         <!-- AOP —— 声明式切面（@Idempotent 幂等、@AuditLog 审计）用 -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-aop</artifactId>
+            <artifactId>spring-boot-starter-aspectj</artifactId>
         </dependency>
         <!-- Prometheus 指标 —— 暴露 /actuator/prometheus。micrometer 由 actuator 带 -->
         <dependency>
@@ -127,8 +134,8 @@
 
         <!-- Hibernate 懒加载代理的 Jackson 支持。没有它，序列化未初始化的关联会抛异常 -->
         <dependency>
-            <groupId>com.fasterxml.jackson.datatype</groupId>
-            <artifactId>jackson-datatype-hibernate6</artifactId>
+            <groupId>tools.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-hibernate7</artifactId>
         </dependency>
 
         <!-- 对象存储。Sealos OSS 是 S3 兼容（MinIO），用 AWS SDK v2 —— provider 中立，
@@ -176,11 +183,18 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
+        <!-- Boot 4：TestRestTemplate 从 spring-boot-test 挪到了这个独立 artifact
+             （包名 org.springframework.boot.resttestclient）。走 HTTP 的 IT 要用它。 -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-resttestclient</artifactId>
+            <scope>test</scope>
+        </dependency>
         <!-- ArchUnit —— 把 CLAUDE.md 的架构铁律写成测试（禁 JPA 关联、构造器注入等） -->
         <dependency>
             <groupId>com.tngtech.archunit</groupId>
             <artifactId>archunit-junit5</artifactId>
-            <version>1.3.0</version>
+            <version>1.5.0</version>
             <scope>test</scope>
         </dependency>
     </dependencies>

@@ -165,7 +165,7 @@ ssh -i <私钥> -p <端口> devbox@<主机> 'bash /tmp/bootstrap.sh'
 
 `bootstrap.sh` 做三件事：
 
-1. 装 `openjdk-21-jre-headless`（已有 21+ 就跳过）
+1. 装 `openjdk-25-jdk-headless`（已有 25+ 就跳过）
 2. 建 `/home/devbox/app/` 和 `.env` 模板
 3. 装 `/home/devbox/project/entrypoint.sh` —— **DevBox 是容器不是虚拟机，
    通常没有 systemd**。没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。

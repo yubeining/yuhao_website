@@ -1,6 +1,6 @@
 package com.mfg.platform.dbmigration;
 
-import org.springframework.boot.autoconfigure.orm.jpa.EntityManagerFactoryDependsOnPostProcessor;
+import org.springframework.boot.jpa.autoconfigure.EntityManagerFactoryDependsOnPostProcessor;
 import org.springframework.context.annotation.Configuration;
 
 /**

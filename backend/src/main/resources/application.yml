@@ -48,7 +48,9 @@ spring:
     #   数据库列名的 snake_case 由 JPA @Column 映射，仅此一处转换
     default-property-inclusion: non_null
     serialization:
-      write-dates-as-timestamps: false
+      # ★ Jackson 3（Boot 4）里 WRITE_DATES_AS_TIMESTAMPS 这个开关已经取消 ——
+      #   日期默认就是 ISO-8601 字符串，正是 §4 要的（后端返带时区的 ISO 8601）。
+      #   还写着它会导致启动失败：No enum constant SerializationFeature.write-dates-as-timestamps
       fail-on-empty-beans: false
     deserialization:
       fail-on-unknown-properties: false

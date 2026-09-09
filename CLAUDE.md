@@ -36,7 +36,7 @@
 
 | 层 | 技术 |
 |---|---|
-| 后端 | Java 21 / Spring Boot 3.5 / Spring Data JPA / Spring Security + JWT |
+| 后端 | Java 25 / Spring Boot 4.1 / Spring Data JPA / Spring Security + JWT |
 | 数据库 | PostgreSQL（`ddl-auto: validate`，schema 由手写迁移管理） |
 | 缓存 | Redis |
 | 前端 | Vite 6 / React 19 / TypeScript / React Router 7（**SPA，不是 SSR**） |
@@ -615,7 +615,7 @@ MFG-31, fix, [file] enforce whitelist serialization on download response
 
 ## 12. 开发环境
 
-前置：**JDK 21**、Maven 3.9+、**Node 20+**、Docker。
+前置：**JDK 25**、Maven 3.9+、**Node 20+**、Docker。
 
 ```bash
 # 一次性：激活 git hooks

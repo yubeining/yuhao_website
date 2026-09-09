@@ -19,7 +19,7 @@
 #    Actions 那边只发一条 ssh 命令，几 KB。
 #
 # 做的事（全部幂等）：
-#   1. JDK 21（构建要 JDK 不是 JRE —— javac 在 JDK 里）
+#   1. JDK 25（构建要 JDK 不是 JRE —— javac 在 JDK 里）
 #   2. Maven + Node 22，并配好国内镜像
 #   3. clone 仓库
 #   4. 目录结构和 .env 模板
@@ -66,16 +66,25 @@ else
     log "apt sources already look fine"
 fi
 
-# ---------- 1. JDK 21 ----------
+# ---------- 1. JDK 25 ----------
 # ★ 要 JDK 不是 JRE —— 在这台机器上编译，javac 只在 JDK 里。
 #   headless 版本：完整 JDK 会拖进 X11 / 字体依赖，纯 HTTP 服务一个都用不上。
+# ★ 版本下限必须是 25（pom 的 java.version=25，21 编不了）。
+#   这里的正则以前写的是 2[1-9]，会把已装的 javac 21 判成合格从而永远不升级 —— 已收紧。
 if command -v javac >/dev/null 2>&1 \
-   && javac -version 2>&1 | grep -qE 'javac 2[1-9]|javac [3-9][0-9]'; then
+   && javac -version 2>&1 | grep -qE 'javac 2[5-9]|javac [3-9][0-9]'; then
     log "javac ok: $(javac -version 2>&1)"
 else
-    log "installing openjdk-21-jdk-headless"
+    log "installing openjdk-25-jdk-headless"
     $SUDO apt-get update -qq
-    $SUDO apt-get install -y --no-install-recommends openjdk-21-jdk-headless
+    if ! $SUDO apt-get install -y --no-install-recommends openjdk-25-jdk-headless; then
+        # ★ 不要静默退回 21 —— 那样能装上却编不了，报错发生在 mvn 阶段、离病根很远。
+        log "ERROR: openjdk-25-jdk-headless not available in this distro's repos."
+        log "       Fix one of these, then re-run:"
+        log "         a) enable a repo that carries JDK 25 (backports / PPA), or"
+        log "         b) install a Temurin 25 tarball and put its bin on PATH."
+        exit 1
+    fi
 fi
 
 # ---------- 2. Maven + Node，配国内镜像 ----------

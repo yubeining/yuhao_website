@@ -1,6 +1,6 @@
 package com.mfg.platform.config;
 
-import com.fasterxml.jackson.databind.JsonNode;
+import tools.jackson.databind.JsonNode;
 import com.mfg.platform.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
