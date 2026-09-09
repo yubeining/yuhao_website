@@ -588,7 +588,13 @@ MFG-31, fix, [file] enforce whitelist serialization on download response
 
 **diff-aware 是精髓** —— 只卡新增/修改的行。这让你可以中途加新闸门而不用先还完债。
 
-**新增闸门要三处同步**：`scripts/check-*.py` + `.githooks/pre-commit` + `.github/workflows/code-quality.yml`。
+**新增闸门要两处同步**：`scripts/check-*.py` + `.githooks/pre-commit`。
+
+> 原本还有第三处 `.github/workflows/code-quality.yml`，2026-09-09 删掉了（每次推送都发邮件）。
+> **代价要知道**：现在没有任何东西能兜住 `--no-verify`，也没人替你跑
+> 「迁移文件从零建库」那组回归（`migration-regression`，本地 `mvn verify` 默认排除它）。
+> 闸门全靠本地 hook，所以 `./scripts/setup-hooks.sh` 从"建议"变成了"必须"。
+> 加了迁移之后要自己验一次能不能从零建起来，见 `database/migrations/README.md`。
 
 ### 变更记录
 
