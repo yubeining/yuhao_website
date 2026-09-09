@@ -109,7 +109,7 @@ public class SecurityConfig {
      * 图纸预览({@code <img>})和签名 URL 上传下载({@code fetch})都指向它。
      * {@code style-src 'unsafe-inline'}:前端有内联样式,先放开;以后用 nonce/hash 收紧。
      */
-    private static String buildCsp(String storageOrigin) {
+    static String buildCsp(String storageOrigin) {
         String ext = storageOrigin == null ? "" : " " + storageOrigin;
         return "default-src 'self'; "
                 + "script-src 'self'; "
@@ -123,9 +123,15 @@ public class SecurityConfig {
                 + "frame-ancestors 'none'";
     }
 
-    /** 从 URL 取 {@code scheme://host[:port]};空/非法返回 null(那就 CSP 里不加额外 origin)。 */
-    private static String originOf(String url) {
-        if (url == null || url.isBlank()) {
+    /**
+     * 从 URL 取 {@code scheme://host[:port]};空/非法/集群内网返回 null(那就 CSP 里不加额外 origin)。
+     *
+     * <p>★ 明确排除集群内网地址:CSP 管的是<b>浏览器</b>能加载什么,而内网域名浏览器永远解析不了。
+     * 把它写进 CSP 既没用,还会掩盖「真正该放行的外网地址没配」这件事 ——
+     * 上线后表现为图裂、下载不了,且只在浏览器控制台报错,后端日志一片干净。
+     */
+    static String originOf(String url) {
+        if (url == null || url.isBlank() || StorageConfig.isClusterInternal(url)) {
             return null;
         }
         try {

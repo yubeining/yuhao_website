@@ -167,6 +167,10 @@ jobs:
           CFG_REDIS_PORT: ${{ vars.REDIS_PORT || secrets.REDIS_PORT }}
           CFG_STORAGE_PROVIDER: ${{ vars.STORAGE_PROVIDER || 's3' }}
           CFG_STORAGE_S3_ENDPOINT: ${{ vars.STORAGE_S3_ENDPOINT || 'http://object-storage.objectstorage-system.svc.cluster.local' }}
+          # ★ 外网地址：给【浏览器】用的签名 URL 走它，也是 CSP 放行的那个域名。
+          #   不配的话会静默回落到上面的内网地址 —— 签出来的 URL 客户打不开，
+          #   而且 CSP 放行的是个浏览器永远够不到的域名，表现为图裂且后端无日志。
+          CFG_STORAGE_S3_PUBLIC_ENDPOINT: ${{ vars.STORAGE_S3_PUBLIC_ENDPOINT || 'https://objectstorageapi.bja.sealos.run' }}
           CFG_STORAGE_S3_REGION: ${{ vars.STORAGE_S3_REGION || 'us-east-1' }}
           CFG_STORAGE_S3_BUCKET: ${{ vars.STORAGE_S3_BUCKET || 'aprx7mvw-yuhao-oss' }}
         run: |

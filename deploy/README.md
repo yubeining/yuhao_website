@@ -227,11 +227,21 @@ vi /home/devbox/app/.env
 
 非口令项走同一页的 **Variables** 标签（可选，没配就用 workflow 里的默认值或 DevBox `.env` 现有值）：
 `DB_URL` / `DB_USERNAME` / `REDIS_HOST` / `REDIS_PORT` / `STORAGE_PROVIDER` /
-`STORAGE_S3_ENDPOINT` / `STORAGE_S3_REGION` / `STORAGE_S3_BUCKET`。
+`STORAGE_S3_ENDPOINT` / `STORAGE_S3_PUBLIC_ENDPOINT` / `STORAGE_S3_REGION` / `STORAGE_S3_BUCKET`。
 
-> ★ 对象存储有两个端点：`STORAGE_S3_ENDPOINT` 填**内网**地址（服务端 put/get 走它，
-> 不出集群）；再配一个 `STORAGE_S3_PUBLIC_ENDPOINT` 填**外网**地址 —— 给欧洲客户浏览器
-> 用的图纸签名 URL 走它。不配 public 的话会回落到内网地址，客户点了打不开。
+> ★ **对象存储有两个端点，两个都要对，且它们的失效方式都是静默的。**
+>
+> | 变量 | 填什么 | 谁在用 | 当前默认值 |
+> |---|---|---|---|
+> | `STORAGE_S3_ENDPOINT` | **内网**地址 | 服务端 put/get/head，不出集群、不计公网流量 | `http://object-storage.objectstorage-system.svc.cluster.local` |
+> | `STORAGE_S3_PUBLIC_ENDPOINT` | **外网**地址 | 发给客户浏览器的签名 URL；也是 CSP 放行的域名 | `https://objectstorageapi.bja.sealos.run` |
+>
+> 两个默认值已经写进 workflow，正常不用配 Variables；换集群 / 换区域时才需要覆盖。
+>
+> **public 配错或不配的后果**：签名对 host 敏感，用内网地址签出来的 URL，
+> 客户的浏览器连域名都解析不了 —— 表现是图裂、下载不了，**后端日志一片干净**，
+> 因为请求根本没到后端。启动日志里会有一条 warning 提示回落发生了；
+> CSP 也会主动**不放行**内网域名（放了也没用，只会掩盖「外网地址没配」）。
 
 > `DEVBOX_KNOWN_HOSTS` 不填也能跑 —— workflow 会退化成每次现扫主机公钥，
 > 并在日志里打出扫到的内容和一条 warning。现扫的问题是**无法防中间人**：

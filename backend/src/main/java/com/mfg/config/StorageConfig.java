@@ -3,6 +3,7 @@ package com.mfg.config;
 import com.mfg.platform.storage.MemoryStorageService;
 import com.mfg.platform.storage.S3StorageService;
 import com.mfg.platform.storage.StorageService;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
@@ -66,6 +67,15 @@ public class StorageConfig {
             }
             this.endpoint = endpoint;
             this.publicEndpoint = publicEndpoint.isBlank() ? endpoint : publicEndpoint;
+            // ★ 没配 public-endpoint 就会回落到内网 endpoint —— 而内网地址【浏览器永远访问不到】。
+            //   后果全是静默的：签名 URL 客户点开是坏的，CSP 放行的也是个够不到的域名，
+            //   表现为图裂 / 下载不了，而后端日志干干净净。所以这里必须喊一声。
+            if (isClusterInternal(this.publicEndpoint)) {
+                LoggerFactory.getLogger(S3Provider.class).warn(
+                        "app.storage.s3.public-endpoint is not set, falling back to the cluster-internal "
+                        + "endpoint '{}'. Presigned URLs handed to browsers will NOT be reachable. "
+                        + "Set STORAGE_S3_PUBLIC_ENDPOINT to the external address.", this.publicEndpoint);
+            }
             this.region = region;
             this.bucket = bucket;
             this.accessKey = accessKey;
@@ -119,5 +129,27 @@ public class StorageConfig {
         StorageService storageService() {
             return new MemoryStorageService();
         }
+    }
+
+    /**
+     * 这个地址是不是集群内网的 —— 内网地址浏览器永远访问不到。
+     *
+     * <p>用在两处：签名 URL 回落到内网时告警（本类），以及 CSP 不去放行一个够不到的域名
+     * （{@code SecurityConfig}）。判据保守：只认明确的集群内后缀，不做别的猜测。
+     */
+    public static boolean isClusterInternal(String url) {
+        if (url == null || url.isBlank()) {
+            return false;
+        }
+        String host;
+        try {
+            host = java.net.URI.create(url.trim()).getHost();
+        } catch (IllegalArgumentException e) {
+            return false;
+        }
+        if (host == null) {
+            return false;
+        }
+        return host.endsWith(".svc.cluster.local") || host.endsWith(".svc") || host.endsWith(".local");
     }
 }
