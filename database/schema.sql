@@ -59,7 +59,9 @@ CREATE TABLE public.customer_order_part (
     part_no text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    quantity integer NOT NULL,
+    CONSTRAINT customer_order_part_quantity_positive CHECK ((quantity >= 1))
 );
 
 -- Name: dict; Type: TABLE; Schema: public; Owner: -
@@ -115,7 +117,9 @@ CREATE TABLE public.ops_order_part (
     source_customer_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    quantity integer NOT NULL,
+    CONSTRAINT ops_order_part_quantity_positive CHECK ((quantity >= 1))
 );
 
 -- Name: ops_user; Type: TABLE; Schema: public; Owner: -
@@ -176,6 +180,15 @@ CREATE TABLE public.role (
     CONSTRAINT role_status_chk CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
 );
 
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.schema_migrations (
+    filename text NOT NULL,
+    content_hash text NOT NULL,
+    applied_at timestamp with time zone DEFAULT now() NOT NULL,
+    duration_ms bigint
+);
+
 -- Name: supplier_order; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.supplier_order (
@@ -199,7 +212,9 @@ CREATE TABLE public.supplier_order_part (
     source_customer_id uuid NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    quantity integer NOT NULL,
+    CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1))
 );
 
 -- Name: user_role; Type: TABLE; Schema: public; Owner: -
@@ -268,6 +283,11 @@ ALTER TABLE ONLY public.part_design
 
 ALTER TABLE ONLY public.role
     ADD CONSTRAINT role_pkey PRIMARY KEY (id);
+
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename);
 
 -- Name: supplier_order_part supplier_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 

@@ -40,14 +40,27 @@ class SupplierOrderPart extends BaseEntity {
     @Column(name = "source_customer_id", columnDefinition = "uuid", nullable = false)
     private UUID sourceCustomerId;
 
+    /**
+     * 这一行要做多少件 —— 一行零件是<b>一批</b>,不是一个物理件(设计文档 12 §1)。
+     *
+     * <p>质检按个数记(合格 N / 返工 N / 报废 N),不逐件建行。部分返工时从本行减去问题件数、
+     * 另开一行装那几件,两行数量之和不变。
+     *
+     * <p>库里这一列<b>没有默认值</b>,是刻意的:忘了填会当场报错,而不是静默变成 1 ——
+     * 数量要拿去算钱和排产,静默默认值是最难查的那种错。
+     */
+    @Column(name = "quantity", nullable = false)
+    private int quantity;
+
     protected SupplierOrderPart() {
     }
 
-    public SupplierOrderPart(UUID supplierOrderId, UUID partDesignId, String partNo,
+    public SupplierOrderPart(UUID supplierOrderId, UUID partDesignId, String partNo, int quantity,
                              UUID upstreamPartId, UUID sourceCustomerOrderId, UUID sourceCustomerId) {
         this.supplierOrderId = supplierOrderId;
         this.partDesignId = partDesignId;
         this.partNo = partNo;
+        this.quantity = quantity;
         this.upstreamPartId = upstreamPartId;
         this.sourceCustomerOrderId = sourceCustomerOrderId;
         this.sourceCustomerId = sourceCustomerId;
@@ -75,5 +88,9 @@ class SupplierOrderPart extends BaseEntity {
 
     public UUID getSourceCustomerId() {
         return sourceCustomerId;
+    }
+
+    public int getQuantity() {
+        return quantity;
     }
 }
