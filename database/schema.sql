@@ -165,6 +165,71 @@ CREATE TABLE public.part_design (
     version bigint DEFAULT 0 NOT NULL
 );
 
+-- Name: part_file; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.part_file (
+    id uuid NOT NULL,
+    part_revision_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    storage_key text NOT NULL,
+    original_filename text NOT NULL,
+    declared_content_type text,
+    detected_type text,
+    size_bytes bigint,
+    upload_status text NOT NULL,
+    uploaded_by_user_id uuid NOT NULL,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT part_file_upload_status_chk CHECK ((upload_status = ANY (ARRAY['PENDING'::text, 'COMPLETED'::text, 'REJECTED'::text])))
+);
+
+-- Name: part_file_access_log; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.part_file_access_log (
+    id bigint NOT NULL,
+    part_file_id uuid NOT NULL,
+    part_revision_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    accessor_user_id uuid NOT NULL,
+    accessor_party_type text NOT NULL,
+    accessor_org_id uuid,
+    access_type text NOT NULL,
+    trace_id text,
+    accessed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT part_file_access_log_access_type_chk CHECK ((access_type = 'SIGNED_URL_ISSUED'::text)),
+    CONSTRAINT part_file_access_log_party_type_chk CHECK ((accessor_party_type = ANY (ARRAY['CUSTOMER'::text, 'SUPPLIER'::text, 'OPERATOR'::text])))
+);
+
+-- Name: part_file_access_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+
+CREATE SEQUENCE public.part_file_access_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+-- Name: part_file_access_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+
+ALTER SEQUENCE public.part_file_access_log_id_seq OWNED BY public.part_file_access_log.id;
+
+-- Name: part_revision; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.part_revision (
+    id uuid NOT NULL,
+    part_design_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    rev_no integer NOT NULL,
+    customer_rev text,
+    created_by_user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT part_revision_rev_no_positive CHECK ((rev_no >= 1))
+);
+
 -- Name: role; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.role (
@@ -229,6 +294,10 @@ CREATE TABLE public.user_role (
     version bigint DEFAULT 0 NOT NULL
 );
 
+-- Name: part_file_access_log id; Type: DEFAULT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.part_file_access_log ALTER COLUMN id SET DEFAULT nextval('public.part_file_access_log_id_seq'::regclass);
+
 -- Name: app_setting app_setting_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.app_setting
@@ -278,6 +347,21 @@ ALTER TABLE ONLY public.organization
 
 ALTER TABLE ONLY public.part_design
     ADD CONSTRAINT part_design_pkey PRIMARY KEY (id);
+
+-- Name: part_file_access_log part_file_access_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.part_file_access_log
+    ADD CONSTRAINT part_file_access_log_pkey PRIMARY KEY (id);
+
+-- Name: part_file part_file_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.part_file
+    ADD CONSTRAINT part_file_pkey PRIMARY KEY (id);
+
+-- Name: part_revision part_revision_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.part_revision
+    ADD CONSTRAINT part_revision_pkey PRIMARY KEY (id);
 
 -- Name: role role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -379,6 +463,38 @@ CREATE UNIQUE INDEX part_design_customer_code_uk ON public.part_design USING btr
 -- Name: part_design_customer_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX part_design_customer_idx ON public.part_design USING btree (customer_org_id);
+
+-- Name: part_file_access_log_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_file_access_log_customer_idx ON public.part_file_access_log USING btree (customer_org_id);
+
+-- Name: part_file_access_log_file_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_file_access_log_file_idx ON public.part_file_access_log USING btree (part_file_id);
+
+-- Name: part_file_access_log_revision_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_file_access_log_revision_idx ON public.part_file_access_log USING btree (part_revision_id, accessed_at DESC);
+
+-- Name: part_file_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_file_customer_idx ON public.part_file USING btree (customer_org_id);
+
+-- Name: part_file_revision_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_file_revision_idx ON public.part_file USING btree (part_revision_id);
+
+-- Name: part_file_storage_key_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX part_file_storage_key_uk ON public.part_file USING btree (storage_key);
+
+-- Name: part_revision_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX part_revision_customer_idx ON public.part_revision USING btree (customer_org_id);
+
+-- Name: part_revision_design_rev_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX part_revision_design_rev_uk ON public.part_revision USING btree (part_design_id, rev_no);
 
 -- Name: role_scope_code_uk; Type: INDEX; Schema: public; Owner: -
 

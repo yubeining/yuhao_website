@@ -65,6 +65,7 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `app_setting` / `dict` | `platform/dict` | 平台 |
 | `customer_order` / `ops_order` / `supplier_order` | `domain/order` | 订单域 |
 | `part_design` / `customer_order_part` / `ops_order_part` / `supplier_order_part` | `domain/order` | 订单域 |
+| `part_revision` / `part_file` / `part_file_access_log` | `domain/order` | 订单域。图纸挂在零件主数据 `part_design` 下，所以跟着它归订单域；审计表只记零件图纸，不是通用文件审计 |
 
 > ★ **零件表归订单域，不单独开「零件域」。**
 > 迁移 `2026-09-08_05` 的注释里写的「订单三个域各一张表」，那里的「域」指业务区块，
@@ -91,8 +92,11 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `2026-09-08_03_wipe-all-tables.sql` | **清空重来** —— 业务尚未开写，按新设计重建 |
 | `2026-09-08_04_identity-and-config.sql` | 组织 / 内外用户 / 角色 / 配置 / 字典（7 张） |
 | `2026-09-08_05_order-and-part-skeleton.sql` | 订单三张 + 零件四张骨架（7 张） |
+| `2026-09-09_01_index-part-traceability-columns.sql` | 零件派生链溯源列补索引 |
+| `2026-09-10_01_part-quantity.sql` | 三张零件实例表加 `quantity`（一行 = 一批） |
+| `2026-09-10_02_part-revision-and-file.sql` | 图纸版本 / 图纸文件 / 图纸访问审计（3 张） |
 
-当前库里共 14 张表，即上面两个 `2026-09-08` 文件建的那些。
+当前库里共 17 张业务表（另有迁移账本 `schema_migrations`）。
 
 状态机的状态列、价格域的表、质检 / 发货 / 单据 / 结算，都还没建 ——
 分别见设计文档 12 §11 和 13 §2，到那一步再加。
