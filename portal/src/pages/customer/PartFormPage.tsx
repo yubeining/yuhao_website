@@ -1,227 +1,349 @@
 /**
- * 在订单里新建 / 编辑一个零件。**图纸在这里传，挂在这个零件上。**
+ * 订单里的一个零件：新建 / 编辑，图纸在这里传。
  *
- * ★ 传图纸会把文件名里的图号和版本填进来（设计文档 9 §3.1 §4.3）——
- *   客户手里是图纸，让他再誊一遍图号是白费力气，还会誊错。
- *   已经填过的值不覆盖：他手填的优先于我方从文件名猜的。
+ * ★ 数据全部来自后端（2026-09-14）。
  *
- * ★ 材料没有主数据表（库里只有 spec_template 和 pricing_rule，都不是材料清单）。
- *   运营在「定价参数」页配过才有下拉，一条都没配时是自由输入。
- *   **绝不预置一组编出来的选项** —— 定价公式恰恰按材料算，选项假的价就是假的。
+ * ★ 同一图号 = 同一个零件（D16）。填完图号会查一下这个客户是不是已经有这个零件：
+ *   有的话，加进订单时**沿用它上次提交时锁定的那一版图纸**（2026-09-14 拍板），不用重传。
+ *
+ * ★ 图纸版本在订单提交时锁定。锁定的版本不能再增删文件 ——
+ *   要换图纸就「开新版本」，这一行改挂到新版本，之前的订单仍然锁着旧版本。
+ *
+ * ★ 传图纸会把文件名里的图号和客户版本标记填进空着的字段（设计文档 9 §3.1）。
+ *   已经填过的不覆盖：客户手填的优先于从文件名猜的。
+ *
+ * ★ 材料 / 表面处理是自由文本：材料没有主数据表，做下拉就只能编选项（CLAUDE.md §10 C5）。
  */
 
-import { useRef, useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Field, FieldRow, Input, Select, Stepper } from '../../components/form'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Field, FieldRow, Input, Stepper } from '../../components/form'
 import {
-    Banner, Bar, BarLabel, Card, CardBody, CardFoot, CardHead, Fields, Fld,
-    Hello, Page, pill,
+    Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pill,
 } from '../../components/ui'
+import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
-import { addPart, updatePart } from '../../mock/actions'
 import { humanSize, parseDrawingName } from '../../mock/drawing'
-import { materials } from '../../mock/params'
-import { myOrders } from '../../mock/selectors'
-import { money, X } from '../../mock/format'
-import { num } from '../../mock/params'
-import { EXEC_ST } from './status'
-import type { RfqFile } from '../../mock/types'
+import { X } from '../../mock/format'
+import {
+    addLine, ApiError, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
+    uploadDrawing, type FileView, type OrderLineView, type OrderView, type PartView,
+} from '../../services'
+
+interface Form {
+    code: string
+    name: string
+    qty: string
+    mat: string
+    surf: string
+    customerRev: string
+}
+
+interface Upload {
+    key: string
+    name: string
+    pct: number
+    error?: string
+}
+
+const EMPTY: Form = { code: '', name: '', qty: '', mat: '', surf: '', customerRev: '' }
+
+/** 文件名里的图号和客户版本标记，只填进还空着的字段。 */
+function prefilled(prev: Form, files: File[]): Form {
+    const next = { ...prev }
+    for (const x of files) {
+        const rev = parseDrawingName(x.name).rev
+        if (!next.customerRev.trim() && rev) next.customerRev = rev
+        if (!next.code.trim()) {
+            const readable = x.name.match(/LB\d+(?:\.\d+)+/)
+            if (readable) next.code = readable[0]
+        }
+    }
+    return next
+}
+
+const ext = (name: string) => (name.split('.').pop() || '').toUpperCase()
 
 export function PartFormPage() {
-    const { state, act } = useMock()
+    const { t } = useMock()
     const navigate = useNavigate()
-    const { id, partId } = useParams()
-    const order = myOrders(state).find((o) => o.id === id)
-    const editing = partId && partId !== 'new' ? order?.parts.find((p) => p.id === partId) : undefined
-    const mats = materials(state.rates)
-    const input = useRef<HTMLInputElement>(null)
+    const { id = '', partId = 'new' } = useParams()
+    const isNew = partId === 'new'
+    const picker = useRef<HTMLInputElement>(null)
 
-    const [f, setF] = useState({
-        no: editing?.no ?? '', name: editing?.name ?? '',
-        mat: editing?.mat ?? '', surf: editing?.surf ?? '', qty: String(editing?.qty ?? ''),
-        // 客户文件名里的版本字母，只记录不判断
-        customerRev: editing?.customerRev ?? '',
-    })
-    const [files, setFiles] = useState<RfqFile[]>(editing?.files ?? [])
+    const [order, setOrder] = useState<OrderView | null>(null)
+    const [missing, setMissing] = useState(false)
+    const [f, setF] = useState<Form>(EMPTY)
+    const [existing, setExisting] = useState<PartView | null>(null)
+    const [queued, setQueued] = useState<File[]>([])
+    const [uploads, setUploads] = useState<Upload[]>([])
+    const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
-    if (!order) return <Navigate to="/customer/orders" replace />
-    if (partId && partId !== 'new' && !editing) return <Navigate to={`/customer/orders/${order.id}`} replace />
+    const line: OrderLineView | undefined = order?.lines.find((l) => l.id === partId)
 
-    // ★ 只有草稿状态能改。提交之后仍然要能看 —— 规格、附件、生产进度
-    //   都在这一页，不给入口等于零件提交完就消失了。
-    const readOnly = order.status !== 'draft'
+    const load = useCallback(async (resetForm: boolean) => {
+        try {
+            const o = await getOrder(id)
+            setOrder(o)
+            const l = o.lines.find((x) => x.id === partId)
+            if (l && resetForm) {
+                setF({
+                    code: l.code, name: l.partName, qty: String(l.quantity),
+                    mat: l.material ?? '', surf: l.surfaceTreatment ?? '', customerRev: l.revision.customerRev ?? '',
+                })
+            }
+            if (!l && partId !== 'new') setMissing(true)
+        } catch (e) {
+            if (e instanceof ApiError && e.code === 404) setMissing(true)
+            else setErr(errorText(t, e))
+        }
+    }, [id, partId, t])
 
-    const set = (k: keyof typeof f) => (v: string) => {
+    useEffect(() => { void load(true) }, [load])
+
+    const lookup = async (code: string) => {
+        setExisting(null)
+        if (!isNew || !code.trim()) return
+        try {
+            setExisting(await findPartByCode(code.trim()))
+        } catch (e) {
+            if (!(e instanceof ApiError && e.code === 404)) setErr(errorText(t, e))
+        }
+    }
+
+    const set = (k: keyof Form) => (v: string) => {
         setF((prev) => ({ ...prev, [k]: v }))
         setErr(null)
     }
 
-    /** 传图纸 → 把文件名里的图号和版本填进空着的字段 */
-    const takeFiles = (list: FileList | null) => {
-        if (!list?.length) return
-        const exist = new Set(files.map((x) => x.name))
-        const add = Array.from(list).filter((x) => !exist.has(x.name))
-            .map((x) => ({ name: x.name, size: x.size, revFromName: parseDrawingName(x.name).rev }))
-        if (!add.length) return
-        setFiles((prev) => [...prev, ...add])
-        setF((prev) => {
-            const next = { ...prev }
-            for (const x of add) {
-                // 客户自己的版本标记，有就记下来
-                if (!next.customerRev.trim() && x.revFromName) next.customerRev = x.revFromName
-                if (!next.no.trim()) {
-                    const readable = x.name.match(/LB\d+(?:\.\d+)+/)
-                    if (readable) next.no = readable[0]
+    /** 传到这一行当前挂的版本；版本已锁定就先开新版本（「换图纸」）。 */
+    const uploadTo = async (target: OrderLineView, files: File[], customerRev: string) => {
+        setBusy(true)
+        try {
+            let revision = target.revision
+            if (revision.locked) {
+                revision = (await startNewRevision(id, target.id, customerRev.trim() || null)).revision
+            }
+            for (const file of files) {
+                const key = `${file.name}-${file.size}-${Date.now()}`
+                setUploads((u) => [...u, { key, name: file.name, pct: 0 }])
+                try {
+                    await uploadDrawing(target.partId, revision.id, file, (loaded, total) =>
+                        setUploads((u) => u.map((x) => (x.key === key
+                            ? { ...x, pct: Math.round((loaded / Math.max(1, total)) * 100) } : x))))
+                    setUploads((u) => u.filter((x) => x.key !== key))
+                } catch (e) {
+                    setUploads((u) => u.map((x) => (x.key === key ? { ...x, error: errorText(t, e, '上传失败') } : x)))
                 }
             }
-            return next
-        })
-        setErr(null)
-        if (input.current) input.current.value = ''
+        } catch (e) {
+            setErr(errorText(t, e))
+        } finally {
+            setBusy(false)
+            await load(false)
+        }
     }
 
-    const save = () => {
-        if (!f.no.trim() || !f.name.trim() || !f.qty.trim()) {
-            setErr('图号、名称、数量为必填项')
+    const pick = (list: FileList | null) => {
+        const chosen = Array.from(list ?? [])
+        if (picker.current) picker.current.value = ''
+        if (!chosen.length) return
+        const next = prefilled(f, chosen)
+        setF(next)
+        if (isNew) {
+            setQueued((prev) => [...prev, ...chosen.filter((x) => !prev.some((p) => p.name === x.name))])
+            if (next.code !== f.code) void lookup(next.code)
+        } else if (line) {
+            void uploadTo(line, chosen, next.customerRev)
+        }
+    }
+
+    const save = async () => {
+        const qty = Number(f.qty)
+        if (!f.code.trim() || !f.name.trim() || !Number.isInteger(qty) || qty < 1) {
+            setErr('图号、名称、数量为必填项，数量至少为 1')
             return
         }
-        const payload = { ...f, files }
-        if (editing) act((s) => updatePart(s, order.id, editing.id, payload))
-        else act((s) => addPart(s, order.id, payload))
-        navigate(`/customer/orders/${order.id}`)
+        const body = {
+            name: f.name.trim(), quantity: qty,
+            material: f.mat.trim() || null, surfaceTreatment: f.surf.trim() || null,
+        }
+        setBusy(true)
+        setErr(null)
+        try {
+            if (isNew) {
+                const created = await addLine(id, { ...body, code: f.code.trim(), customerRev: f.customerRev.trim() || null })
+                if (queued.length) await uploadTo(created, queued, f.customerRev)
+                setQueued([])
+                navigate(`/customer/orders/${id}/parts/${created.id}`, { replace: true })
+            } else if (line) {
+                await updateLine(id, line.id, body)
+                navigate(`/customer/orders/${id}`)
+            }
+        } catch (e) {
+            setErr(errorText(t, e))
+        } finally {
+            setBusy(false)
+        }
     }
+
+    const view = async (file: FileView) => {
+        if (!line) return
+        try {
+            // 下载链接带 Content-Disposition: attachment，浏览器直接存文件，不会离开本页
+            window.location.assign((await lineFileViewUrl(id, line.id, file.id)).url)
+        } catch (e) {
+            setErr(errorText(t, e))
+        }
+    }
+
+    const remove = async (file: FileView) => {
+        try {
+            await removeFile(file.id)
+            await load(false)
+        } catch (e) {
+            setErr(errorText(t, e))
+        }
+    }
+
+    if (missing) {
+        return (
+            <Page>
+                <Card><CardBody>
+                    <Empty text="零件不存在" action={<Link className="btn" to={`/customer/orders/${id}`}>← 返回订单</Link>} />
+                </CardBody></Card>
+            </Page>
+        )
+    }
+    if (!order) return <Page><Card><CardBody><Empty text="加载中…" /></CardBody></Card></Page>
+
+    const draft = order.status === 'DRAFT'
+    const locked = line?.revision.locked ?? false
+    const reused = existing?.revisions.filter((r) => r.locked).sort((a, b) => b.revNo - a.revNo)[0]
 
     return (
         <Page>
             <Hello
                 back={<Link className="btn sm qui" to={`/customer/orders/${order.id}`}
-                    style={{ margin: '0 0 6px -9px' }}>← {order.title}</Link>}
-                title={readOnly ? (editing?.name ?? '零件') : editing ? '编辑零件' : '添加零件'}
-                sub={editing ? `${editing.no} · 第 ${editing.version} 版` : undefined}
+                    style={{ margin: '0 0 6px -9px' }}>← {order.title || '未命名订单'}</Link>}
+                title={isNew ? '添加零件' : draft ? '编辑零件' : (line?.partName ?? '零件')}
+                sub={line ? `${line.code} · 第 ${line.revision.revNo} 版` : undefined}
             />
 
-            {readOnly && editing && (
-                <>
-                    <Card style={{ marginBottom: 16 }}>
-                        <CardHead title="零件信息"
-                            right={editing.st ? pill(EXEC_ST[editing.st]) : undefined} />
-                        <CardBody>
-                            <Fields>
-                                <Fld k="图号" v={editing.no} mono />
-                                <Fld k="名称" v={editing.name} />
-                                <Fld k="数量" v={editing.qty} mono />
-                                <Fld k="版本" v={`v${editing.version}${editing.customerRev ? ` · ${editing.customerRev}` : ''}`} mono />
-                                <Fld k="材料" v={editing.mat || X} />
-                                <Fld k="表面处理" v={editing.surf || X} />
-                                <Fld k="单价" v={editing.unit !== undefined ? money(editing.unit) : X} mono />
-                                <Fld k="小计" v={editing.total !== undefined ? money(editing.total) : X} mono />
-                            </Fields>
-                            <div className="attach">
-                                <div className="attach-hd">
-                                    <span className="attach-k">附件</span>
-                                    <span className="attach-hint">{editing.files.length} 个</span>
-                                </div>
-                                {editing.files.length > 0 && (
-                                    <div className="fcell" style={{ marginTop: 9 }}>
-                                        {editing.files.map((x) => (
-                                            <span className="fchip lg" key={x.name} title={x.name}>
-                                                <span className="fx">{(x.name.split('.').pop() || '').toUpperCase()}</span>
-                                                <b>{x.name}</b><i>{humanSize(x.size)}</i>
-                                            </span>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        </CardBody>
-                    </Card>
-
-                    {editing.st && editing.st !== 'waiting' && (
-                        <Card>
-                            <CardHead title="生产进度" />
-                            <CardBody>
-                                <BarLabel left={<>已完成 <b>{editing.done ?? 0} / {editing.qty}</b></>} />
-                                <Bar pct={Math.round((num(editing.done) / Math.max(1, num(editing.qty))) * 100)} />
-                            </CardBody>
-                        </Card>
-                    )}
-                </>
+            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {isNew && !draft && <Banner tone="wa" style={{ marginBottom: 14 }}>订单已提交或已取消，不能再添加零件。</Banner>}
+            {isNew && existing && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    {reused
+                        ? `已有零件「${existing.name}」：加进订单后沿用上次提交的第 ${reused.revNo} 版图纸（${reused.files.length} 个文件）。`
+                            + (queued.length ? '你选了新文件，会为这张订单开一个新版本。' : '')
+                        : `已有零件「${existing.name}」，会为这张订单开一个新的图纸版本。`}
+                </Banner>
             )}
 
-            {!readOnly && (
             <Card>
                 <CardHead title="零件信息" />
                 <CardBody>
-                    <input ref={input} type="file" multiple hidden onChange={(e) => takeFiles(e.target.files)} />
+                    <input ref={picker} type="file" multiple hidden onChange={(e) => pick(e.target.files)} />
 
-                    <FieldRow cols={3}>
-                        <Field label="图号 *"><Input value={f.no} onChange={set('no')} placeholder="自动识别" /></Field>
-                        <Field label="名称 *"><Input value={f.name} onChange={set('name')} /></Field>
-                        <Field label="数量 *"><Stepper value={f.qty} onChange={set('qty')} /></Field>
-                    </FieldRow>
-                    <FieldRow>
-                        <Field label="材料">
-                            {mats.length
-                                ? <Select value={f.mat} options={['', ...mats]} onChange={set('mat')} />
-                                : <Input value={f.mat} onChange={set('mat')} placeholder="留空由工程确认" />}
-                        </Field>
-                        <Field label="表面处理">
-                            <Input value={f.surf} onChange={set('surf')} placeholder="留空由工程确认" />
-                        </Field>
-                    </FieldRow>
+                    {draft ? (
+                        <>
+                            <FieldRow cols={3}>
+                                <Field label="图号 *">
+                                    {isNew
+                                        ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)}
+                                            placeholder="可从文件名自动识别" />
+                                        : <Input value={f.code} onChange={() => undefined} />}
+                                </Field>
+                                <Field label="名称 *"><Input value={f.name} onChange={set('name')} /></Field>
+                                <Field label="数量 *"><Stepper value={f.qty} onChange={set('qty')} /></Field>
+                            </FieldRow>
+                            <FieldRow>
+                                <Field label="材料"><Input value={f.mat} onChange={set('mat')} placeholder="可不填" /></Field>
+                                <Field label="表面处理"><Input value={f.surf} onChange={set('surf')} placeholder="可不填" /></Field>
+                            </FieldRow>
+                        </>
+                    ) : line && (
+                        <Fields>
+                            <Fld k="图号" v={line.code} mono />
+                            <Fld k="名称" v={line.partName} />
+                            <Fld k="数量" v={line.quantity} mono />
+                            <Fld k="版本" v={`v${line.revision.revNo}${line.revision.customerRev ? ` · ${line.revision.customerRev}` : ''}`} mono />
+                            <Fld k="材料" v={line.material || X} />
+                            <Fld k="表面处理" v={line.surfaceTreatment || X} />
+                        </Fields>
+                    )}
 
-                    {/* ★ 附件属于零件，所以放在零件信息里、排在字段后面 ——
-                        它是这个零件的补充材料，不是一个独立的东西。 */}
                     <div className="attach">
                         <div className="attach-hd">
-                            <span className="attach-k">附件</span>
-                            {/* ★ 文件本身【没有上传到任何地方】—— 只把 name/size 存进 sessionStorage
-                                （types.ts 自己也注明了这点）。客户会以为图纸已经交到平台，
-                                据此提交订单，而运营那边什么都收不到。在文件存储接通之前如实说明。 */}
+                            <span className="attach-k">图纸</span>
+                            {line && locked && <Pill tone="ne" dot={false}>第 {line.revision.revNo} 版 · 已锁定</Pill>}
                             <span className="attach-hint">
-                                图纸文件 · STEP / PDF / 原生 CAD ——
-                                <b>文件存储尚未接入，这里只记录文件名，文件不会被上传</b>
+                                {isNew
+                                    ? '选好的文件会在加进订单后上传'
+                                    : locked
+                                        ? '这一版已随订单提交锁定；换图纸会开新版本，之前的订单不受影响'
+                                        : '每个零件至少要有一份图纸，订单才能提交'}
                             </span>
                             <span className="sp" />
-                            <button className="btn sm" type="button" onClick={() => input.current?.click()}>
-                                ＋ 上传附件
-                            </button>
+                            {draft && (
+                                <button className="btn sm" type="button" disabled={busy} onClick={() => picker.current?.click()}>
+                                    {!isNew && locked ? '换图纸（开新版本）' : '＋ 选择图纸'}
+                                </button>
+                            )}
                         </div>
-                        {files.length > 0 && (
+
+                        {isNew && queued.length > 0 && (
                             <div className="fcell" style={{ marginTop: 9 }}>
-                                {files.map((x) => (
-                                    <span className="fchip lg" key={x.name} title={`${x.name} · ${humanSize(x.size)}`}>
-                                        <span className="fx">{(x.name.split('.').pop() || '').toUpperCase()}</span>
+                                {queued.map((x) => (
+                                    <span className="fchip lg" key={x.name} title={x.name}>
+                                        <span className="fx">{ext(x.name)}</span>
                                         <b>{x.name}</b><i>{humanSize(x.size)}</i>
                                         <button type="button" className="fdel" title="移除"
-                                            onClick={() => setFiles((prev) => prev.filter((y) => y.name !== x.name))}>×</button>
+                                            onClick={() => setQueued((prev) => prev.filter((y) => y.name !== x.name))}>×</button>
                                     </span>
                                 ))}
                             </div>
                         )}
+
+                        {line && line.revision.files.length > 0 && (
+                            <div className="fcell" style={{ marginTop: 9 }}>
+                                {line.revision.files.map((x) => (
+                                    <span className="fchip lg" key={x.id} title={x.originalFilename}>
+                                        <span className="fx">{ext(x.originalFilename)}</span>
+                                        <b>{x.originalFilename}</b>
+                                        <i>{x.sizeBytes != null ? humanSize(x.sizeBytes) : X}</i>
+                                        <button type="button" className="btn qui sm" onClick={() => void view(x)}>下载</button>
+                                        {draft && !locked && (
+                                            <button type="button" className="fdel" title="删除" onClick={() => void remove(x)}>×</button>
+                                        )}
+                                    </span>
+                                ))}
+                            </div>
+                        )}
+
+                        {line && line.revision.files.length === 0 && uploads.length === 0 && (
+                            <div className="attach-hint" style={{ marginTop: 9 }}>还没有图纸</div>
+                        )}
+
+                        {uploads.map((u) => (
+                            <div key={u.key} style={{ marginTop: 9 }}>
+                                <div className="t2">{u.name}{u.error ? ` —— ${u.error}` : ` · ${u.pct}%`}</div>
+                                {!u.error && <Bar pct={u.pct} />}
+                            </div>
+                        ))}
                     </div>
-
-                    {/* ★ 版本是我方记录的事实，不是客户填的字段 —— 他重新传图就是新的一版。 */}
-                    {editing && (
-                        <div style={{
-                            marginTop: 14, paddingTop: 13, borderTop: '1px solid var(--line)',
-                            fontSize: 12.5, color: 'var(--muted)', lineHeight: 1.7,
-                        }}>
-                            第 {editing.version} 版{editing.customerRev && ` · 客户标记 ${editing.customerRev}`}。
-                            报价后更换附件将自动升版，需重新报价。
-                        </div>
-                    )}
-
-                    {err && <Banner tone="wa" style={{ marginTop: 14 }}>{err}</Banner>}
                 </CardBody>
-                <CardFoot
-                    left={<Link className="btn" to={`/customer/orders/${order.id}`}>取消</Link>}
-                    right={<button className="btn pri" type="button" onClick={save}>
-                        {editing ? '保存' : '加进订单'}
-                    </button>}
-                />
+                {draft && (
+                    <CardFoot
+                        left={<Link className="btn" to={`/customer/orders/${order.id}`}>{isNew ? '取消' : '返回订单'}</Link>}
+                        right={<button className="btn pri" type="button" onClick={save} disabled={busy}>
+                            {isNew ? '加进订单' : '保存'}
+                        </button>}
+                    />
+                )}
             </Card>
-            )}
         </Page>
     )
 }

@@ -9,13 +9,14 @@
  */
 
 import { NavLink, useNavigate } from 'react-router-dom'
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { Logo } from './brand'
 import { useMock } from '../mock/MockProvider'
 import { currentCompany, currentUser, findCompany, logout } from '../mock/actions'
 import { useSession } from '../auth/useSession'
 import { clearSession } from '../auth/session'
 import { logout as apiLogout } from '../services/auth'
+import { getMyOrganization } from '../services/customer/organization'
 
 export interface NavItem {
     /** 分组标题。给了 sec 就只渲染标题，其余字段忽略。 */
@@ -216,10 +217,11 @@ const CUST_NAV: NavItem[] = [
 ]
 
 export function CustomerShell({ children }: { children: ReactNode }) {
-    const { state } = useMock()
-    const user = currentUser(state)
-    const co = currentCompany(state)
-    const sub = (co?.name || '') + (user && user.roles.length > 1 ? ' · 客户身份' : '')
+    // ★ 公司名读后端：真实登录不会写假数据里的「当前公司」，读假数据只会是空
+    const [sub, setSub] = useState('')
+    useEffect(() => {
+        getMyOrganization().then((o) => setSub(o.name)).catch(() => setSub(''))
+    }, [])
     return (
         <AppShell nav={CUST_NAV} settingsTo="/customer/settings" badge="CUSTOMER" sub={sub}>
             {children}

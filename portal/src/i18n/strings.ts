@@ -29,6 +29,8 @@ export interface Strings {
         name: string; nameP: string; email: string; pw: string; pwP: string
         agree: string; submit: string
     }
+    /** 后端返回的 i18n code → 文案。后端只返 code（CLAUDE.md §6），翻译全在这里。 */
+    errors: Record<string, string>
 }
 
 export const STRINGS: Record<Lang, Strings> = {
@@ -55,6 +57,34 @@ export const STRINGS: Record<Lang, Strings> = {
             agree: '我已阅读并同意服务条款与隐私政策',
             submit: '创建账号',
         },
+        errors: {
+            'part.code_taken': '这个图号已经有零件了',
+            'part.not_found': '零件不存在',
+            'part.revision_conflict': '有人同时在改这个零件的版本，请刷新后重试',
+            'part.revision_not_found': '图纸版本不存在',
+            'part.revision_locked': '这一版图纸已随订单提交锁定，不能再改；要换图纸请开新版本',
+            'part.revision_not_locked': '当前图纸还没锁定，直接增删文件即可，不用开新版本',
+            'part.file_type_not_allowed': '文件类型不支持，或文件内容和扩展名对不上',
+            'part.file_not_pending': '这个文件的上传已经结束了',
+            'part.file_object_missing': '文件没有传上去，请重新上传',
+            'part.file_not_completed': '文件还没传完或已被删除，暂时不能查看',
+            'part.file_not_found': '文件不存在',
+            'order.not_found': '订单不存在',
+            'order.not_draft': '订单已提交或已取消，不能再修改',
+            'order.line_not_found': '零件行不存在',
+            'order.no_lines': '订单里还没有零件',
+            'order.line_missing_drawing': '有零件还没传图纸，传完才能提交',
+            'common.conflict': '数据刚被别人改过，请刷新后重试',
+            'common.upload_failed': '文件上传失败，请重试',
+            'common.validation_failed': '填写的内容不完整或格式不对',
+            'common.malformed_body': '提交的内容格式不对',
+            'common.bad_request': '请求有误',
+            'common.not_found': '内容不存在',
+            'common.forbidden': '没有权限',
+            'common.unauthenticated': '登录已失效，请重新登录',
+            'common.malformed_response': '服务器返回异常，请稍后重试',
+            'common.internal_error': '服务器出错了，请稍后重试',
+        },
     },
     en: {
         roles: { customer: 'Customer', supplier: 'Supplier', ops: 'Internal' },
@@ -80,6 +110,34 @@ export const STRINGS: Record<Lang, Strings> = {
             pw: 'Password', pwP: 'At least 8 characters',
             agree: 'I agree to the Terms and Privacy Policy',
             submit: 'Sign up',
+        },
+        errors: {
+            'part.code_taken': 'A part with this drawing number already exists',
+            'part.not_found': 'Part not found',
+            'part.revision_conflict': 'This part was changed at the same time. Refresh and try again',
+            'part.revision_not_found': 'Drawing revision not found',
+            'part.revision_locked': 'This drawing revision was locked when the order was submitted. Start a new revision to change it',
+            'part.revision_not_locked': 'This drawing is not locked yet. Add or remove files directly',
+            'part.file_type_not_allowed': 'File type not supported, or the content does not match the extension',
+            'part.file_not_pending': 'This upload has already finished',
+            'part.file_object_missing': 'The file did not arrive. Please upload it again',
+            'part.file_not_completed': 'The file is not uploaded yet or was removed',
+            'part.file_not_found': 'File not found',
+            'order.not_found': 'Order not found',
+            'order.not_draft': 'The order was already submitted or cancelled',
+            'order.line_not_found': 'Order line not found',
+            'order.no_lines': 'The order has no parts yet',
+            'order.line_missing_drawing': 'Some parts have no drawing yet. Upload them before submitting',
+            'common.conflict': 'This was just changed by someone else. Refresh and try again',
+            'common.upload_failed': 'Upload failed. Please try again',
+            'common.validation_failed': 'Some fields are missing or invalid',
+            'common.malformed_body': 'The request was not in the expected format',
+            'common.bad_request': 'Invalid request',
+            'common.not_found': 'Not found',
+            'common.forbidden': 'Access denied',
+            'common.unauthenticated': 'Your session expired. Please sign in again',
+            'common.malformed_response': 'Unexpected server response. Please try again later',
+            'common.internal_error': 'Something went wrong on our side. Please try again later',
         },
     },
 }

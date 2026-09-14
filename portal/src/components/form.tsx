@@ -8,9 +8,11 @@
 
 import type { CSSProperties, ReactNode } from 'react'
 
-export function Input({ value, onChange, placeholder, type = 'text', bad, style, id, autoComplete }: {
+export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, style, id, autoComplete }: {
     value: string
     onChange: (v: string) => void
+    /** 离开输入框时触发（比如失焦保存、失焦查询） */
+    onBlur?: () => void
     placeholder?: string
     type?: string
     /** 校验不过时描红 */
@@ -29,6 +31,7 @@ export function Input({ value, onChange, placeholder, type = 'text', bad, style,
             value={value}
             style={style}
             onChange={(e) => onChange(e.target.value)}
+            onBlur={onBlur}
         />
     )
 }

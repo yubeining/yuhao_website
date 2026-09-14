@@ -175,6 +175,44 @@ export async function requestBinary(path: string, options: RequestOptions = {}):
     return response.blob()
 }
 
+/**
+ * 把文件直接 PUT 到对象存储的预签名 URL —— 字节不经过我们的后端。
+ *
+ * ★ 这不是内部 API，所以和上面几个函数处处相反：
+ *   - URL 是后端签好的**完整外部地址**，不拼 API_BASE；
+ *   - **不带 Authorization**：签名已经在 URL 里，多带一个头反而可能让签名对不上；
+ *   - 对象存储回 403 是签名过期或不匹配，**不是登录失效**，不能走 401 登出那一套；
+ *   - 响应不是我们的 envelope，不解析。
+ *
+ * ★ Content-Type 必须和申请上传时后端回执里给的**一字不差** —— 它被签进了 URL。
+ *   浏览器对 .step / .x_t 这类文件给的 File.type 常是空串，所以一律用回执里的值，不用 file.type。
+ *
+ * 用 XMLHttpRequest 而不是 fetch：fetch 拿不到上传进度。
+ */
+export function putToSignedUrl(
+    url: string,
+    file: Blob,
+    contentType: string,
+    onProgress?: (loaded: number, total: number) => void,
+): Promise<void> {
+    return new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest()
+        xhr.open('PUT', url)
+        xhr.setRequestHeader('Content-Type', contentType)
+        if (onProgress) {
+            xhr.upload.onprogress = (e) => {
+                if (e.lengthComputable) onProgress(e.loaded, e.total)
+            }
+        }
+        xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) resolve()
+            else reject(new ApiError('common.upload_failed', xhr.status))
+        }
+        xhr.onerror = () => reject(new ApiError('common.upload_failed', 0))
+        xhr.send(file)
+    })
+}
+
 // --- 快捷方法 ---
 
 export const http = {
