@@ -11,6 +11,7 @@ import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pill, pill, Table
 import { useSession } from '../../auth/useSession'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
+import { fmtDate } from '../../mock/format'
 import { listOrders, type OrderSummaryView } from '../../services'
 import { ORDER_ST } from './status'
 
@@ -49,7 +50,7 @@ export function CustomerHomePage() {
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/customer/orders/${o.id}`)}>
                                         <td className="t1">{o.title || '未命名订单'}</td>
                                         <td className="n">{o.lineCount}</td>
-                                        <td className="n">{o.createdAt.slice(0, 10)}</td>
+                                        <td className="n">{fmtDate(new Date(o.createdAt))}</td>
                                         <td>{pill(ORDER_ST[o.status])}</td>
                                     </tr>
                                 ))}

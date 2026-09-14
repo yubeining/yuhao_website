@@ -12,6 +12,7 @@ import {
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
+import { fmtDate } from '../../mock/format'
 import { cancelOrder, createOrder, listOrders, type OrderSummaryView } from '../../services'
 import { ORDER_ST } from './status'
 
@@ -101,7 +102,7 @@ export function OrderListPage() {
                                         <td className="t1">{o.title || '未命名订单'}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
-                                        <td className="n">{o.createdAt.slice(0, 10)}</td>
+                                        <td className="n">{fmtDate(new Date(o.createdAt))}</td>
                                         <td>{pill(ORDER_ST[o.status])}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {o.status === 'DRAFT' && (

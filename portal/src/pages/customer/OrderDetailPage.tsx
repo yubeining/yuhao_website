@@ -15,7 +15,7 @@ import {
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
-import { X } from '../../mock/format'
+import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
     ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
 } from '../../services'
@@ -139,8 +139,9 @@ export function OrderDetailPage() {
                             : (order.wantedLeadDays ? `${order.wantedLeadDays} 天（仅供参考）` : X)} />
                         <Fld k="零件数" v={order.lines.length} mono />
                         <Fld k="总件数" v={totalQty} mono />
-                        <Fld k="建单日期" v={order.createdAt.slice(0, 10)} mono />
-                        <Fld k="提交时间" v={order.submittedAt ? order.submittedAt.slice(0, 16).replace('T', ' ') : X} mono />
+                        {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示，不能直接截字符串（CLAUDE.md §4） */}
+                        <Fld k="建单日期" v={fmtDate(new Date(order.createdAt))} mono />
+                        <Fld k="提交时间" v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
                     </Fields>
                 </CardBody>
             </Card>
