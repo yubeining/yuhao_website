@@ -31,7 +31,9 @@ import java.util.UUID;
 class PartFile extends BaseEntity {
 
     enum UploadStatus {
-        PENDING, COMPLETED, REJECTED
+        PENDING, COMPLETED, REJECTED,
+        /** 客户在草稿里删掉的。行保留 —— 它可能已经有审计记录指向它。 */
+        REMOVED
     }
 
     @JdbcTypeCode(SqlTypes.UUID)
@@ -94,6 +96,10 @@ class PartFile extends BaseEntity {
         this.detectedType = detectedType;
         this.sizeBytes = sizeBytes;
         this.uploadStatus = UploadStatus.REJECTED;
+    }
+
+    void markRemoved() {
+        this.uploadStatus = UploadStatus.REMOVED;
     }
 
     private void requirePending() {

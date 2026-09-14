@@ -47,7 +47,13 @@ CREATE TABLE public.customer_order (
     created_by_user_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    status text NOT NULL,
+    title text,
+    wanted_lead_days integer,
+    submitted_at timestamp with time zone,
+    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'CANCELLED'::text]))),
+    CONSTRAINT customer_order_wanted_lead_days_positive CHECK (((wanted_lead_days IS NULL) OR (wanted_lead_days > 0)))
 );
 
 -- Name: customer_order_part; Type: TABLE; Schema: public; Owner: -
@@ -61,6 +67,11 @@ CREATE TABLE public.customer_order_part (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
     quantity integer NOT NULL,
+    customer_org_id uuid NOT NULL,
+    part_revision_id uuid NOT NULL,
+    part_name text NOT NULL,
+    material text,
+    surface_treatment text,
     CONSTRAINT customer_order_part_quantity_positive CHECK ((quantity >= 1))
 );
 
@@ -182,7 +193,7 @@ CREATE TABLE public.part_file (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
-    CONSTRAINT part_file_upload_status_chk CHECK ((upload_status = ANY (ARRAY['PENDING'::text, 'COMPLETED'::text, 'REJECTED'::text])))
+    CONSTRAINT part_file_upload_status_chk CHECK ((upload_status = ANY (ARRAY['PENDING'::text, 'COMPLETED'::text, 'REJECTED'::text, 'REMOVED'::text])))
 );
 
 -- Name: part_file_access_log; Type: TABLE; Schema: public; Owner: -
@@ -198,7 +209,10 @@ CREATE TABLE public.part_file_access_log (
     access_type text NOT NULL,
     trace_id text,
     accessed_at timestamp with time zone DEFAULT now() NOT NULL,
+    context_type text,
+    context_id uuid,
     CONSTRAINT part_file_access_log_access_type_chk CHECK ((access_type = 'SIGNED_URL_ISSUED'::text)),
+    CONSTRAINT part_file_access_log_context_chk CHECK ((((context_type IS NULL) AND (context_id IS NULL)) OR ((context_type = 'CUSTOMER_ORDER'::text) AND (context_id IS NOT NULL)))),
     CONSTRAINT part_file_access_log_party_type_chk CHECK ((accessor_party_type = ANY (ARRAY['CUSTOMER'::text, 'SUPPLIER'::text, 'OPERATOR'::text])))
 );
 
@@ -227,6 +241,7 @@ CREATE TABLE public.part_revision (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
+    locked_at timestamp with time zone,
     CONSTRAINT part_revision_rev_no_positive CHECK ((rev_no >= 1))
 );
 
@@ -396,6 +411,10 @@ CREATE UNIQUE INDEX app_setting_key_uk ON public.app_setting USING btree (config
 
 CREATE INDEX customer_order_org_idx ON public.customer_order USING btree (customer_org_id);
 
+-- Name: customer_order_part_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_part_customer_idx ON public.customer_order_part USING btree (customer_org_id);
+
 -- Name: customer_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX customer_order_part_design_idx ON public.customer_order_part USING btree (part_design_id);
@@ -407,6 +426,10 @@ CREATE UNIQUE INDEX customer_order_part_no_uk ON public.customer_order_part USIN
 -- Name: customer_order_part_order_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX customer_order_part_order_idx ON public.customer_order_part USING btree (customer_order_id);
+
+-- Name: customer_order_part_revision_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_part_revision_idx ON public.customer_order_part USING btree (part_revision_id);
 
 -- Name: dict_type_code_uk; Type: INDEX; Schema: public; Owner: -
 

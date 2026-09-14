@@ -4,10 +4,12 @@ import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -41,6 +43,11 @@ class CustomerPartController {
         return service.createPart(user.partyId(), request.code().trim(), request.name().trim());
     }
 
+    @GetMapping("/customer/parts")
+    PartView findPartByCode(@CurrentUser UserPrincipal user, @RequestParam String code) {
+        return service.findPartByCode(user.partyId(), code.trim());
+    }
+
     @GetMapping("/customer/parts/{partId}")
     PartView getPart(@CurrentUser UserPrincipal user, @PathVariable UUID partId) {
         return service.getPart(user.partyId(), partId);
@@ -64,8 +71,13 @@ class CustomerPartController {
         return service.complete(user.partyId(), fileId);
     }
 
+    @DeleteMapping("/customer/files/{fileId}")
+    FileView removeFile(@CurrentUser UserPrincipal user, @PathVariable UUID fileId) {
+        return service.removeFile(user.partyId(), fileId);
+    }
+
     @GetMapping("/customer/files/{fileId}/view-url")
     ViewUrl viewUrl(@CurrentUser UserPrincipal user, @PathVariable UUID fileId) {
-        return service.issueViewUrl(user.partyId(), user.id(), user.partyType(), fileId);
+        return service.issueViewUrl(user.partyId(), user.id(), user.partyType(), user.partyId(), fileId);
     }
 }

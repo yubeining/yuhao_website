@@ -1,18 +1,22 @@
 package com.mfg.platform.storage;
 
+import software.amazon.awssdk.core.ResponseInputStream;
 import software.amazon.awssdk.core.exception.SdkException;
 import software.amazon.awssdk.core.sync.RequestBody;
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
 import software.amazon.awssdk.services.s3.model.GetObjectRequest;
+import software.amazon.awssdk.services.s3.model.GetObjectResponse;
 import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
 import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
 import software.amazon.awssdk.services.s3.model.NoSuchKeyException;
 import software.amazon.awssdk.services.s3.model.PutObjectRequest;
+import software.amazon.awssdk.services.s3.model.S3Exception;
 import software.amazon.awssdk.services.s3.presigner.S3Presigner;
 import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
 import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
 import java.time.Duration;
@@ -68,6 +72,34 @@ public class S3StorageService implements StorageService {
         }
     }
 
+    /**
+     * 用 HTTP {@code Range} 头只取需要的那一段 —— 响应体本身就只有这么长，读完关流不会拖出整个对象。
+     * 起点超出对象末尾时 S3 回 416，按接口约定返回空数组。
+     */
+    @Override
+    public byte[] readRange(String key, long offset, int length) {
+        if (length <= 0) {
+            return new byte[0];
+        }
+        GetObjectRequest request = GetObjectRequest.builder()
+                .bucket(bucket)
+                .key(key)
+                .range("bytes=" + offset + "-" + (offset + length - 1))
+                .build();
+        try (ResponseInputStream<GetObjectResponse> in = s3.getObject(request)) {
+            return in.readAllBytes();
+        } catch (NoSuchKeyException e) {
+            throw new StorageException("object not found: " + key, e);
+        } catch (S3Exception e) {
+            if (e.statusCode() == 416) {
+                return new byte[0];
+            }
+            throw new StorageException("range read failed for key " + key, e);
+        } catch (SdkException | IOException e) {
+            throw new StorageException("range read failed for key " + key, e);
+        }
+    }
+
     @Override
     public boolean exists(String key) {
         return head(key).isPresent();
@@ -105,6 +137,23 @@ public class S3StorageService implements StorageService {
             GetObjectPresignRequest presign = GetObjectPresignRequest.builder()
                     .signatureDuration(ttl)
                     .getObjectRequest(GetObjectRequest.builder().bucket(bucket).key(key).build())
+                    .build();
+            return presigner.presignGetObject(presign).url().toURI();
+        } catch (Exception e) {
+            throw new StorageException("presign get failed for key " + key, e);
+        }
+    }
+
+    @Override
+    public URI presignedGet(String key, Duration ttl, String downloadFilename) {
+        try {
+            GetObjectPresignRequest presign = GetObjectPresignRequest.builder()
+                    .signatureDuration(ttl)
+                    .getObjectRequest(GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .responseContentDisposition(DownloadFilename.contentDisposition(downloadFilename))
+                            .build())
                     .build();
             return presigner.presignGetObject(presign).url().toURI();
         } catch (Exception e) {

@@ -4,6 +4,7 @@ import com.mfg.common.dto.ApiResponse;
 import jakarta.persistence.EntityNotFoundException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
@@ -103,6 +104,18 @@ public class GlobalExceptionHandler {
         log.warn("no handler for path: {}", e.getResourcePath());
         return ResponseEntity.status(HttpStatus.NOT_FOUND)
                 .body(ApiResponse.error(404, "common.not_found"));
+    }
+
+    /**
+     * 乐观锁冲突 = 两个请求并发改了同一行，后到的那个没改成。这是并发的正常结果，不是服务端故障：
+     * 回 409 让客户端重新读一遍再决定，别落到兜底变成 500 + error 级全栈日志。
+     * （Spring 的 {@code ObjectOptimisticLockingFailureException} 是它的子类，一并覆盖。）
+     */
+    @ExceptionHandler(OptimisticLockingFailureException.class)
+    public ResponseEntity<ApiResponse<Void>> handleOptimisticLock(OptimisticLockingFailureException e) {
+        log.warn("optimistic lock conflict: {}", e.getClass().getSimpleName());
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ApiResponse.error(409, "common.conflict"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

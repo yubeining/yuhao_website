@@ -48,6 +48,18 @@ public interface StorageService {
     /** 删除对象；对象本就不存在时静默返回（幂等）。 */
     void delete(String key);
 
+    /**
+     * 读对象的一段字节 {@code [offset, offset + length)}。超出对象末尾的部分不返回；
+     * {@code offset} 已经超出对象末尾时返回空数组。
+     *
+     * <p>★ 只需要文件头时<b>必须用这个，不要用 {@link #get} 读几 KB 再关流</b>：
+     * S3 SDK 用 Apache HTTP 客户端时，关流会把剩下的内容全部读完才释放连接
+     * （SDK {@code ResponseInputStream} 的 javadoc 写明了这一点），几百 MB 的图纸就会整个下载一遍。
+     *
+     * @throws StorageException 对象不存在或读取失败
+     */
+    byte[] readRange(String key, long offset, int length);
+
     /** 元数据；对象不存在时返回空 {@link Optional}。 */
     Optional<StorageObjectMeta> head(String key);
 
@@ -57,6 +69,14 @@ public interface StorageService {
      * @param ttl 有效期；调用方一般传 {@code app.storage.signed-url-ttl-seconds}
      */
     URI presignedGet(String key, Duration ttl);
+
+    /**
+     * 签发下载 URL，并让浏览器按 {@code downloadFilename} 保存。
+     *
+     * <p>存储 key 不含客户文件名，不指定的话下载下来是一串 uuid、没有扩展名。
+     * 文件名在实现里清洗后才进响应头（见 {@code DownloadFilename}）。
+     */
+    URI presignedGet(String key, Duration ttl, String downloadFilename);
 
     /**
      * 签发一个短期的上传 URL（PUT）—— 让浏览器直传，字节不经过后端。

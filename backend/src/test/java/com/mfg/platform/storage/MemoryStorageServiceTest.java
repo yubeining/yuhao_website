@@ -51,6 +51,21 @@ class MemoryStorageServiceTest {
         storage.delete("a/b.txt"); // 再删不报错
     }
 
+    /** 读文件头判类型只需要开头几 KB —— 不许为此把几百 MB 的对象整个读一遍。 */
+    @Test
+    void readRangeReturnsOnlyTheRequestedBytes() {
+        put("a/b.txt", "hello world", "text/plain");
+
+        assertThat(new String(storage.readRange("a/b.txt", 0, 5), StandardCharsets.UTF_8)).isEqualTo("hello");
+        assertThat(new String(storage.readRange("a/b.txt", 6, 100), StandardCharsets.UTF_8)).isEqualTo("world");
+        assertThat(storage.readRange("a/b.txt", 50, 10)).isEmpty();
+    }
+
+    @Test
+    void readRangeOfMissingObjectThrows() {
+        assertThatThrownBy(() -> storage.readRange("missing", 0, 10)).isInstanceOf(StorageException.class);
+    }
+
     @Test
     void providerIsMemory() {
         assertThat(storage.provider()).isEqualTo("memory");

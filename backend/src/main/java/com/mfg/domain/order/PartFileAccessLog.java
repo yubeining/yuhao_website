@@ -22,8 +22,9 @@ import java.util.UUID;
  * <p>只增不改:{@link Immutable} + 全列 {@code updatable = false}。
  * 高频日志表,{@code bigserial} 主键,不继承 {@code BaseEntity}(没有 version / updated_at)。
  *
- * <p>本轮(2026-09-10)只存:不做导出(红线 1 后半句明确推迟)、不存 IP。
- * 业务上下文(哪张报价单/订单)要等第 2 步有订单上下文时再加列。
+ * <p>只存不导(红线 1 后半句明确推迟)、不存 IP(2026-09-10 拍板)。
+ * 业务上下文 {@code contextType + contextId}:在哪张订单里看的图(2026-09-14 第 2 步加)。
+ * 两者要么都空、要么都有值,库里有 CHECK 约束兜底。
  */
 @Entity
 @Immutable
@@ -32,6 +33,10 @@ class PartFileAccessLog {
 
     enum AccessType {
         SIGNED_URL_ISSUED
+    }
+
+    enum ContextType {
+        CUSTOMER_ORDER
     }
 
     @Id
@@ -67,6 +72,14 @@ class PartFileAccessLog {
     @Column(name = "access_type", nullable = false, updatable = false)
     private AccessType accessType;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "context_type", updatable = false)
+    private ContextType contextType;
+
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "context_id", columnDefinition = "uuid", updatable = false)
+    private UUID contextId;
+
     @Column(name = "trace_id", updatable = false)
     private String traceId;
 
@@ -78,7 +91,8 @@ class PartFileAccessLog {
 
     PartFileAccessLog(UUID partFileId, UUID partRevisionId, UUID customerOrgId,
                       UUID accessorUserId, PartyType accessorPartyType, UUID accessorOrgId,
-                      AccessType accessType, String traceId, Instant accessedAt) {
+                      AccessType accessType, ContextType contextType, UUID contextId,
+                      String traceId, Instant accessedAt) {
         this.partFileId = partFileId;
         this.partRevisionId = partRevisionId;
         this.customerOrgId = customerOrgId;
@@ -86,6 +100,8 @@ class PartFileAccessLog {
         this.accessorPartyType = accessorPartyType;
         this.accessorOrgId = accessorOrgId;
         this.accessType = accessType;
+        this.contextType = contextType;
+        this.contextId = contextId;
         this.traceId = traceId;
         this.accessedAt = accessedAt;
     }

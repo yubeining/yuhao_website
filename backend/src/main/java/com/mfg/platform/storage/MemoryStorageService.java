@@ -45,6 +45,21 @@ public class MemoryStorageService implements StorageService {
     }
 
     @Override
+    public byte[] readRange(String key, long offset, int length) {
+        Entry e = store.get(key);
+        if (e == null) {
+            throw new StorageException("object not found: " + key, null);
+        }
+        byte[] data = e.data();
+        if (offset >= data.length || length <= 0) {
+            return new byte[0];
+        }
+        int from = (int) offset;
+        int to = (int) Math.min((long) data.length, offset + length);
+        return java.util.Arrays.copyOfRange(data, from, to);
+    }
+
+    @Override
     public boolean exists(String key) {
         return store.containsKey(key);
     }
@@ -64,6 +79,11 @@ public class MemoryStorageService implements StorageService {
 
     @Override
     public URI presignedGet(String key, Duration ttl) {
+        return fakeUrl("get", key, ttl);
+    }
+
+    @Override
+    public URI presignedGet(String key, Duration ttl, String downloadFilename) {
         return fakeUrl("get", key, ttl);
     }
 
