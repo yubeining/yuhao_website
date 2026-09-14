@@ -95,6 +95,7 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `2026-09-09_01_index-part-traceability-columns.sql` | 零件派生链溯源列补索引 |
 | `2026-09-10_01_part-quantity.sql` | 三张零件实例表加 `quantity`（一行 = 一批） |
 | `2026-09-10_02_part-revision-and-file.sql` | 图纸版本 / 图纸文件 / 图纸访问审计（3 张） |
+| `2026-09-14_01_customer-order-draft.sql` | 订单状态 / 名称 / 期望交期；订单行锁定的图纸版本、零件名称快照、材料、表面处理；图纸版本锁定时间；图纸文件 `REMOVED` 状态；审计业务上下文 |
 
 当前库里共 17 张业务表（另有迁移账本 `schema_migrations`）。
 
