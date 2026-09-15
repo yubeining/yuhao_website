@@ -1,6 +1,8 @@
 package com.mfg.domain.order;
 
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +20,19 @@ interface PartRevisionRepository extends JpaRepository<PartRevision, UUID> {
     Optional<PartRevision> findByIdAndPartDesignIdAndCustomerOrgId(UUID id, UUID partDesignId, UUID customerOrgId);
 
     Optional<PartRevision> findByIdAndCustomerOrgId(UUID id, UUID customerOrgId);
+
+    /**
+     * 带行锁取版本。改文件的操作（申请上传、上传完成、删文件）先锁版本再检查「是否已锁定」，
+     * 和订单提交锁版本互斥 —— 否则「提交检查完图纸」和「删掉最后一份图纸」可以交错，两个都成功。
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from PartRevision r where r.id = :id and r.customerOrgId = :orgId")
+    Optional<PartRevision> lockByIdAndCustomerOrgId(@Param("id") UUID id, @Param("orgId") UUID customerOrgId);
+
+    /** 订单提交时锁住各行的版本。按 id 排序加锁：多个请求锁同一批版本时顺序一致，不会互相死锁。 */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select r from PartRevision r where r.id in :ids and r.customerOrgId = :orgId order by r.id")
+    List<PartRevision> lockAllByIdIn(@Param("ids") Collection<UUID> ids, @Param("orgId") UUID customerOrgId);
 
     List<PartRevision> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
 

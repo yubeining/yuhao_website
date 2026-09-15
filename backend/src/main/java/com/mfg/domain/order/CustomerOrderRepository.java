@@ -2,7 +2,9 @@ package com.mfg.domain.order;
 
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,6 +20,17 @@ interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UUID> {
     Optional<CustomerOrder> findByIdAndCustomerOrgId(UUID id, UUID customerOrgId);
 
     Page<CustomerOrder> findByCustomerOrgId(UUID customerOrgId, Pageable pageable);
+
+    /**
+     * 带行锁取订单（{@code SELECT ... FOR UPDATE}），锁到事务结束。
+     *
+     * <p>所有改订单的操作（改草稿、加 / 改 / 删行、换图纸、提交、取消）都先拿这把锁，于是它们对同一张订单只能排队。
+     * 没有这把锁时，「提交检查完零件行」和「另一个请求加了一行」可以交错，两个都成功，
+     * 已提交的订单里就多出一行没锁定、没图纸的 —— 2026-09-15 用并发测试第一轮就复现了。
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("select o from CustomerOrder o where o.id = :id and o.customerOrgId = :orgId")
+    Optional<CustomerOrder> lockByIdAndCustomerOrgId(@Param("id") UUID id, @Param("orgId") UUID customerOrgId);
 
     /**
      * 条件状态迁移：只有当前状态是 {@code from} 时才改，返回改到的行数。

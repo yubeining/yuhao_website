@@ -30,6 +30,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.CyclicBarrier;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -345,6 +346,123 @@ class CustomerOrderFlowIT {
                 + "/files/" + fileOfB + "/view-url", other.token()));
         assertThat(jdbc.queryForObject("select count(*) from part_file_access_log where part_file_id = ?",
                 Long.class, fileOfB)).isZero();
+    }
+
+    // ---------- 请求本身有问题：应该是 4xx，不是 500 ----------
+
+    /**
+     * 非 UUID 的 id（比如旧原型留下的 SO-0001 书签）、错误的 Content-Type、不支持的方法 ——
+     * 都是调用方的问题。回 500 会让前端以为服务端坏了，还会在日志里打一整条错误级全栈。
+     */
+    @Test
+    void malformedRequestsAreClientErrorsNotServerErrors() throws Exception {
+        Customer c = register("malformed");
+
+        ResponseEntity<String> badId = rawGet("/customer/orders/SO-0001", c.token());
+        assertThat(badId.getStatusCode().value()).as(badId.getBody()).isEqualTo(400);
+        assertThat(messageOf(badId)).isEqualTo("common.bad_request");
+
+        HttpHeaders plain = new HttpHeaders();
+        plain.setBearerAuth(c.token());
+        plain.setContentType(MediaType.TEXT_PLAIN);
+        ResponseEntity<String> wrongType = rest.exchange(url("/customer/orders"), HttpMethod.POST,
+                new HttpEntity<>("hello", plain), String.class);
+        assertThat(wrongType.getStatusCode().value()).as(wrongType.getBody()).isEqualTo(415);
+        assertThat(messageOf(wrongType)).isEqualTo("common.unsupported_media_type");
+
+        ResponseEntity<String> wrongMethod = exchange("/customer/orders", HttpMethod.PUT,
+                new CustomerOrderController.OrderDraftRequest(null, null), c.token());
+        assertThat(wrongMethod.getStatusCode().value()).as(wrongMethod.getBody()).isEqualTo(405);
+        assertThat(messageOf(wrongMethod)).isEqualTo("common.method_not_allowed");
+    }
+
+    /** 数量 1.5 以前会被静默截成 1 —— 数量要拿去算钱和排产，截断比报错危险得多。 */
+    @Test
+    void fractionalQuantityIsRejectedInsteadOfTruncated() throws Exception {
+        Customer c = register("fraction");
+        String orderId = createOrder(c);
+
+        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines",
+                Map.of("code", uniqueCode(), "name", "half", "quantity", 1.5), c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
+    }
+
+    // ---------- 并发：提交和改草稿同时发生 ----------
+
+    /**
+     * 提交检查完零件行、状态还没改之前，另一个请求往订单里加了一行（没图纸、版本没锁）。
+     * 两个请求都成功的话，已提交的订单里就会有一行没锁定、也没图纸 —— 这正是提交要挡住的东西。
+     * 每轮用栅栏让两个请求尽量同时出发，跑 30 轮。
+     */
+    @Test
+    void addingALineWhileSubmittingNeverLeavesAnUnlockedLineOnASubmittedOrder() throws Exception {
+        Customer c = register("race-add");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 30; round++) {
+                String orderId = createOrder(c);
+                uploadPdf(c, addLine(c, orderId, uniqueCode(), "ready", 1));
+                String base = "/customer/orders/" + orderId;
+                CyclicBarrier go = new CyclicBarrier(2);
+                Future<ResponseEntity<String>> submit = pool.submit(() -> {
+                    go.await();
+                    return rawPost(base + "/submit", null, c.token());
+                });
+                Future<ResponseEntity<String>> add = pool.submit(() -> {
+                    go.await();
+                    return rawPost(base + "/lines", lineRequest(uniqueCode(), "late", 1), c.token());
+                });
+                int s = submit.get().getStatusCode().value();
+                int a = add.get().getStatusCode().value();
+                assertThat(List.of(s, a)).as("round %d", round).allMatch(code -> code == 200 || code == 409);
+                if ("SUBMITTED".equals(orderStatus(orderId))) {
+                    Long unlocked = jdbc.queryForObject("select count(*) from customer_order_part l"
+                            + " join part_revision r on r.id = l.part_revision_id"
+                            + " where l.customer_order_id = ? and r.locked_at is null", Long.class, UUID.fromString(orderId));
+                    assertThat(unlocked).as("round %d: submit=%d addLine=%d", round, s, a).isZero();
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /**
+     * 提交检查完图纸、锁定还没生效之前，另一个请求删掉了这一行唯一的一份图纸。
+     * 两个都成功的话，已提交的订单里就有一行没图纸。跑 30 轮。
+     */
+    @Test
+    void removingTheLastDrawingWhileSubmittingNeverSubmitsALineWithoutADrawing() throws Exception {
+        Customer c = register("race-rm");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 30; round++) {
+                String orderId = createOrder(c);
+                JsonNode line = addLine(c, orderId, uniqueCode(), "ready", 1);
+                UUID fileId = uploadPdf(c, line);
+                UUID revisionId = UUID.fromString(line.path("revision").path("id").asText());
+                CyclicBarrier go = new CyclicBarrier(2);
+                Future<ResponseEntity<String>> submit = pool.submit(() -> {
+                    go.await();
+                    return rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+                });
+                Future<ResponseEntity<String>> remove = pool.submit(() -> {
+                    go.await();
+                    return rawDelete("/customer/files/" + fileId, c.token());
+                });
+                int s = submit.get().getStatusCode().value();
+                int r = remove.get().getStatusCode().value();
+                assertThat(List.of(s, r)).as("round %d", round).allMatch(code -> code == 200 || code == 409);
+                if ("SUBMITTED".equals(orderStatus(orderId))) {
+                    Long completed = jdbc.queryForObject("select count(*) from part_file"
+                            + " where part_revision_id = ? and upload_status = 'COMPLETED'", Long.class, revisionId);
+                    assertThat(completed).as("round %d: submit=%d removeFile=%d", round, s, r).isPositive();
+                }
+            }
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     // ---------- 场景搭建 ----------

@@ -30,8 +30,10 @@ import java.util.stream.Collectors;
  *   <li>加行时图号命中已有零件（D16）→ 挂它最近一次被锁定的版本；没有锁定过的版本或没有这个零件 → 开新版本 / 新零件。</li>
  * </ul>
  *
- * <p>★ 已知窗口（不修）：提交检查完图纸之后、锁定生效之前，同一客户在另一个请求里删掉这一行最后一份图纸，
- * 两个请求都会成功，订单会带着一个没有图纸的行被提交。需要同一客户在毫秒级并发两个相反的操作才会出现。
+ * <p><b>并发</b>（2026-09-15 修）：改订单的操作都先锁订单行（{@link #requireDraft}）；
+ * 提交在锁住订单之后、检查图纸之前，再锁住各行的图纸版本。改文件的操作也锁版本。
+ * 加锁顺序固定为「订单 → 版本」，文件操作只锁单个版本，所以不会死锁。
+ * 修之前「提交」和「加行」「删最后一份图纸」都能交错成功，并发测试第一轮就复现。
  */
 @Service
 class CustomerOrderService {
@@ -90,7 +92,12 @@ class CustomerOrderService {
         return view(customerOrgId, orders.saveAndFlush(order));
     }
 
-    /** 每行都要有传完的图纸 → 状态改成 SUBMITTED → 锁定各行版本。任何一步不过，整个事务回滚。 */
+    /**
+     * 每行都要有传完的图纸 → 状态改成 SUBMITTED → 锁定各行版本。任何一步不过，整个事务回滚。
+     *
+     * <p>★ 顺序不能换：先锁订单（挡住并发的加 / 改 / 删行），读零件行；再锁各行版本（挡住并发的删图纸），
+     * 最后才检查图纸。检查放在两把锁都拿到之后，读到的就是提交那一刻的真实状态。
+     */
     @Transactional
     public OrderView submit(UUID customerOrgId, UUID orderId) {
         requireDraft(customerOrgId, orderId);
@@ -100,6 +107,7 @@ class CustomerOrderService {
             throw BusinessException.conflict("order.no_lines");
         }
         Set<UUID> revisionIds = orderLines.stream().map(CustomerOrderPart::getPartRevisionId).collect(Collectors.toSet());
+        revisions.lockAllByIdIn(revisionIds, customerOrgId);
         Set<UUID> withDrawing = Set.copyOf(
                 files.findRevisionIdsHavingStatus(revisionIds, customerOrgId, PartFile.UploadStatus.COMPLETED));
         List<UUID> missing = orderLines.stream()
@@ -122,7 +130,7 @@ class CustomerOrderService {
     /** 只能取消草稿（设计文档 12 §2 已拍板）。 */
     @Transactional
     public OrderView cancel(UUID customerOrgId, UUID orderId) {
-        requireOrder(customerOrgId, orderId);
+        requireDraft(customerOrgId, orderId);
         Instant now = Instant.now();
         if (orders.transition(orderId, customerOrgId, CustomerOrder.Status.DRAFT, CustomerOrder.Status.CANCELLED,
                 null, now) != 1) {
@@ -260,8 +268,10 @@ class CustomerOrderService {
                 .orElseThrow(() -> BusinessException.notFound("order.not_found"));
     }
 
+    /** 带行锁取订单并要求是草稿。只在写操作的事务里调：锁到事务结束，同一张订单的写操作排队。 */
     private CustomerOrder requireDraft(UUID customerOrgId, UUID orderId) {
-        CustomerOrder order = requireOrder(customerOrgId, orderId);
+        CustomerOrder order = orders.lockByIdAndCustomerOrgId(orderId, customerOrgId)
+                .orElseThrow(() -> BusinessException.notFound("order.not_found"));
         if (order.getStatus() != CustomerOrder.Status.DRAFT) {
             throw BusinessException.conflict("order.not_draft");
         }

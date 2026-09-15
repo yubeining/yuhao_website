@@ -54,6 +54,8 @@ spring:
       fail-on-empty-beans: false
     deserialization:
       fail-on-unknown-properties: false
+      # ★ 整数字段收到 1.5 时报 400，而不是静默截成 1 —— 数量要拿去算钱和排产（2026-09-15 测出来的）
+      accept-float-as-int: false
 
   servlet:
     multipart:

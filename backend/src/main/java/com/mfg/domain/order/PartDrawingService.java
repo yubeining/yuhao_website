@@ -7,7 +7,9 @@ import com.mfg.platform.storage.StorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -46,11 +48,15 @@ class PartDrawingService {
     private final StorageService storage;
     private final Duration signedUrlTtl;
     private final DrawingTypeGuard typeGuard;
+    /** complete / 删文件不能整体包在事务里（中间有存储网络 IO），只把「锁版本 + 改状态」这一小段放进事务。 */
+    private final TransactionTemplate tx;
 
     PartDrawingService(PartDesignRepository parts, PartRevisionRepository revisions, PartFileRepository files,
                        PartFileAccessLogRepository accessLog, StorageService storage,
+                       PlatformTransactionManager transactionManager,
                        @Value("${app.storage.signed-url-ttl-seconds}") long signedUrlTtlSeconds,
                        @Value("${app.storage.allowed-drawing-types}") String allowedDrawingTypes) {
+        this.tx = new TransactionTemplate(transactionManager);
         this.parts = parts;
         this.revisions = revisions;
         this.files = files;
@@ -95,7 +101,9 @@ class PartDrawingService {
     @Transactional
     public UploadTicket requestUpload(UUID customerOrgId, UUID userId, UUID partId, UUID revisionId,
                                       String filename, String contentType) {
-        PartRevision revision = revisions.findByIdAndPartDesignIdAndCustomerOrgId(revisionId, partId, customerOrgId)
+        // 带锁取：和订单提交锁版本互斥，提交锁定之后不会再有新文件挂上来
+        PartRevision revision = revisions.lockByIdAndCustomerOrgId(revisionId, customerOrgId)
+                .filter(r -> r.getPartDesignId().equals(partId))
                 .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
         if (revision.isLocked()) {
             throw BusinessException.conflict("part.revision_locked");
@@ -142,19 +150,18 @@ class PartDrawingService {
 
         if (!verdict.accepted()) {
             // 先把 REJECTED 落库、再删对象：反过来的话，删完对象而状态没写进去，这一行会永远卡在 PENDING
-            int changed = files.transitionIfRevisionUnlocked(fileId, customerOrgId,
+            int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
                     List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.REJECTED,
-                    verdict.detectedType(), size, null, Instant.now());
+                    verdict.detectedType(), size, null);
             if (changed == 1) {
                 storage.delete(file.getStorageKey());
                 throw BusinessException.badRequest("part.file_type_not_allowed");
             }
             return settledOutcome(customerOrgId, fileId);
         }
-        Instant now = Instant.now();
-        int changed = files.transitionIfRevisionUnlocked(fileId, customerOrgId,
+        int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
                 List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.COMPLETED,
-                verdict.detectedType(), size, now, now);
+                verdict.detectedType(), size, Instant.now());
         return changed == 1 ? FileView.of(requireFile(customerOrgId, fileId)) : settledOutcome(customerOrgId, fileId);
     }
 
@@ -167,15 +174,13 @@ class PartDrawingService {
         if (file.getUploadStatus() == PartFile.UploadStatus.REMOVED) {
             return FileView.of(file);
         }
-        requireUnlocked(customerOrgId, file.getPartRevisionId());
-        int changed = files.transitionIfRevisionUnlocked(fileId, customerOrgId,
+        int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
                 List.of(PartFile.UploadStatus.PENDING, PartFile.UploadStatus.COMPLETED, PartFile.UploadStatus.REJECTED),
-                PartFile.UploadStatus.REMOVED, file.getDetectedType(), file.getSizeBytes(), file.getCompletedAt(),
-                Instant.now());
+                PartFile.UploadStatus.REMOVED, file.getDetectedType(), file.getSizeBytes(), file.getCompletedAt());
         if (changed != 1) {
-            requireUnlocked(customerOrgId, file.getPartRevisionId());
             throw BusinessException.conflict("part.file_not_pending");
         }
+        // 状态已经提交之后才删对象：反过来的话，删完对象而状态没写进去，文件就坏了
         storage.delete(file.getStorageKey());
         return FileView.of(requireFile(customerOrgId, fileId));
     }
@@ -250,6 +255,25 @@ class PartDrawingService {
     }
 
     // ---------- helpers ----------
+
+    /**
+     * 在一个短事务里：锁住版本行 → 已锁定就 409 → 条件更新文件状态。
+     * 锁版本是为了和订单提交互斥（提交会先锁同一批版本再检查图纸），条件更新是为了并发 / 重试只有一个生效。
+     */
+    private int transitionLockingRevision(UUID customerOrgId, UUID revisionId, UUID fileId,
+                                          List<PartFile.UploadStatus> from, PartFile.UploadStatus to,
+                                          String detectedType, Long sizeBytes, Instant completedAt) {
+        Integer changed = tx.execute(status -> {
+            PartRevision revision = revisions.lockByIdAndCustomerOrgId(revisionId, customerOrgId)
+                    .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
+            if (revision.isLocked()) {
+                throw BusinessException.conflict("part.revision_locked");
+            }
+            return files.transitionIfRevisionUnlocked(fileId, customerOrgId, from, to, detectedType, sizeBytes,
+                    completedAt, Instant.now());
+        });
+        return changed == null ? 0 : changed;
+    }
 
     private PartView viewOf(UUID customerOrgId, PartDesign part) {
         List<PartRevision> revs = revisions.findByPartDesignIdAndCustomerOrgIdOrderByRevNoAsc(part.getId(), customerOrgId);

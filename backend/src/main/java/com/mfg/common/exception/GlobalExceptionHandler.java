@@ -8,11 +8,14 @@ import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
@@ -116,6 +119,31 @@ public class GlobalExceptionHandler {
         log.warn("optimistic lock conflict: {}", e.getClass().getSimpleName());
         return ResponseEntity.status(HttpStatus.CONFLICT)
                 .body(ApiResponse.error(409, "common.conflict"));
+    }
+
+    /**
+     * 参数类型不对，比如路径里的 id 不是 UUID（旧原型留下的 SO-0001 书签）。这是调用方的问题：
+     * 回 400，不回显参数值（可能是任何东西），不打栈。以前落到兜底，是 500 + 错误级全栈。
+     */
+    @ExceptionHandler(MethodArgumentTypeMismatchException.class)
+    public ResponseEntity<ApiResponse<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+        log.warn("argument type mismatch: {}", e.getName());
+        return ResponseEntity.badRequest()
+                .body(ApiResponse.error(400, "common.bad_request"));
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleUnsupportedMediaType(HttpMediaTypeNotSupportedException e) {
+        log.warn("unsupported media type: {}", e.getContentType());
+        return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
+                .body(ApiResponse.error(415, "common.unsupported_media_type"));
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleMethodNotAllowed(HttpRequestMethodNotSupportedException e) {
+        log.warn("method not allowed: {}", e.getMethod());
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED)
+                .body(ApiResponse.error(405, "common.method_not_allowed"));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

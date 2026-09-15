@@ -68,6 +68,7 @@ class CustomerOrderController {
         return service.get(user.partyId(), orderId);
     }
 
+    /** ★ 整体替换，不是局部更新：请求里没带的字段（名称 / 期望交期）会被清空。前端每次都两个一起传。 */
     @PatchMapping("/customer/orders/{orderId}")
     OrderView update(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                      @Valid @RequestBody OrderDraftRequest request) {
@@ -91,6 +92,7 @@ class CustomerOrderController {
                 request.material(), request.surfaceTreatment(), request.customerRev());
     }
 
+    /** ★ 整体替换：没带的材料 / 表面处理会被清空。 */
     @PatchMapping("/customer/orders/{orderId}/lines/{lineId}")
     OrderLineView updateLine(@CurrentUser UserPrincipal user, @PathVariable UUID orderId, @PathVariable UUID lineId,
                              @Valid @RequestBody UpdateLineRequest request) {
