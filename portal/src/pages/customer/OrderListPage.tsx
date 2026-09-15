@@ -107,7 +107,11 @@ export function OrderListPage() {
                                         <td style={{ textAlign: 'right' }}>
                                             {o.status === 'DRAFT' && (
                                                 <button className="btn qui sm" type="button"
-                                                    onClick={(e) => { e.stopPropagation(); void cancel(o.id) }}>取消订单</button>
+                                                    onClick={(e) => {
+                                                        e.stopPropagation()
+                                                        // 取消没有撤销，点错就回不来
+                                                        if (window.confirm('取消后不能恢复。确定取消这张订单吗？')) void cancel(o.id)
+                                                    }}>取消订单</button>
                                             )}
                                         </td>
                                     </tr>

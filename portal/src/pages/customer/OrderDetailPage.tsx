@@ -27,6 +27,7 @@ export function OrderDetailPage() {
     const { id = '' } = useParams()
     const [order, setOrder] = useState<OrderView | null>(null)
     const [missing, setMissing] = useState(false)
+    const [loadErr, setLoadErr] = useState<string | null>(null)
     const [title, setTitle] = useState('')
     const [lead, setLead] = useState('')
     const [busy, setBusy] = useState(false)
@@ -41,9 +42,11 @@ export function OrderDetailPage() {
     const load = useCallback(async () => {
         try {
             apply(await getOrder(id))
+            setLoadErr(null)
         } catch (e) {
-            if (e instanceof ApiError && e.code === 404) setMissing(true)
-            else setErr(errorText(t, e))
+            // 400 = id 根本不是合法格式（比如旧原型留下的 SO-0001 书签），和 404 一样按「不存在」处理
+            if (e instanceof ApiError && (e.code === 404 || e.code === 400)) setMissing(true)
+            else setLoadErr(errorText(t, e))
         }
     }, [id, t])
 
@@ -58,7 +61,16 @@ export function OrderDetailPage() {
             </Page>
         )
     }
-    if (!order) return <Page><Card><CardBody><Empty text="加载中…" /></CardBody></Card></Page>
+    // ★ 加载失败要说出来：以前这里只判断「还没拿到订单」，500 / 断网时永远停在「加载中…」
+    if (!order) {
+        return (
+            <Page><Card><CardBody>
+                {loadErr
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load()}>重试</button>} />
+                    : <Empty text="加载中…" />}
+            </CardBody></Card></Page>
+        )
+    }
 
     const draft = order.status === 'DRAFT'
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length

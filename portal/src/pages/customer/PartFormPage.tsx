@@ -73,6 +73,7 @@ export function PartFormPage() {
 
     const [order, setOrder] = useState<OrderView | null>(null)
     const [missing, setMissing] = useState(false)
+    const [loadErr, setLoadErr] = useState<string | null>(null)
     const [f, setF] = useState<Form>(EMPTY)
     const [existing, setExisting] = useState<PartView | null>(null)
     const [queued, setQueued] = useState<File[]>([])
@@ -94,9 +95,11 @@ export function PartFormPage() {
                 })
             }
             if (!l && partId !== 'new') setMissing(true)
+            setLoadErr(null)
         } catch (e) {
-            if (e instanceof ApiError && e.code === 404) setMissing(true)
-            else setErr(errorText(t, e))
+            // 400 = id 不是合法格式，和 404 一样按「不存在」处理
+            if (e instanceof ApiError && (e.code === 404 || e.code === 400)) setMissing(true)
+            else setLoadErr(errorText(t, e))
         }
     }, [id, partId, t])
 
@@ -216,7 +219,15 @@ export function PartFormPage() {
             </Page>
         )
     }
-    if (!order) return <Page><Card><CardBody><Empty text="加载中…" /></CardBody></Card></Page>
+    if (!order) {
+        return (
+            <Page><Card><CardBody>
+                {loadErr
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load(true)}>重试</button>} />
+                    : <Empty text="加载中…" />}
+            </CardBody></Card></Page>
+        )
+    }
 
     const draft = order.status === 'DRAFT'
     const locked = line?.revision.locked ?? false
@@ -254,7 +265,8 @@ export function PartFormPage() {
                                     {isNew
                                         ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)}
                                             placeholder="可从文件名自动识别" />
-                                        : <Input value={f.code} onChange={() => undefined} />}
+                                        // 图号决定挂哪个零件，加进订单后不能改：只显示，不放一个打字没反应的输入框
+                                        : <div className="m" style={{ padding: '9px 0' }}>{f.code}</div>}
                                 </Field>
                                 <Field label="名称 *"><Input value={f.name} onChange={set('name')} /></Field>
                                 <Field label="数量 *"><Stepper value={f.qty} onChange={set('qty')} /></Field>
