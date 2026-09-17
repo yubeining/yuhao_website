@@ -48,6 +48,9 @@ app:
   storage:
     provider: memory      # 内存实现，不打真实对象存储
 
+  fx:
+    enabled: false        # 后台定时任务在测试里不跑、不连外网；FxRateSyncIT 直接调 syncOnce()
+
   notification:
     email:
       enabled: false

@@ -159,6 +159,18 @@ app:
   scheduler:
     pool-size: ${SCHEDULER_POOL_SIZE:2}
 
+  # ---------- 汇率（platform/fx）----------
+  # 每天从欧洲央行（ECB）拉参考汇率入库 —— 2026-09-17 需求方决定先接这个免费源，只存不换算。
+  # ★ ECB 声明这是参考汇率、不建议直接用于交易；实测和中国银行现汇买入价差约 1%。
+  # ★ 下面的超时和间隔是工程取值（数据每天只变一次，ECB 工作日约 16:00 CET 更新），不是业务政策。
+  fx:
+    enabled: ${FX_SYNC_ENABLED:true}
+    ecb-daily-url: ${FX_ECB_DAILY_URL:https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml}
+    connect-timeout-seconds: 10
+    request-timeout-seconds: 20
+    sync-initial-delay: PT1M     # 开机后多久拉第一次
+    sync-interval: PT3H          # 之后每隔多久拉一次（同一天重复拉只会跳过）
+
   quote:
     # ★ 本节目前【没有任何代码读它】。报价域一开工，写代码的人会把这里当成已拍板的输入 ——
     #   所以只留有出处的，没出处的一律不留占位数字。

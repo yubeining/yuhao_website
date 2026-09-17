@@ -106,6 +106,34 @@ CREATE TABLE public.external_user (
     CONSTRAINT external_user_status_chk CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
 );
 
+-- Name: fx_rate; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.fx_rate (
+    id bigint NOT NULL,
+    source text NOT NULL,
+    rate_date date NOT NULL,
+    base_currency text NOT NULL,
+    quote_currency text NOT NULL,
+    rate numeric(18,8) NOT NULL,
+    fetched_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT fx_rate_currency_code_chk CHECK (((char_length(base_currency) = 3) AND (base_currency = upper(base_currency)) AND (char_length(quote_currency) = 3) AND (quote_currency = upper(quote_currency)))),
+    CONSTRAINT fx_rate_rate_positive CHECK ((rate > (0)::numeric)),
+    CONSTRAINT fx_rate_source_chk CHECK ((source = 'ECB'::text))
+);
+
+-- Name: fx_rate_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+
+CREATE SEQUENCE public.fx_rate_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+-- Name: fx_rate_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+
+ALTER SEQUENCE public.fx_rate_id_seq OWNED BY public.fx_rate.id;
+
 -- Name: ops_order; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.ops_order (
@@ -309,6 +337,10 @@ CREATE TABLE public.user_role (
     version bigint DEFAULT 0 NOT NULL
 );
 
+-- Name: fx_rate id; Type: DEFAULT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.fx_rate ALTER COLUMN id SET DEFAULT nextval('public.fx_rate_id_seq'::regclass);
+
 -- Name: part_file_access_log id; Type: DEFAULT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.part_file_access_log ALTER COLUMN id SET DEFAULT nextval('public.part_file_access_log_id_seq'::regclass);
@@ -337,6 +369,11 @@ ALTER TABLE ONLY public.dict
 
 ALTER TABLE ONLY public.external_user
     ADD CONSTRAINT external_user_pkey PRIMARY KEY (id);
+
+-- Name: fx_rate fx_rate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.fx_rate
+    ADD CONSTRAINT fx_rate_pkey PRIMARY KEY (id);
 
 -- Name: ops_order_part ops_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -442,6 +479,10 @@ CREATE UNIQUE INDEX external_user_email_uk ON public.external_user USING btree (
 -- Name: external_user_org_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX external_user_org_idx ON public.external_user USING btree (org_id);
+
+-- Name: fx_rate_source_date_pair_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX fx_rate_source_date_pair_uk ON public.fx_rate USING btree (source, rate_date, base_currency, quote_currency);
 
 -- Name: ops_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
 

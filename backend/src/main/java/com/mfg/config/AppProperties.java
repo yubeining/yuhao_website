@@ -18,7 +18,8 @@ public record AppProperties(
         @DefaultValue Async async,
         @DefaultValue Scheduler scheduler,
         @DefaultValue Auth auth,
-        @DefaultValue Web web) {
+        @DefaultValue Web web,
+        @DefaultValue Fx fx) {
 
     /** Web 层通用参数（分页等）。 */
     public record Web(@DefaultValue Page page) {
@@ -50,6 +51,18 @@ public record AppProperties(
 
     /** @Scheduled 调度池。 */
     public record Scheduler(@DefaultValue("2") int poolSize) {
+    }
+
+    /**
+     * 汇率同步（platform/fx）：从 ECB 拉每日参考汇率入库，只存不换算（2026-09-17 需求方决定先接这个免费源）。
+     *
+     * <p>超时是工程取值，不是业务政策。同步间隔直接写在 {@code @Scheduled} 的占位符里（app.fx.sync-*）。
+     */
+    public record Fx(
+            @DefaultValue("true") boolean enabled,
+            @DefaultValue("https://www.ecb.europa.eu/stats/eurofxref/eurofxref-daily.xml") String ecbDailyUrl,
+            @DefaultValue("10") int connectTimeoutSeconds,
+            @DefaultValue("20") int requestTimeoutSeconds) {
     }
 
     public record Auth(@DefaultValue Login login) {
