@@ -276,6 +276,16 @@ curl https://mhswbrrnpspx.sealosbja.site/api/v1/public/ping
 
 浏览器打开 `https://mhswbrrnpspx.sealosbja.site` 应该看到登录页。
 
+### 建运营账号
+
+系统里没有建运营账号的入口（运营不自助注册）。在本机生成 SQL，看过之后贴到 Sealos 数据库 → 终端执行：
+
+```bash
+scripts/ops-user-sql.sh > /tmp/ops-user.sql   # 按提示输邮箱、显示名、组织名、密码
+```
+
+生成的 SQL 只有 INSERT；邮箱已存在就什么都不插。登录入口 `/auth/internal/signin`。
+
 ---
 
 ## 回滚
