@@ -22,4 +22,9 @@ interface CustomerOrderPartRepository extends JpaRepository<CustomerOrderPart, U
     @Query("select l.customerOrderId, count(l), coalesce(sum(l.quantity), 0) from CustomerOrderPart l"
             + " where l.customerOrderId in :orderIds and l.customerOrgId = :orgId group by l.customerOrderId")
     List<Object[]> summarize(@Param("orderIds") Collection<UUID> orderIds, @Param("orgId") UUID customerOrgId);
+
+    /** 同 {@link #summarize}，运营端跨客户用：订单 id 来自运营端列表本身，不来自请求。 */
+    @Query("select l.customerOrderId, count(l), coalesce(sum(l.quantity), 0) from CustomerOrderPart l"
+            + " where l.customerOrderId in :orderIds group by l.customerOrderId")
+    List<Object[]> summarizeAcrossCustomers(@Param("orderIds") Collection<UUID> orderIds);
 }

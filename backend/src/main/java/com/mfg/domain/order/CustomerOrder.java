@@ -13,7 +13,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * 客户订单 —— 一张表走到底(D17):草稿 → 提交,后续状态随第 3 步加。
+ * 客户订单 —— 一张表走到底(D17):草稿 → 提交 → 已报价 → 已确认(第 3 步),后续状态随派单加。
  *
  * <p>客户只能取消草稿(设计文档 12 §2 已拍板)。提交之后的取消归运营,本步不做。
  * 状态的并发转换不靠这里的 setter,靠 {@link CustomerOrderRepository} 里带
@@ -24,7 +24,7 @@ import java.util.UUID;
 class CustomerOrder extends BaseEntity {
 
     enum Status {
-        DRAFT, SUBMITTED, CANCELLED
+        DRAFT, SUBMITTED, QUOTED, CONFIRMED, CANCELLED
     }
 
     @JdbcTypeCode(SqlTypes.UUID)

@@ -4,7 +4,8 @@
  * ★ 提交条件（2026-09-14 拍板）：每个零件行都要有至少一份传完的图纸。
  * ★ 提交时锁定各行的图纸版本，之后这张订单不能再改。
  * ★ 提交之后这里只写「已提交、图纸已锁定」这一个事实 —— 不承诺报价时间：
- *   运营端还没接上真订单（第 3 步），写「平台估价中」就是一句没有依据的承诺（CLAUDE.md §10 C5）。
+ *   平台什么时候报价没有约定，写「预计 X 内报价」就是一句没有依据的承诺（CLAUDE.md §10 C5）。
+ *   报价发出后（QUOTED / CONFIRMED）给一个去报价页的入口。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -134,6 +135,16 @@ export function OrderDetailPage() {
             )}
             {order.status === 'SUBMITTED' && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>订单已提交，各零件的图纸版本已锁定，不能再修改。</Banner>
+            )}
+            {order.status === 'QUOTED' && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    平台已报价，等你确认。<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>查看报价 →</Link>
+                </Banner>
+            )}
+            {order.status === 'CONFIRMED' && (
+                <Banner tone="ok" style={{ marginBottom: 14 }}>
+                    报价已确认。<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>查看报价 →</Link>
+                </Banner>
             )}
             {order.status === 'CANCELLED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>订单已取消。</Banner>

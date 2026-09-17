@@ -1,7 +1,7 @@
 /**
  * 客户端：订单（后端 CustomerOrderController）。
  *
- * 状态只有现在后端真有的三个；报价、确认等随第 3 步加。
+ * 状态是后端现在真有的五个；派单之后的状态随后续步骤加。
  *
  * ★ 后端不输出值为 null 的字段，可能为空的字段一律可选（见 parts.ts 顶部说明）。
  */
@@ -9,7 +9,7 @@
 import { http } from '../core/http'
 import type { RevisionView, ViewUrl } from './parts'
 
-export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'CANCELLED'
+export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'CANCELLED'
 
 export interface PagedResponse<T> {
     items: T[]

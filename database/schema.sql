@@ -39,6 +39,18 @@ CREATE TABLE public.app_setting (
     CONSTRAINT app_setting_value_type_chk CHECK ((value_type = ANY (ARRAY['STRING'::text, 'NUMBER'::text, 'BOOL'::text, 'JSON'::text])))
 );
 
+-- Name: customer_markup; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.customer_markup (
+    id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    markup_rate numeric(8,4) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT customer_markup_rate_positive CHECK ((markup_rate > (0)::numeric))
+);
+
 -- Name: customer_order; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.customer_order (
@@ -52,7 +64,7 @@ CREATE TABLE public.customer_order (
     title text,
     wanted_lead_days integer,
     submitted_at timestamp with time zone,
-    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'CANCELLED'::text]))),
+    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'CANCELLED'::text]))),
     CONSTRAINT customer_order_wanted_lead_days_positive CHECK (((wanted_lead_days IS NULL) OR (wanted_lead_days > 0)))
 );
 
@@ -273,6 +285,63 @@ CREATE TABLE public.part_revision (
     CONSTRAINT part_revision_rev_no_positive CHECK ((rev_no >= 1))
 );
 
+-- Name: quote; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.quote (
+    id uuid NOT NULL,
+    customer_order_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    version_no integer NOT NULL,
+    status text NOT NULL,
+    currency text NOT NULL,
+    lead_days integer NOT NULL,
+    markup_rate numeric(8,4) NOT NULL,
+    sent_at timestamp with time zone NOT NULL,
+    sent_by_user_id uuid NOT NULL,
+    confirmed_at timestamp with time zone,
+    confirmed_by_user_id uuid,
+    rejected_at timestamp with time zone,
+    rejected_by_user_id uuid,
+    fx_source text,
+    fx_rate_date date,
+    fx_eur_cny numeric(18,8),
+    fx_eur_quote numeric(18,8),
+    total_amount numeric(14,2),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT quote_confirmed_snapshot_chk CHECK (((status <> 'CONFIRMED'::text) OR ((confirmed_at IS NOT NULL) AND (confirmed_by_user_id IS NOT NULL) AND (fx_source IS NOT NULL) AND (fx_rate_date IS NOT NULL) AND (fx_eur_cny > (0)::numeric) AND (fx_eur_quote > (0)::numeric) AND (total_amount IS NOT NULL)))),
+    CONSTRAINT quote_currency_chk CHECK ((currency = ANY (ARRAY['EUR'::text, 'USD'::text, 'GBP'::text, 'CNY'::text]))),
+    CONSTRAINT quote_fx_source_chk CHECK (((fx_source IS NULL) OR (fx_source = 'ECB'::text))),
+    CONSTRAINT quote_lead_days_positive CHECK ((lead_days > 0)),
+    CONSTRAINT quote_markup_rate_positive CHECK ((markup_rate > (0)::numeric)),
+    CONSTRAINT quote_rejected_chk CHECK (((status <> 'REJECTED'::text) OR ((rejected_at IS NOT NULL) AND (rejected_by_user_id IS NOT NULL)))),
+    CONSTRAINT quote_status_chk CHECK ((status = ANY (ARRAY['SENT'::text, 'SUPERSEDED'::text, 'REJECTED'::text, 'CONFIRMED'::text]))),
+    CONSTRAINT quote_version_no_positive CHECK ((version_no > 0))
+);
+
+-- Name: quote_line; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.quote_line (
+    id uuid NOT NULL,
+    quote_id uuid NOT NULL,
+    customer_order_part_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    line_no integer NOT NULL,
+    part_code text NOT NULL,
+    part_name text NOT NULL,
+    quantity integer NOT NULL,
+    unit_price_cny numeric(12,2) NOT NULL,
+    unit_price numeric(12,2),
+    line_total numeric(14,2),
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT quote_line_line_no_positive CHECK ((line_no > 0)),
+    CONSTRAINT quote_line_quantity_positive CHECK ((quantity >= 1)),
+    CONSTRAINT quote_line_unit_price_cny_positive CHECK ((unit_price_cny > (0)::numeric))
+);
+
 -- Name: role; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.role (
@@ -350,6 +419,11 @@ ALTER TABLE ONLY public.part_file_access_log ALTER COLUMN id SET DEFAULT nextval
 ALTER TABLE ONLY public.app_setting
     ADD CONSTRAINT app_setting_pkey PRIMARY KEY (id);
 
+-- Name: customer_markup customer_markup_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_markup
+    ADD CONSTRAINT customer_markup_pkey PRIMARY KEY (id);
+
 -- Name: customer_order_part customer_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.customer_order_part
@@ -415,6 +489,16 @@ ALTER TABLE ONLY public.part_file
 ALTER TABLE ONLY public.part_revision
     ADD CONSTRAINT part_revision_pkey PRIMARY KEY (id);
 
+-- Name: quote_line quote_line_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.quote_line
+    ADD CONSTRAINT quote_line_pkey PRIMARY KEY (id);
+
+-- Name: quote quote_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.quote
+    ADD CONSTRAINT quote_pkey PRIMARY KEY (id);
+
 -- Name: role role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.role
@@ -444,6 +528,10 @@ ALTER TABLE ONLY public.user_role
 
 CREATE UNIQUE INDEX app_setting_key_uk ON public.app_setting USING btree (config_key);
 
+-- Name: customer_markup_customer_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX customer_markup_customer_uk ON public.customer_markup USING btree (customer_org_id);
+
 -- Name: customer_order_org_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX customer_order_org_idx ON public.customer_order USING btree (customer_org_id);
@@ -467,6 +555,10 @@ CREATE INDEX customer_order_part_order_idx ON public.customer_order_part USING b
 -- Name: customer_order_part_revision_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX customer_order_part_revision_idx ON public.customer_order_part USING btree (part_revision_id);
+
+-- Name: customer_order_status_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_status_idx ON public.customer_order USING btree (status);
 
 -- Name: dict_type_code_uk; Type: INDEX; Schema: public; Owner: -
 
@@ -559,6 +651,38 @@ CREATE INDEX part_revision_customer_idx ON public.part_revision USING btree (cus
 -- Name: part_revision_design_rev_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX part_revision_design_rev_uk ON public.part_revision USING btree (part_design_id, rev_no);
+
+-- Name: quote_customer_status_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX quote_customer_status_idx ON public.quote USING btree (customer_org_id, status);
+
+-- Name: quote_line_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX quote_line_customer_idx ON public.quote_line USING btree (customer_org_id);
+
+-- Name: quote_line_order_part_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX quote_line_order_part_idx ON public.quote_line USING btree (customer_order_part_id);
+
+-- Name: quote_line_quote_line_no_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX quote_line_quote_line_no_uk ON public.quote_line USING btree (quote_id, line_no);
+
+-- Name: quote_line_quote_part_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX quote_line_quote_part_uk ON public.quote_line USING btree (quote_id, customer_order_part_id);
+
+-- Name: quote_order_one_confirmed_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX quote_order_one_confirmed_uk ON public.quote USING btree (customer_order_id) WHERE (status = 'CONFIRMED'::text);
+
+-- Name: quote_order_one_sent_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX quote_order_one_sent_uk ON public.quote USING btree (customer_order_id) WHERE (status = 'SENT'::text);
+
+-- Name: quote_order_version_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX quote_order_version_uk ON public.quote USING btree (customer_order_id, version_no);
 
 -- Name: role_scope_code_uk; Type: INDEX; Schema: public; Owner: -
 

@@ -1,8 +1,7 @@
 /**
  * 客户概览。
  *
- * ★ 数据来自后端。报价还没接上（第 3 步），所以这里没有「待确认报价」区块 ——
- *   没有数据来源的东西不显示（CLAUDE.md §10 C5）。
+ * ★ 数据来自后端。「待确认报价」提示按订单状态 QUOTED 数出来。
  */
 
 import { useEffect, useState } from 'react'
@@ -28,6 +27,8 @@ export function CustomerHomePage() {
             .catch((e) => setErr(errorText(t, e)))
     }, [t])
 
+    const toConfirm = orders?.filter((o) => o.status === 'QUOTED').length ?? 0
+
     return (
         <Page>
             <Hello
@@ -35,6 +36,11 @@ export function CustomerHomePage() {
                 right={<Link className="btn pri" to="/customer/orders">＋ 新建订单</Link>}
             />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {toConfirm > 0 && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    有 {toConfirm} 单报价等你确认。<Link to="/customer/quotes" style={{ marginLeft: 6 }}>我的报价 →</Link>
+                </Banner>
+            )}
             <Card>
                 <CardHead title="我的订单" right={orders ? <Pill tone="ne" dot={false}>{orders.length} 单</Pill> : undefined} />
                 {orders === null ? (

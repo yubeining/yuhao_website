@@ -25,6 +25,12 @@ export const M = (v: unknown, d = 2): string =>
 
 export const money = (v: number, sym = '€') => `${sym} ${M(v)}`
 
+const CURRENCY_SYMBOL: Record<string, string> = { EUR: '€', USD: '$', GBP: '£', CNY: '¥' }
+
+/** 后端给的金额 + 币种代码。金额为空（算不出来）显示占位符。 */
+export const fmtMoney = (v: number | null | undefined, currency: string) =>
+    v == null ? X : `${CURRENCY_SYMBOL[currency] ?? currency} ${M(v)}`
+
 const pad = (n: number) => String(n).padStart(2, '0')
 
 /** 本地日期 YYYY-MM-DD */

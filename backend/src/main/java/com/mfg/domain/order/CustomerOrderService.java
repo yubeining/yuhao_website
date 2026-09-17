@@ -229,7 +229,8 @@ class CustomerOrderService {
                 order.getCreatedAt(), order.getSubmittedAt(), views);
     }
 
-    private List<OrderLineView> lineViews(UUID customerOrgId, List<CustomerOrderPart> orderLines) {
+    /** 运营端看单也用这一份（{@link OpsCustomerOrderService}），两端看到的行内容一致。 */
+    List<OrderLineView> lineViews(UUID customerOrgId, List<CustomerOrderPart> orderLines) {
         if (orderLines.isEmpty()) {
             return List.of();
         }

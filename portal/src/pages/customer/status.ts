@@ -7,13 +7,23 @@
 
 import type { PillSpec } from '../../components/ui'
 import type { LineStat, OrderStatus, PartExecStatus, Quote } from '../../mock/types'
-import type { OrderStatus as ApiOrderStatus } from '../../services'
+import type { OrderStatus as ApiOrderStatus, QuoteStatus as ApiQuoteStatus } from '../../services'
 
-/** 真订单的状态（后端现在只有这三个；报价、确认等随第 3 步加）。 */
+/** 真订单的状态（后端现在的五个；派单之后的状态随后续步骤加）。 */
 export const ORDER_ST: Record<ApiOrderStatus, PillSpec> = {
     DRAFT: ['ne', '草稿中'],
     SUBMITTED: ['in', '已提交'],
+    QUOTED: ['wa', '待确认报价'],
+    CONFIRMED: ['ok', '已确认报价'],
     CANCELLED: ['ba', '已取消'],
+}
+
+/** 真报价的状态。客户只会看到待确认 / 已确认两种。 */
+export const QUOTE_ST: Record<ApiQuoteStatus, PillSpec> = {
+    SENT: ['wa', '待确认'],
+    SUPERSEDED: ['ne', '已被重报取代'],
+    REJECTED: ['ba', '客户已拒绝'],
+    CONFIRMED: ['ok', '已确认'],
 }
 
 /** 订单状态。整条链就是它在推进。 */
