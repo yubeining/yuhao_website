@@ -15,7 +15,9 @@
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import { Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, TableWrap } from '../../components/ui'
+import {
+    Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { addProdLine, createProd, findCompany, freeParts } from '../../mock/actions'
 import { M, X } from '../../mock/format'
@@ -51,6 +53,7 @@ export function OpsDispatchPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="派单管理" sub="把客户订单的零件组成生产订单，再挂到订单市场" />
 
             <Card style={{ marginBottom: 18 }}>

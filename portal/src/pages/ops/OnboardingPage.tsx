@@ -8,7 +8,9 @@
 
 import { useState } from 'react'
 import { Field, FieldRow, Input, Select } from '../../components/form'
-import { Card, CardBody, CardHead, Empty, Hello, Page, Pill, TableWrap } from '../../components/ui'
+import {
+    Card, CardBody, CardHead, Empty, Hello, Page, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { approve, invite } from '../../mock/actions'
 import { X } from '../../mock/format'
@@ -39,11 +41,12 @@ export function OpsOnboardingPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="供应商入驻" />
 
             <Card>
                 <CardHead title="待考察供应商"
-                    right={<Pill tone={pending.length ? 'wa' : 'ne'} dot={false}>{pending.length} 家</Pill>} />
+                    right={pending.length ? <Pill tone="wa" dot={false}>{pending.length} 家</Pill> : undefined} />
                 {pending.length ? (
                     <CardBody flush>
                         <TableWrap>

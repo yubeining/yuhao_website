@@ -414,7 +414,7 @@ export const finishPricing = (s: MockState, orderId: string): Quote | undefined 
         total: +items.reduce((a, i) => a + i.total, 0).toFixed(2),
         wantLead: o.want ? o.want + ' 天' : X,
         inco: 'EXW',
-        valid: plus(s.params.validDays),
+        valid: s.params.validDays != null ? plus(s.params.validDays) : X,
         fx: s.params.fx!,
         status: 'open',
     }
@@ -569,7 +569,7 @@ export const publishProd = (s: MockState, prodId: string) => {
     if (!d || d.status !== 'draft' || !d.lines.length) return
     d.status = 'open'
     d.publishedAt = now()
-    d.exp = plusHours(s.params.grabHours)
+    d.exp = s.params.grabHours != null ? plusHours(s.params.grabHours) : undefined
     syncProd(s, d)
 }
 
@@ -722,7 +722,7 @@ export const repost = (s: MockState, prodId: string, pct: unknown) => {
     })
     retotal(d)
     d.status = 'open'
-    d.exp = plusHours(s.params.grabHours)
+    d.exp = s.params.grabHours != null ? plusHours(s.params.grabHours) : undefined
     d.reprice = (d.reprice || 0) + 1
     syncProd(s, d)
 }

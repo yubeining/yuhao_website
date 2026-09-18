@@ -145,6 +145,18 @@ export function Banner({ tone, icon, children, style }: {
     )
 }
 
+/**
+ * 原型页横幅。还没接后端的页面必须挂它（2026-09-18 需求方：原型页保留，假数据删除）。
+ * 页面上看到的空列表、「未设置」不代表线上真的没有 —— 只是这一页还没接真实数据。
+ */
+export function PrototypeBanner() {
+    return (
+        <Banner tone="wa" style={{ marginBottom: 14 }}>
+            <b>原型页，还没接真实数据。</b>这里显示的列表、数字、设置都不是线上数据，不要据此做决定。
+        </Banner>
+    )
+}
+
 /* ── 字段组 ───────────────────────────────────────────────────────── */
 
 export function Fields({ children }: { children: ReactNode }) {

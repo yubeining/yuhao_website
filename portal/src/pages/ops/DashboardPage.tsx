@@ -1,64 +1,34 @@
 /**
- * 内部工作台。
+ * 内部工作台 —— 原型页，还没接后端（2026-09-18：原型页保留，假数据删除）。
  *
- * ★ 只有「待考察供应商」会转黄 —— 那是唯一一件我方拖着不动就会出问题的事。
- *   其余三个是客户侧和供应商侧在推进的进度，我方看得见、但推不动，
- *   所以是纯计数，不该抢注意力，也不给行动按钮。
+ * ★ 只保留五个指标的名字和说明，值一律占位。接后端时：
+ *   只有「待考察供应商」该转黄 —— 那是唯一一件我方拖着不动就会出问题的事；
+ *   其余是客户侧和供应商侧在推进的进度，纯计数，不给行动按钮。
  */
 
-import { useNavigate } from 'react-router-dom'
-import { Card, CardBody, CardHead, Empty, Hello, Kpi, Kpis, Page, TableWrap } from '../../components/ui'
-import { useMock } from '../../mock/MockProvider'
-import { findCompany } from '../../mock/actions'
-import { money } from '../../mock/format'
-import { confirmedOrders, draftProds, openProds, orderTotal, pendingSuppliers, publishedOrders } from '../../mock/selectors'
+import {
+    Card, CardBody, CardHead, Empty, Hello, Kpi, Kpis, Page, PrototypeBanner,
+} from '../../components/ui'
+import { X } from '../../mock/format'
 
 export function OpsDashboardPage() {
-    const { state } = useMock()
-    const navigate = useNavigate()
-    const toPublish = confirmedOrders(state)
-    const finding = publishedOrders(state)
-    const pending = pendingSuppliers(state)
-
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="工作台" />
+            {/* ★ 下面的计数和列表还没接后端。以前显示的是原型数据仓算出来的数（包括「0」），
+                 线上明明有已确认的单也显示 0 —— 所以数字一律显示占位符，不显示计数。 */}
             <Kpis>
-                {/* ★ 「待安排生产」是运营自己的待办：客户确认了价，零件等着被组进生产订单 */}
-                <Kpi k="待安排生产" v={toPublish.length} d="已确认价格，等运营组包" alert={toPublish.length > 0} />
-                <Kpi k="组包中" v={draftProds(state).length} d="草稿，还没挂出去" />
-                <Kpi k="在挂生产订单" v={openProds(state).length} d="等供应商接单" />
-                <Kpi k="已安排生产" v={finding.length} d="产能还没锁满的客户订单" />
-                <Kpi k="待考察供应商" v={pending.length} d="已提交材料" alert={pending.length > 0} />
+                <Kpi k="待安排生产" v={X} d="已确认价格，等运营组包" />
+                <Kpi k="组包中" v={X} d="草稿，还没挂出去" />
+                <Kpi k="在挂生产订单" v={X} d="等供应商接单" />
+                <Kpi k="已安排生产" v={X} d="产能还没锁满的客户订单" />
+                <Kpi k="待考察供应商" v={X} d="已提交材料" />
             </Kpis>
 
             <Card>
                 <CardHead title="已确认价格，等运营组包" />
-                {toPublish.length ? (
-                    <CardBody flush>
-                        <TableWrap>
-                            <thead>
-                                <tr>
-                                    <th>订单</th><th>客户</th><th className="n">零件</th>
-                                    <th className="n">金额</th><th className="n">确认时间</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {toPublish.map((o) => (
-                                    <tr className="clk" key={o.id} onClick={() => navigate('/ops/dispatch')}>
-                                        <td><span className="m">{o.id}</span></td>
-                                        <td className="t1">{findCompany(state, o.companyId)?.name}</td>
-                                        <td className="n">{o.parts.length}</td>
-                                        <td className="n">{money(orderTotal(state, o))}</td>
-                                        <td className="n">{o.confirmedAt?.slice(0, 10) ?? '——'}</td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </TableWrap>
-                    </CardBody>
-                ) : (
-                    <CardBody><Empty text="没有等待发布的单" /></CardBody>
-                )}
+                <CardBody><Empty text="还没接真实数据" sub="已确认报价的订单目前在「报价 → 已确认」里看" /></CardBody>
             </Card>
         </Page>
     )

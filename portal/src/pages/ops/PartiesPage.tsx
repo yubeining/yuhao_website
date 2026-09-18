@@ -6,7 +6,9 @@
  *   帮你做零件的厂子，自己也要从别处买零件。
  */
 
-import { Card, CardBody, Hello, Page, Pill, TableWrap, Tier } from '../../components/ui'
+import {
+    Card, CardBody, Hello, Page, Pill, PrototypeBanner, TableWrap, Tier,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import type { PartyKind } from '../../mock/types'
 
@@ -23,6 +25,7 @@ export function OpsPartiesPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="交易方" />
             <Card>
                 <CardBody flush>

@@ -12,8 +12,7 @@
  */
 
 import { DEFAULT_PARAMS, DEFAULT_RATES, type PlatformParams, type Rate } from './params'
-import { X, today } from './format'
-import type { Company, Db, Seq, User } from './types'
+import type { Db, Seq } from './types'
 
 /** 当前登录态。原型里的 S。 */
 export interface MockSession {
@@ -32,11 +31,12 @@ export interface MockState {
     session: MockSession
 }
 
+// v6：演示种子删掉了（2026-09-18）。换 key 让停在旧存档上的会话丢掉那批假数据。
 // v5：派单包（Pkg）换成了生产订单（Prod），存档结构变了，老存档读不了。
 // v4：定价参数和材料成本带上了演示种子（params.ts）。种子只在 loadState 取不到
 // 存档时才播，所以停在旧存档上的会话吃不到它 —— 换 key 是让它们重播一次，
 // 否则打开还是「一条材料都没配」。
-const STORAGE_KEY = 'mfg.prototype.v5'
+const STORAGE_KEY = 'mfg.prototype.v6'
 
 const emptyDb = (): Db => ({
     companies: [],
@@ -57,61 +57,20 @@ const emptySeq = (): Seq => ({
 export const nextId = (seq: Seq, k: keyof Seq) =>
     `${k.toUpperCase()}-${String(++seq[k]).padStart(4, '0')}`
 
-const addCompany = (s: MockState, o: Partial<Company> & { name: string; kind: Company['kind'] }): Company => {
-    const c: Company = { status: 'active', ...o, id: 'C' + ++s.seq.cid }
-    s.db.companies.push(c)
-    return c
-}
-
-const addUser = (s: MockState, o: Omit<User, 'id' | 'verified'> & { verified?: boolean }): User => {
-    const u: User = { verified: true, ...o, id: 'U' + ++s.seq.uid }
-    s.db.users.push(u)
-    return u
-}
-
 /**
- * 种子数据：平台自己 + 一家已开通的供应商 + 一个客户 + 一个内部账号。
+ * 初始状态：空的。
  *
- * ★ 刻意保持匿名（「客户 A 公司」「材料 A」「设备类型 1」）——
- *   原型要给外部看，真实客户名和工艺参数不能进演示数据。
+ * ★ 2026-09-18 需求方决定「原型页保留，假数据删除」。原来这里播种的平台公司、「供应商 A」「客户 A 公司」、
+ *   三个演示账号和一条供应商邀请都已删掉 —— 登录早已走真后端，这些只会让原型页显示编出来的交易方和计数。
+ *   原型页现在显示空状态；页面顶上的横幅写明还没接真实数据。
  */
-export const seed = (): MockState => {
-    const s: MockState = {
-        db: emptyDb(),
-        seq: emptySeq(),
-        params: { ...DEFAULT_PARAMS },
-        rates: DEFAULT_RATES.map((r) => ({ ...r })),
-        session: { userId: null, roleIndex: 0 },
-    }
-
-    const plat = addCompany(s, { name: '融一智造', kind: 'platform' })
-    const supA = addCompany(s, {
-        name: '供应商 A', kind: 'supplier', status: 'active', tier: 'A',
-        code: X, addr: X, contact: X, phone: X, bank: X, acct: X,
-        machines: [
-            { type: '设备类型 1', qty: '', size: '', prec: '' },
-            { type: '设备类型 2', qty: '', size: '', prec: '' },
-        ],
-        scope: '全部品类',
-    })
-    const custA = addCompany(s, { name: '客户 A 公司', kind: 'customer', status: 'active', country: X })
-
-    addUser(s, { name: '内部 C', mail: 'staff-c@example.com', pw: '123456', roles: [{ role: 'ops', companyId: plat.id }] })
-    addUser(s, { name: '客户 A', mail: 'customer-a@example.com', pw: '123456', roles: [{ role: 'customer', companyId: custA.id }] })
-    addUser(s, {
-        name: '用户 B', mail: 'user-b@example.com', pw: '123456',
-        roles: [{ role: 'supplier', companyId: supA.id }, { role: 'customer', companyId: supA.id }],
-    })
-    // 同一家企业既接单又下单 —— 身份切换菜单要有东西可切才看得出设计意图
-    supA.kind = 'both'
-
-    s.db.invites.push({
-        id: 'IV0', name: '供应商 B', mail: 'supplier-b@example.com',
-        at: today(), used: false,
-    })
-
-    return s
-}
+export const seed = (): MockState => ({
+    db: emptyDb(),
+    seq: emptySeq(),
+    params: { ...DEFAULT_PARAMS },
+    rates: DEFAULT_RATES.map((r) => ({ ...r })),
+    session: { userId: null, roleIndex: 0 },
+})
 
 export const loadState = (): MockState => {
     try {

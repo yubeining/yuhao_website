@@ -63,17 +63,6 @@ export const prodsOf = (s: MockState, orderId: string): Prod[] =>
 export const contractOf = (s: MockState, prodId: string) =>
     s.db.contracts.find((c) => c.prodId === prodId)
 
-export const openProds = (s: MockState) => s.db.prods.filter((d) => d.status === 'open')
-
-/** 还在组、没挂出去的生产订单 —— 运营的在途工作 */
-export const draftProds = (s: MockState) => s.db.prods.filter((d) => d.status === 'draft')
-
-/** 已确认价格、等着发布到订单市场的订单 —— 内部端的待办 */
-export const confirmedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'toPublish')
-
-/** 已安排生产、产能还没锁满的订单 */
-export const publishedOrders = (s: MockState) => s.db.orders.filter((o) => o.status === 'published')
-
 export const pendingSuppliers = (s: MockState) =>
     s.db.companies.filter((c) => c.status === 'review')
 

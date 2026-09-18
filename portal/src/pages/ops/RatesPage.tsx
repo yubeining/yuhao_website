@@ -11,7 +11,9 @@
 
 import { useState } from 'react'
 import { Field, FieldRow, Input } from '../../components/form'
-import { Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, Stack, TableWrap } from '../../components/ui'
+import {
+    Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, PrototypeBanner, Stack, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { addRate, saveRates } from '../../mock/actions'
 
@@ -49,6 +51,7 @@ export function OpsRatesPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello
                 title="定价参数"
                 right={

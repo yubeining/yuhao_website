@@ -16,8 +16,7 @@ import { useState } from 'react'
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
-    Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld,
-    Hello, Page, TableWrap,
+    Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, PrototypeBanner, TableWrap,
 } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import {
@@ -54,6 +53,7 @@ export function OpsProdPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello
                 back={<Link className="btn sm qui" to="/ops/dispatch" style={{ margin: '0 0 6px -9px' }}>← 派单管理</Link>}
                 title={prod.id}

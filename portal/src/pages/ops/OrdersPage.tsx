@@ -10,7 +10,9 @@
  */
 
 import { Link } from 'react-router-dom'
-import { Bar, Card, CardBody, Empty, Hello, Page, Pill, pill, TableWrap } from '../../components/ui'
+import {
+    Bar, Card, CardBody, Empty, Hello, Page, pill, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { custPaid, deliver, findCompany } from '../../mock/actions'
 import { money } from '../../mock/format'
@@ -23,6 +25,7 @@ export function OpsOrdersPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="订单" />
             <Card>
                 {orders.length ? (
