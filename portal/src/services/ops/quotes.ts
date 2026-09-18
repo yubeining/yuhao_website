@@ -66,6 +66,19 @@ export interface SendQuoteInput {
     lines: { lineId: string; unitPriceCny: number }[]
 }
 
+/** 订单最新一版报价的版本号和状态。没报过价的单不在结果里。 */
+export interface OpsQuoteSummaryView {
+    orderId: string
+    latestVersionNo: number
+    latestStatus: QuoteStatus
+}
+
+/** 一次最多 200 个订单。 */
+export function listQuoteSummaries(orderIds: string[]): Promise<OpsQuoteSummaryView[]> {
+    if (!orderIds.length) return Promise.resolve([])
+    return http.get<OpsQuoteSummaryView[]>(`/ops/quote-summaries?orderIds=${orderIds.join(',')}`)
+}
+
 export function getCustomerMarkup(orgId: string): Promise<MarkupView> {
     return http.get<MarkupView>(`/ops/customers/${orgId}/markup`)
 }

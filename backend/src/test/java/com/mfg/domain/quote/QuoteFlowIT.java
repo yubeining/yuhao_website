@@ -266,6 +266,14 @@ class QuoteFlowIT {
         ResponseEntity<String> res = confirm(c, o, quoteId, DAY1);
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(503);
         assertThat(orderStatus(o)).isEqualTo("QUOTED");
+
+        // 列表不因为没有汇率整页失败：这一条只是没有价格
+        ResponseEntity<String> list = rawGet("/customer/quotes", c.token());
+        assertThat(list.getStatusCode().value()).as(list.getBody()).isEqualTo(200);
+        JsonNode item = json.readTree(list.getBody()).path("data").path("items").get(0);
+        assertThat(item.path("id").asText()).isEqualTo(quoteId);
+        assertThat(item.has("total")).isFalse();
+        assertThat(item.has("rateDate")).isFalse();
     }
 
     // ---------- 重报 / 拒绝 ----------
@@ -310,13 +318,87 @@ class QuoteFlowIT {
         assertThat(orderStatus(o)).isEqualTo("SUBMITTED");
         assertThat(jdbc.queryForObject("select status from quote where id = ?", String.class, UUID.fromString(v1)))
                 .isEqualTo("REJECTED");
-        assertThat(rawGet("/customer/orders/" + o.id() + "/quote", c.token()).getStatusCode().value()).isEqualTo(404);
+        // 拒绝后客户仍能看到这一版（标明已拒绝，没有价格），不是「暂无报价」
+        ResponseEntity<String> rejected = rawGet("/customer/orders/" + o.id() + "/quote", c.token());
+        assertThat(rejected.getStatusCode().value()).as(rejected.getBody()).isEqualTo(200);
+        JsonNode rq = json.readTree(rejected.getBody()).path("data");
+        assertThat(rq.path("status").asText()).isEqualTo("REJECTED");
+        assertThat(rq.has("total")).isFalse();
+        assertThat(rq.path("lines").get(0).has("unitPrice")).isFalse();
+        // 客户报价列表只列待确认和已确认的
+        assertThat(get("/customer/quotes", c.token()).path("data").path("total").asInt()).isZero();
         assertConflict(confirm(c, o, v1, DAY1), "quote.not_open");
+
+        // 运营端能看出这张待报价的单被拒过
+        JsonNode summary = get("/ops/quote-summaries?orderIds=" + o.id(), ops).path("data");
+        assertThat(summary).hasSize(1);
+        assertThat(summary.get(0).path("orderId").asText()).isEqualTo(o.id());
+        assertThat(summary.get(0).path("latestVersionNo").asInt()).isEqualTo(1);
+        assertThat(summary.get(0).path("latestStatus").asText()).isEqualTo("REJECTED");
 
         JsonNode v2 = sendQuote(ops, o, "EUR", 25, "90.00");
         assertThat(v2.path("versionNo").asInt()).isEqualTo(2);
         assertThat(orderStatus(o)).isEqualTo("QUOTED");
         assertThat(opsQuotes(ops, o).get(1).path("status").asText()).isEqualTo("REJECTED");
+        assertThat(customerQuote(c, o).path("status").asText()).isEqualTo("SENT");
+        assertThat(get("/ops/quote-summaries?orderIds=" + o.id(), ops).path("data").get(0).path("latestStatus").asText())
+                .isEqualTo("SENT");
+    }
+
+    @Test
+    void quoteSummariesOnlyCoverOrdersThatHaveQuotesAndRejectBadInput() throws Exception {
+        Customer c = register("summary");
+        Order quoted = submittedOrder(c, 1);
+        Order fresh = submittedOrder(c, 1);
+        String ops = opsToken();
+        setMarkup(ops, c.orgId(), "1.2");
+        sendQuote(ops, quoted, "EUR", 25, "100.00");
+        sendQuote(ops, quoted, "EUR", 25, "110.00");
+
+        JsonNode summary = get("/ops/quote-summaries?orderIds=" + quoted.id() + "," + fresh.id(), ops).path("data");
+        assertThat(summary).hasSize(1);
+        assertThat(summary.get(0).path("latestVersionNo").asInt()).isEqualTo(2);
+        assertThat(summary.get(0).path("latestStatus").asText()).isEqualTo("SENT");
+
+        assertThat(rawGet("/ops/quote-summaries?orderIds=not-a-uuid", ops).getStatusCode().value()).isEqualTo(400);
+        StringBuilder many = new StringBuilder();
+        for (int i = 0; i < 201; i++) {
+            many.append(i == 0 ? "" : ",").append(UUID.randomUUID());
+        }
+        assertThat(rawGet("/ops/quote-summaries?orderIds=" + many, ops).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawGet("/ops/quote-summaries?orderIds=" + quoted.id(), c.token()).getStatusCode().value())
+                .isEqualTo(403);
+    }
+
+    /** 两个运营同时给同一个客户第一次设加成率：两个都成功（后写的生效），不能有一个 500。 */
+    @Test
+    void settingTheFirstMarkupConcurrentlyNeverFails() throws Exception {
+        String ops = opsToken();
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 15; round++) {
+                Customer c = register("race-markup-" + round);
+                CyclicBarrier go = new CyclicBarrier(2);
+                List<Future<ResponseEntity<String>>> puts = new ArrayList<>();
+                for (String rate : List.of("1.1", "1.3")) {
+                    puts.add(pool.submit(() -> {
+                        go.await();
+                        return rawPut("/ops/customers/" + c.orgId() + "/markup", new MarkupBody(new BigDecimal(rate)), ops);
+                    }));
+                }
+                for (Future<ResponseEntity<String>> f : puts) {
+                    ResponseEntity<String> res = f.get();
+                    assertThat(res.getStatusCode().value()).as("round %d: %s", round, res.getBody()).isEqualTo(200);
+                }
+                assertThat(jdbc.queryForObject("select count(*) from customer_markup where customer_org_id = ?",
+                        Long.class, c.orgId())).isEqualTo(1);
+                BigDecimal rate = get("/ops/customers/" + c.orgId() + "/markup", ops).path("data").path("markupRate")
+                        .decimalValue();
+                assertThat(List.of("1.1", "1.3")).contains(rate.stripTrailingZeros().toPlainString());
+            }
+        } finally {
+            pool.shutdownNow();
+        }
     }
 
     // ---------- 运营发报价的校验 ----------

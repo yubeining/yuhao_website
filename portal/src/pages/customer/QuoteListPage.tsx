@@ -57,7 +57,9 @@ export function QuoteListPage() {
                                         <td className="t2">
                                             {q.priceLocked
                                                 ? `已锁定（汇率日期 ${q.rateDate ?? X}）`
-                                                : `按 ${q.rateDate ?? X} 汇率，确认前会变`}
+                                                : q.rateDate
+                                                    ? `按 ${q.rateDate} 汇率，确认前会变`
+                                                    : '暂时取不到汇率，价格稍后显示'}
                                         </td>
                                         <td className="n">确认后 {q.leadDays} 天</td>
                                         <td className="n">{fmtDateTime(new Date(q.sentAt))}</td>

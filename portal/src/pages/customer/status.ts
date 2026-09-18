@@ -22,7 +22,7 @@ export const ORDER_ST: Record<ApiOrderStatus, PillSpec> = {
 export const QUOTE_ST: Record<ApiQuoteStatus, PillSpec> = {
     SENT: ['wa', '待确认'],
     SUPERSEDED: ['ne', '已被重报取代'],
-    REJECTED: ['ba', '客户已拒绝'],
+    REJECTED: ['ba', '已拒绝'],
     CONFIRMED: ['ok', '已确认'],
 }
 

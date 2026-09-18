@@ -39,7 +39,13 @@ import java.util.stream.Collectors;
 @Service
 class QuoteService {
 
+    /** 客户报价列表只列这两种。 */
     private static final Set<Quote.Status> CUSTOMER_VISIBLE = Set.of(Quote.Status.SENT, Quote.Status.CONFIRMED);
+    /** 订单详情里「当前报价」：还包括刚被自己拒绝的那一版，好让客户知道在等重报，而不是显示「暂无报价」。 */
+    private static final Set<Quote.Status> CUSTOMER_CURRENT =
+            Set.of(Quote.Status.SENT, Quote.Status.CONFIRMED, Quote.Status.REJECTED);
+    /** 一次最多查多少张单的报价标记（运营列表一页的量级）。 */
+    static final int MAX_SUMMARY_ORDERS = 200;
 
     private final QuoteRepository quotes;
     private final QuoteLineRepository quoteLines;
@@ -75,10 +81,8 @@ class QuoteService {
     @Transactional
     public MarkupView setMarkup(UUID customerOrgId, BigDecimal markupRate) {
         requireCustomer(customerOrgId);
-        CustomerMarkup markup = markups.findByCustomerOrgId(customerOrgId)
-                .orElseGet(() -> new CustomerMarkup(customerOrgId, markupRate));
-        markup.changeRate(markupRate);
-        return markupView(markups.saveAndFlush(markup));
+        markups.upsert(UUID.randomUUID(), customerOrgId, markupRate, Instant.now());
+        return markups.findByCustomerOrgId(customerOrgId).map(QuoteService::markupView).orElseThrow();
     }
 
     // ---------- 运营：报价 ----------
@@ -149,15 +153,37 @@ class QuoteService {
                 .toList();
     }
 
+    /** 运营列表用：这些订单各自最新一版报价的状态（比如看出哪张「待报价」的单是被客户拒过的）。 */
+    @Transactional(readOnly = true)
+    public List<OpsQuoteSummaryView> summaries(List<UUID> orderIds) {
+        if (orderIds.size() > MAX_SUMMARY_ORDERS) {
+            throw BusinessException.badRequest("common.bad_request");
+        }
+        if (orderIds.isEmpty()) {
+            return List.of();
+        }
+        return quotes.findLatestByCustomerOrderIdIn(orderIds).stream()
+                .map(q -> new OpsQuoteSummaryView(q.getCustomerOrderId(), q.getVersionNo(), q.getStatus().name()))
+                .toList();
+    }
+
     // ---------- 客户 ----------
 
-    /** 当前报价：待确认的（按最新汇率算）或已确认的（快照）。都没有 → 404。 */
+    /**
+     * 当前报价：待确认的（按最新汇率算）、已确认的（快照）或刚拒绝的（没有价格）里版本最新的一条。都没有 → 404。
+     * 待确认的算不出价（没有汇率）→ 503，不给一个没有价格的待确认报价。
+     */
     @Transactional(readOnly = true)
     public CustomerQuoteView current(UUID customerOrgId, UUID orderId) {
         Quote quote = quotes.findFirstByCustomerOrderIdAndCustomerOrgIdAndStatusInOrderByVersionNoDesc(
-                        orderId, customerOrgId, CUSTOMER_VISIBLE)
+                        orderId, customerOrgId, CUSTOMER_CURRENT)
                 .orElseThrow(() -> BusinessException.notFound("quote.not_found"));
-        return customerView(quote, linesOf(quote), quote.getStatus() == Quote.Status.SENT ? requireFx() : null);
+        CustomerQuoteView view = customerView(quote, linesOf(quote),
+                quote.getStatus() == Quote.Status.SENT ? requireFx() : null);
+        if (quote.getStatus() == Quote.Status.SENT && view.total() == null) {
+            throw fxUnavailable();
+        }
+        return view;
     }
 
     @Transactional(readOnly = true)
@@ -167,7 +193,8 @@ class QuoteService {
         Map<UUID, List<QuoteLine>> linesByQuote = linesByQuote(customerOrgId, content);
         Map<UUID, String> titles = orders.titles(customerOrgId,
                 content.stream().map(Quote::getCustomerOrderId).collect(Collectors.toSet()));
-        LatestFx fx = content.stream().anyMatch(q -> q.getStatus() == Quote.Status.SENT) ? requireFx() : null;
+        // 没有汇率时待确认的那几条没有价格，列表照样返回（不因为一条算不出来整页失败）
+        LatestFx fx = latestFx().orElse(null);
         return PagedResponse.of(page, q -> {
             CustomerQuoteView v = customerView(q, linesByQuote.getOrDefault(q.getId(), List.of()), fx);
             return new CustomerQuoteSummaryView(v.id(), v.orderId(), titles.get(v.orderId()), v.status(),
@@ -295,11 +322,9 @@ class QuoteService {
                 p == null ? null : p.priced().total(), views);
     }
 
+    /** 算不出价（待确认但没有汇率 / 作废 / 被拒）时价格字段为空，由调用方决定要不要报错。 */
     private static CustomerQuoteView customerView(Quote quote, List<QuoteLine> lines, LatestFx fx) {
         Pricing p = pricing(quote, lines, fx).orElse(null);
-        if (p == null && quote.getStatus() == Quote.Status.SENT) {
-            throw fxUnavailable();
-        }
         List<CustomerQuoteLineView> views = new ArrayList<>();
         for (int i = 0; i < lines.size(); i++) {
             QuoteLine l = lines.get(i);

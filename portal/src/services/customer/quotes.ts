@@ -52,12 +52,15 @@ export interface CustomerQuoteSummaryView {
     confirmedAt?: string | null
 }
 
-/** 待确认和已确认的报价，最近发出的在前。 */
+/** 待确认和已确认的报价，最近发出的在前。取不到汇率时待确认的那几条没有 total / rateDate。 */
 export function listMyQuotes(page = 1, pageSize = 20): Promise<PagedResponse<CustomerQuoteSummaryView>> {
     return http.get<PagedResponse<CustomerQuoteSummaryView>>(`/customer/quotes?page=${page}&pageSize=${pageSize}`)
 }
 
-/** 订单当前的报价。没有 → 404 quote.not_found。 */
+/**
+ * 订单当前的报价：待确认、已确认或刚被自己拒绝的那一版（拒绝的没有价格）。没有 → 404 quote.not_found。
+ * 待确认但暂时取不到汇率 → 503 quote.fx_unavailable。
+ */
 export function getOrderQuote(orderId: string): Promise<CustomerQuoteView> {
     return http.get<CustomerQuoteView>(`/customer/orders/${orderId}/quote`)
 }

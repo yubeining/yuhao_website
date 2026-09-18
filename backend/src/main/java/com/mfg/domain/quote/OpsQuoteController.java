@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
@@ -74,6 +75,12 @@ class OpsQuoteController {
     @PostMapping("/ops/customer-orders/{orderId}/quotes/preview")
     QuotePreviewView preview(@PathVariable UUID orderId, @Valid @RequestBody SendQuoteRequest request) {
         return service.preview(orderId, request.quoteCurrency(), request.inputs());
+    }
+
+    /** 这些订单各自最新一版报价的状态。{@code orderIds} 逗号分隔，最多 200 个；没报过价的不在结果里。 */
+    @GetMapping("/ops/quote-summaries")
+    List<OpsQuoteSummaryView> summaries(@RequestParam List<UUID> orderIds) {
+        return service.summaries(orderIds);
     }
 
     /** 全部版本，新的在前。 */

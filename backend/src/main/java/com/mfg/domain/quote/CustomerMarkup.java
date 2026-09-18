@@ -14,6 +14,7 @@ import java.util.UUID;
  * 客户加成率：每个客户一个数，运营填（设计文档 13 §2.1）。对客价 = 原价 × 汇率 × 本值，1.2 = 加价 20%（2026-09-17）。
  *
  * <p>放在报价域自己的表里，不往客户资料（platform/identity）加列。已发出的报价另存快照，改这里不影响它们。
+ * 只读实体：写入走 {@link CustomerMarkupRepository#upsert}（并发安全）。
  */
 @Entity
 @Table(name = "customer_markup")
@@ -27,15 +28,6 @@ class CustomerMarkup extends BaseEntity {
     private BigDecimal markupRate;
 
     protected CustomerMarkup() {
-    }
-
-    CustomerMarkup(UUID customerOrgId, BigDecimal markupRate) {
-        this.customerOrgId = customerOrgId;
-        this.markupRate = markupRate;
-    }
-
-    void changeRate(BigDecimal markupRate) {
-        this.markupRate = markupRate;
     }
 
     UUID getCustomerOrgId() {

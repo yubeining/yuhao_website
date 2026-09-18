@@ -26,6 +26,11 @@ interface QuoteRepository extends JpaRepository<Quote, UUID> {
     Optional<Quote> findFirstByCustomerOrderIdAndCustomerOrgIdAndStatusInOrderByVersionNoDesc(
             UUID customerOrderId, UUID customerOrgId, Collection<Quote.Status> statuses);
 
+    /** 每张订单最新的一版（版本号最大的那条）。 */
+    @Query("select q from Quote q where q.customerOrderId in :orderIds and q.versionNo ="
+            + " (select max(x.versionNo) from Quote x where x.customerOrderId = q.customerOrderId)")
+    List<Quote> findLatestByCustomerOrderIdIn(@Param("orderIds") Collection<UUID> customerOrderIds);
+
     Page<Quote> findByCustomerOrgIdAndStatusIn(UUID customerOrgId, Collection<Quote.Status> statuses,
                                               Pageable pageable);
 }

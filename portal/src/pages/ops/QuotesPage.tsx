@@ -11,8 +11,10 @@ import { Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '.
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, X } from '../../mock/format'
-import { listOpsOrders, type OpsOrderSummaryView, type OrderStatus } from '../../services'
-import { ORDER_ST } from '../customer/status'
+import {
+    listOpsOrders, listQuoteSummaries, type OpsOrderSummaryView, type OpsQuoteSummaryView, type OrderStatus,
+} from '../../services'
+import { ORDER_ST, QUOTE_ST } from '../customer/status'
 
 const TABS: [OrderStatus, string][] = [
     ['SUBMITTED', '待报价'],
@@ -25,6 +27,8 @@ export function OpsQuotesPage() {
     const navigate = useNavigate()
     const [tab, setTab] = useState<OrderStatus>('SUBMITTED')
     const [orders, setOrders] = useState<OpsOrderSummaryView[] | null>(null)
+    /** 每张单最新一版报价。「待报价」里有这一项且是被拒的，说明是客户拒绝后退回来的，不是新单。 */
+    const [latest, setLatest] = useState<Record<string, OpsQuoteSummaryView>>({})
     const [total, setTotal] = useState(0)
     const [err, setErr] = useState<string | null>(null)
 
@@ -32,6 +36,8 @@ export function OpsQuotesPage() {
         setOrders(null)
         try {
             const page = await listOpsOrders(tab, 1, 100)
+            const summaries = await listQuoteSummaries(page.items.map((o) => o.id))
+            setLatest(Object.fromEntries(summaries.map((q) => [q.orderId, q])))
             setOrders(page.items)
             setTotal(page.total)
             setErr(null)
@@ -69,7 +75,7 @@ export function OpsQuotesPage() {
                             <thead>
                                 <tr>
                                     <th>订单</th><th>客户</th><th className="n">零件</th><th className="n">总件数</th>
-                                    <th className="n">客户期望交期</th><th className="n">提交时间</th><th>状态</th>
+                                    <th className="n">客户期望交期</th><th className="n">提交时间</th><th>状态</th><th>报价</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -82,6 +88,11 @@ export function OpsQuotesPage() {
                                         <td className="n">{o.wantedLeadDays ? `${o.wantedLeadDays} 天（仅参考）` : X}</td>
                                         <td className="n">{o.submittedAt ? fmtDateTime(new Date(o.submittedAt)) : X}</td>
                                         <td>{pill(ORDER_ST[o.status])}</td>
+                                        <td>
+                                            {latest[o.id]
+                                                ? <>{pill(QUOTE_ST[latest[o.id].latestStatus])} <span className="t2">第 {latest[o.id].latestVersionNo} 版</span></>
+                                                : <span className="t2">未报过</span>}
+                                        </td>
                                     </tr>
                                 ))}
                             </tbody>

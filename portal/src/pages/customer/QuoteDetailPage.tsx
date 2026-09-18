@@ -5,6 +5,7 @@
  * ★ 确认前价格按最新汇率现算，会变 —— 确认按钮上方必须写明，否则客户看到数字莫名其妙地变。
  *   确认时把看到的汇率日期带回去，服务端汇率已更新就拒绝，页面刷新成新价格让客户重看。
  * ★ 拒绝后订单回到「已提交」，等平台重新报价；拒绝不收原因（没定要不要收）。
+ *   拒绝的那一版仍然显示（没有价格），并写明在等重报 —— 不显示成「暂无报价」，否则客户不知道发生了什么。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -67,6 +68,7 @@ export function QuoteDetailPage() {
     }
 
     const open = quote.status === 'SENT'
+    const rejected = quote.status === 'REJECTED'
 
     const act = async (fn: () => Promise<CustomerQuoteView>) => {
         setBusy(true)
@@ -89,11 +91,7 @@ export function QuoteDetailPage() {
 
     const reject = () => {
         if (!window.confirm('拒绝这份报价？订单会退回，等平台重新报价。')) return
-        void act(async () => {
-            const r = await rejectQuote(quote.orderId, quote.id)
-            setMissing(true)
-            return r
-        })
+        void act(() => rejectQuote(quote.orderId, quote.id))
     }
 
     return (
@@ -115,6 +113,11 @@ export function QuoteDetailPage() {
                     价格按 <b>{quote.rateDate ?? X}</b> 的汇率计算，<b>确认前会随汇率变动</b>；点「确认价格」时按当时显示的价格锁定。
                 </Banner>
             )}
+            {rejected && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    你已拒绝这份报价，订单已退回，等平台重新报价。新报价出来后会显示在这里。
+                </Banner>
+            )}
             {quote.status === 'CONFIRMED' && (
                 <Banner tone="ok" style={{ marginBottom: 14 }}>
                     已于 {quote.confirmedAt ? fmtDateTime(new Date(quote.confirmedAt)) : X} 确认，价格已锁定（汇率日期 {quote.rateDate ?? X}）。
@@ -128,7 +131,7 @@ export function QuoteDetailPage() {
                         <Fld k="币种" v={quote.currency} mono />
                         <Fld k="交期" v={`确认后 ${quote.leadDays} 天`} />
                         <Fld k="报价时间" v={fmtDateTime(new Date(quote.sentAt))} mono />
-                        <Fld k="汇率日期" v={quote.rateDate ?? X} mono />
+                        {!rejected && <Fld k="汇率日期" v={quote.rateDate ?? X} mono />}
                     </Fields>
                 </CardBody>
             </Card>
@@ -140,7 +143,8 @@ export function QuoteDetailPage() {
                         <thead>
                             <tr>
                                 <th className="n">#</th><th>图号</th><th>名称</th>
-                                <th className="n">数量</th><th className="n">单价</th><th className="n">小计</th>
+                                <th className="n">数量</th>
+                                {!rejected && <><th className="n">单价</th><th className="n">小计</th></>}
                             </tr>
                         </thead>
                         <tbody>
@@ -150,14 +154,18 @@ export function QuoteDetailPage() {
                                     <td><span className="m">{l.code}</span></td>
                                     <td className="t1">{l.partName}</td>
                                     <td className="n">{l.quantity}</td>
-                                    <td className="n">{fmtMoney(l.unitPrice, quote.currency)}</td>
-                                    <td className="n">{fmtMoney(l.lineTotal, quote.currency)}</td>
+                                    {!rejected && <>
+                                        <td className="n">{fmtMoney(l.unitPrice, quote.currency)}</td>
+                                        <td className="n">{fmtMoney(l.lineTotal, quote.currency)}</td>
+                                    </>}
                                 </tr>
                             ))}
-                            <tr>
-                                <td colSpan={5} className="n"><b>总计</b></td>
-                                <td className="n"><b>{fmtMoney(quote.total, quote.currency)}</b></td>
-                            </tr>
+                            {!rejected && (
+                                <tr>
+                                    <td colSpan={5} className="n"><b>总计</b></td>
+                                    <td className="n"><b>{fmtMoney(quote.total, quote.currency)}</b></td>
+                                </tr>
+                            )}
                         </tbody>
                     </TableWrap>
                 </CardBody>
