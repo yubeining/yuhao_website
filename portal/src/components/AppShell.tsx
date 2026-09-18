@@ -231,7 +231,6 @@ export function CustomerShell({ children }: { children: ReactNode }) {
 
 const SUP_NAV: NavItem[] = [
     { sec: '接单' },
-    { to: '/supplier/won', ic: '◱', n: '我抢到的' },
     { to: '/supplier/orders', ic: '▣', n: '我的订单' },
     { sec: '结算' },
     { to: '/supplier/bill', ic: '¥', n: '对账与开票' },

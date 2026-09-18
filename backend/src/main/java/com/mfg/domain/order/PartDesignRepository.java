@@ -17,6 +17,9 @@ interface PartDesignRepository extends JpaRepository<PartDesign, UUID> {
 
     List<PartDesign> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
 
+    /** 派单用（运营 / 供应商端，跨客户）：id 来自生产订单的行，不来自请求。 */
+    List<PartDesign> findByIdIn(Collection<UUID> ids);
+
     /** 同一客户同一图号 = 同一个零件(D16)。 */
     boolean existsByCustomerOrgIdAndCode(UUID customerOrgId, String code);
 }

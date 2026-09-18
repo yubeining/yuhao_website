@@ -32,6 +32,9 @@ interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UUID> {
 
     List<CustomerOrder> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
 
+    /** 运营端派单池：已确认报价的单（跨客户）。 */
+    List<CustomerOrder> findByStatusOrderBySubmittedAtAsc(CustomerOrder.Status status);
+
     /** 运营端报价前锁单（跨客户，同 {@link #lockByIdAndCustomerOrgId} 的锁）。草稿不返回。 */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select o from CustomerOrder o where o.id = :id and o.submittedAt is not null")

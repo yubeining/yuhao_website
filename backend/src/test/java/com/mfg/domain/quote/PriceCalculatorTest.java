@@ -81,4 +81,24 @@ class PriceCalculatorTest {
         return PriceCalculator.unitPrice(new BigDecimal(cny), new BigDecimal(markup),
                 new PriceCalculator.Rates(eurCny, eurQuote));
     }
+
+    // ---------- 对供价（2026-09-18：原价 × 折率，0.8 = 乘 0.8；取整沿用对客价的规则） ----------
+
+    @Test
+    void supplierPriceIsTheBasePriceTimesTheDiscount() {
+        assertThat(PriceCalculator.supplierUnitPrice(new BigDecimal("100.00"), new BigDecimal("0.8")))
+                .isEqualByComparingTo("80.00");
+        assertThat(PriceCalculator.supplierUnitPrice(new BigDecimal("25.00"), new BigDecimal("0.9")))
+                .isEqualByComparingTo("22.50");
+    }
+
+    @Test
+    void supplierPriceRoundsHalfUpToTwoDecimals() {
+        // 10.05 × 0.85 = 8.5425 → 8.54；10.07 × 0.85 = 8.5595 → 8.56
+        assertThat(PriceCalculator.supplierUnitPrice(new BigDecimal("10.05"), new BigDecimal("0.85")))
+                .isEqualByComparingTo("8.54");
+        assertThat(PriceCalculator.supplierUnitPrice(new BigDecimal("10.07"), new BigDecimal("0.85")))
+                .isEqualByComparingTo("8.56");
+        assertThat(PriceCalculator.supplierUnitPrice(new BigDecimal("0.10"), new BigDecimal("0.25")).scale()).isEqualTo(2);
+    }
 }

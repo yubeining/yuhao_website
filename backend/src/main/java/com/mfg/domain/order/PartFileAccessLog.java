@@ -36,7 +36,11 @@ class PartFileAccessLog {
     }
 
     enum ContextType {
-        CUSTOMER_ORDER
+        CUSTOMER_ORDER,
+        /** 供应商在派单阶段看图（接单前） */
+        OPS_ORDER,
+        /** 供应商接单后看图 */
+        SUPPLIER_ORDER
     }
 
     @Id

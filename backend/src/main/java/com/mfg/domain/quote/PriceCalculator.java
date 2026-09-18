@@ -39,6 +39,14 @@ final class PriceCalculator {
                 .divide(rates.eurCny(), SCALE, RoundingMode.HALF_UP);
     }
 
+    /**
+     * 对供单价 = 原价 × 该供应商折率（文档 13 §2.2；2026-09-18 拍板 0.8 = 乘 0.8）。都是人民币，不经汇率。
+     * 取整沿用对客价的规则：2 位四舍五入（推导，前提是没单独定，同一套写法最不容易对不上）。
+     */
+    static BigDecimal supplierUnitPrice(BigDecimal baseUnitPriceCny, BigDecimal discountRate) {
+        return baseUnitPriceCny.multiply(discountRate).setScale(SCALE, RoundingMode.HALF_UP);
+    }
+
     static Priced price(List<Line> lines, BigDecimal markupRate, Rates rates) {
         List<PricedLine> priced = lines.stream()
                 .map(l -> {

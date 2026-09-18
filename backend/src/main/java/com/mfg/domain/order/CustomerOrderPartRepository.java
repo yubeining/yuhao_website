@@ -23,6 +23,11 @@ interface CustomerOrderPartRepository extends JpaRepository<CustomerOrderPart, U
             + " where l.customerOrderId in :orderIds and l.customerOrgId = :orgId group by l.customerOrderId")
     List<Object[]> summarize(@Param("orderIds") Collection<UUID> orderIds, @Param("orgId") UUID customerOrgId);
 
+    /** 运营端跨客户：派单池列行、分配时按 id 取行。调用方是运营，id 来自运营自己的列表。 */
+    List<CustomerOrderPart> findByCustomerOrderIdInOrderByCreatedAtAsc(Collection<UUID> customerOrderIds);
+
+    List<CustomerOrderPart> findByIdIn(Collection<UUID> ids);
+
     /** 同 {@link #summarize}，运营端跨客户用：订单 id 来自运营端列表本身，不来自请求。 */
     @Query("select l.customerOrderId, count(l), coalesce(sum(l.quantity), 0) from CustomerOrderPart l"
             + " where l.customerOrderId in :orderIds group by l.customerOrderId")

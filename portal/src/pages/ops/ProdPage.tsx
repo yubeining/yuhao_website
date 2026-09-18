@@ -1,248 +1,271 @@
 /**
- * 生产订单详情 —— 组包、挂出去、以及挂出去之后看它的下场。
+ * 生产订单详情 —— 看里面的零件、每家供应商的对供价，定向派几家或挂全市场，收回（2026-09-18 拍板）。
  *
- * ★★ 一个生产订单可以装多个客户订单的零件。所以这一页里到处要提醒
- *   「这一行是谁的」—— 内部视角必须能一眼回溯到客户和图号。
- *   **供应商那边看到的同一批行是脱敏的**（只有零件名，没有图号、没有客户）。
- *
- * ★ 草稿态才能加减行。挂出去之后行就定死了 —— 供应商是照着挂出来的那一版抢的，
- *   抢完再改行等于换了一份合同的标的（CLAUDE.md §10 C2）。
- *
- * ★ 退回和调价重挂都是整单的：一个生产订单一个供应商，
- *   没有「只退其中一行」这回事 —— 要拆开就是重新组两个包。
+ * ★ 派法二选一：定向派给选中的几家（先到先得，有人拒接只移出他，全部拒接才回组装中）/ 挂全市场（所有可派单供应商）。
+ * ★ 对供价 = 原价 × 该供应商折率，后端按当前折率现算；供应商接单那一刻锁定。页面不自己乘。
+ * ★ 对供交期由运营每次派单时手填；客户那边的交期在报价页看（客户确认后 N 天）。
+ * ★ 签字前可收回：还没人接 →「收回」；已被接下 →「收回供应商」（对方的单取消，这张回组装中重派）。
  */
 
-import { useState } from 'react'
-import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
-import { Input } from '../../components/form'
+import { useCallback, useEffect, useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Checkbox, Input } from '../../components/form'
 import {
-    Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, PrototypeBanner, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
+import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
+import { fmtDateTime, M, X } from '../../mock/format'
 import {
-    addProdLine, deleteProd, dropProd, findCompany, freeParts,
-    publishProd, removeProdLine, repost,
-} from '../../mock/actions'
-import { M, X } from '../../mock/format'
-import { contractOf } from '../../mock/selectors'
-import { PROD_ST } from './DispatchPage'
-import { EXEC_ST } from '../customer/status'
+    ApiError, deleteOpsDispatchOrder, getOpsDispatchOrder, offerOpsOrder, opsSupplierPrices, publishOpsOrder,
+    recallOpsOrder, revokeOpsOrderSupplier, unallocateLine,
+    type OpsOrderDetail, type OpsSupplierPrice,
+} from '../../services'
+import { CANCEL_REASON, DISPATCH_MODE, OFFER_ST, OPS_ORDER_ST, shortId, SUPPLIER_ORDER_ST } from './dispatchStatus'
+
+const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function OpsProdPage() {
-    const { state, act } = useMock()
+    const { t } = useMock()
     const navigate = useNavigate()
-    const { id } = useParams()
-    const [pct, setPct] = useState('')
+    const { id = '' } = useParams()
+    const [order, setOrder] = useState<OpsOrderDetail | null>(null)
+    const [prices, setPrices] = useState<OpsSupplierPrice[]>([])
+    const [missing, setMissing] = useState(false)
+    const [chosen, setChosen] = useState<string[]>([])
+    const [due, setDue] = useState('')
+    const [err, setErr] = useState<string | null>(null)
+    const [ok, setOk] = useState<string | null>(null)
+    const [busy, setBusy] = useState(false)
 
-    const prod = state.db.prods.find((d) => d.id === id)
-    if (!prod) return <Navigate to="/ops/dispatch" replace />
+    const load = useCallback(async () => {
+        try {
+            const o = await getOpsDispatchOrder(id)
+            setOrder(o)
+            setPrices(o.lines.length ? await opsSupplierPrices(id) : [])
+        } catch (e) {
+            if (e instanceof ApiError && (e.code === 404 || e.code === 400)) setMissing(true)
+            else setErr(errorText(t, e))
+        }
+    }, [id, t])
 
-    const draft = prod.status === 'draft'
-    const free = freeParts(state)
-    const ct = contractOf(state, prod.id)
-    const custs = [...new Set(prod.lines.map((l) =>
-        state.db.orders.find((o) => o.id === l.orderId)?.companyId))]
-    const doneQty = prod.lines.reduce((a, l) => a + (l.done ?? 0), 0)
-    const totalQty = prod.lines.reduce((a, l) => a + l.qty, 0)
+    useEffect(() => { void load() }, [load])
 
-    /** 行所属的客户订单和零件 —— 内部视角要看到图号 */
-    const src = (orderId: string, partId: string) => {
-        const o = state.db.orders.find((x) => x.id === orderId)
-        return { order: o, part: o?.parts.find((x) => x.id === partId) }
+    const back = <Link className="btn sm qui" to="/ops/dispatch" style={{ margin: '0 0 6px -9px' }}>← 派单管理</Link>
+
+    if (missing) {
+        return <Page><Hello back={back} title="生产订单" /><Card><CardBody><Empty text="生产订单不存在" /></CardBody></Card></Page>
     }
+    if (!order) {
+        return <Page><Card><CardBody><Empty text={err ?? '加载中…'} /></CardBody></Card></Page>
+    }
+
+    const assembling = order.status === 'ASSEMBLING'
+    const open = order.status === 'OFFERED' || order.status === 'PUBLISHED'
+    const accepted = order.supplierOrders.find((s) => s.status === 'ACCEPTED')
+    const currentOffers = order.offers.filter((o) => o.dispatchRound === order.dispatchRound)
+    const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
+    const dueProblem = !DATE_RE.test(due.trim()) ? '请填对供交期（如 2026-10-20）' : null
+
+    const run = async (fn: () => Promise<void>, done?: string) => {
+        setBusy(true)
+        try {
+            await fn()
+            setErr(null)
+            if (done) setOk(done)
+            await load()
+        } catch (e) {
+            setErr(errorText(t, e))
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const offer = () => {
+        if (!chosen.length) return setErr('请勾选要派的供应商')
+        if (dueProblem) return setErr(dueProblem)
+        if (!window.confirm(`定向派给 ${chosen.length} 家？先到先得，谁先接给谁。`)) return
+        void run(async () => { await offerOpsOrder(order.id, chosen, due.trim()); setChosen([]) }, '已定向派出')
+    }
+
+    const publish = () => {
+        if (dueProblem) return setErr(dueProblem)
+        if (!window.confirm('挂到全市场？所有可派单的供应商都看得到，先到先得。')) return
+        void run(() => publishOpsOrder(order.id, due.trim()).then(() => undefined), '已挂全市场')
+    }
+
+    const recall = () => {
+        if (!window.confirm('收回？还没人接，收回后回到组装中。')) return
+        void run(() => recallOpsOrder(order.id).then(() => undefined), '已收回')
+    }
+
+    const revoke = () => {
+        if (!window.confirm(`收回「${accepted?.supplierName ?? ''}」接的单？对方的单会取消，这张回到组装中重派。`)) return
+        void run(() => revokeOpsOrderSupplier(order.id).then(() => undefined), '已收回供应商')
+    }
+
+    const unallocate = (customerOrderPartId: string, code: string) => {
+        if (!window.confirm(`撤回「${code}」的分配？这一行拆出去的所有份会一起撤回待派。`)) return
+        void run(() => unallocateLine(customerOrderPartId).then(() => undefined), `「${code}」已撤回`)
+    }
+
+    const remove = () => {
+        void run(async () => {
+            await deleteOpsDispatchOrder(order.id)
+            navigate('/ops/dispatch', { replace: true })
+        })
+    }
+
+    const toggle = (orgId: string, on: boolean) =>
+        setChosen((c) => (on ? [...c, orgId] : c.filter((x) => x !== orgId)))
 
     return (
         <Page>
-            <PrototypeBanner />
-            <Hello
-                back={<Link className="btn sm qui" to="/ops/dispatch" style={{ margin: '0 0 6px -9px' }}>← 派单管理</Link>}
-                title={prod.id}
-                sub={custs.length === 1
-                    ? `${findCompany(state, custs[0])?.name ?? X} · ${prod.lines.length} 行`
-                    : `${custs.length} 个客户 · ${prod.lines.length} 行`}
-                right={PROD_ST(prod.status)}
-            />
-
-            {custs.length > 1 && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>
-                    这一单装着 <b>{custs.length} 个客户</b>的零件。交期、质量、发货都按行分别对客户负责 ——
-                    对供应商是一单，对客户不是。
-                </Banner>
-            )}
-            {prod.status === 'dropped' && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    已退回。行上的零件回到了未安排的池子，可以换一种组法重新组包。
-                </Banner>
-            )}
+            <Hello back={back} title={`生产订单 ${shortId(order.id)}`} right={pill(OPS_ORDER_ST[order.status])} />
+            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead
-                    title="订单行"
-                    rid={`合计 ¥ ${M(prod.total)}`}
-                    right={prod.status === 'taken' || prod.status === 'done'
-                        ? <span className="t2">{doneQty} / {totalQty} 件已完成</span>
-                        : undefined}
-                />
-                {prod.lines.length ? (
+                <CardHead title="概况" />
+                <CardBody>
+                    <Fields>
+                        <Fld k="零件行" v={order.lines.length} mono />
+                        <Fld k="总件数" v={totalQty} mono />
+                        <Fld k="派法" v={order.dispatchMode && !assembling ? DISPATCH_MODE[order.dispatchMode] : X} />
+                        <Fld k="对供交期" v={!assembling && order.supplierDueDate ? order.supplierDueDate : X} mono />
+                        <Fld k="派出时间" v={!assembling && order.dispatchedAt ? fmtDateTime(new Date(order.dispatchedAt)) : X} mono />
+                        <Fld k="接单方" v={accepted?.supplierName ?? X} />
+                    </Fields>
+                </CardBody>
+            </Card>
+
+            <Card style={{ marginBottom: 16 }}>
+                <CardHead title="零件" />
+                {order.lines.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
-                                <tr>
-                                    <th>零件</th><th>客户 / 来源订单</th><th>规格</th>
-                                    <th className="n">数量</th><th className="n">目标价</th><th className="n">小计</th>
-                                    <th>交期要求</th>
-                                    {!draft && <th>执行</th>}
-                                    {draft && <th />}
-                                </tr>
+                                <tr><th>客户 / 订单</th><th>图号</th><th>名称</th><th>材料 / 表面处理</th><th className="n">件数</th><th /></tr>
                             </thead>
                             <tbody>
-                                {prod.lines.map((l) => {
-                                    const { order, part } = src(l.orderId, l.partId)
-                                    return (
-                                        <tr key={l.partId}>
-                                            <td>
-                                                <div className="t1">{l.partName}</div>
-                                                {/* ★ 内部能看图号，行上刻意不存它 —— 从 orderId + partId 回溯 */}
-                                                <div className="t2 m">{part?.no ?? X}{part ? ` · v${part.version}` : ''}</div>
-                                            </td>
-                                            <td>
-                                                <div className="t1">{findCompany(state, order?.companyId)?.name ?? X}</div>
-                                                <div className="t2 m">{l.orderId}</div>
-                                            </td>
-                                            <td>{l.mat || X}{l.surf ? ` · ${l.surf}` : ''}</td>
-                                            <td className="n">{l.qty}</td>
-                                            <td className="n">¥ {M(l.target)}</td>
-                                            <td className="n">¥ {M(l.total)}</td>
-                                            <td>{l.wantLead}</td>
-                                            {!draft && (
-                                                <td>
-                                                    {part?.st ? EXEC_ST[part.st][1] : X}
-                                                    {(l.done ?? 0) > 0 && (
-                                                        <div className="t2">{l.done} / {l.qty} 件</div>
-                                                    )}
-                                                    {l.delivered && <div className="t2">已发货 {l.delivered}</div>}
-                                                </td>
+                                {order.lines.map((l) => (
+                                    <tr key={l.id}>
+                                        <td className="t1">{l.customerName ?? X}<div className="t2">{l.orderTitle || '未命名订单'}</div></td>
+                                        <td className="m">{l.code}</td>
+                                        <td>{l.partName}</td>
+                                        <td>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
+                                        <td className="n">{l.quantity}</td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            {assembling && (
+                                                <button className="btn qui sm" type="button" disabled={busy}
+                                                    onClick={() => unallocate(l.customerOrderPartId, l.code)}>撤回分配</button>
                                             )}
-                                            {draft && (
-                                                <td style={{ textAlign: 'right' }}>
-                                                    <button className="btn qui sm" type="button"
-                                                        onClick={() => act((s) => removeProdLine(s, prod.id, l.partId))}>
-                                                        移出
-                                                    </button>
-                                                </td>
-                                            )}
-                                        </tr>
-                                    )
-                                })}
+                                        </td>
+                                    </tr>
+                                ))}
                             </tbody>
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有行" sub="从下面的未安排零件里加进来" /></CardBody>
-                )}
-
-                {draft && (
-                    <CardFoot
-                        left={
-                            <button className="btn qui" type="button"
-                                onClick={() => { act((s) => deleteProd(s, prod.id)); navigate('/ops/dispatch') }}>
-                                删除这个生产订单
-                            </button>
-                        }
-                        right={
-                            <button className="btn pri" type="button" disabled={!prod.lines.length}
-                                onClick={() => act((s) => publishProd(s, prod.id))}>
-                                挂到订单市场
-                            </button>
-                        }
-                    />
-                )}
-                {prod.status === 'open' && (
-                    <CardFoot
-                        left={<span className="t2">
-                            抢单截止 {prod.exp ?? X}
-                            {prod.reprice ? ` · 已调价重挂 ${prod.reprice} 次` : ''}
-                        </span>}
-                        right={
-                            <div style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}>
-                                {/* ★ 调的是统一涨幅不是某一个价：一单很多行，逐行改价等于重组一遍包 */}
-                                <Input value={pct} placeholder="上调 %" style={{ width: 96, textAlign: 'right' }}
-                                    onChange={setPct} />
-                                <button className="btn qui" type="button" disabled={!pct}
-                                    onClick={() => { act((s) => repost(s, prod.id, pct)); setPct('') }}>
-                                    调价重挂
-                                </button>
-                                <button className="btn qui" type="button"
-                                    onClick={() => act((s) => dropProd(s, prod.id))}>
-                                    退回
-                                </button>
-                            </div>
-                        }
-                    />
+                    <CardBody>
+                        <Empty text="还没有零件" sub="到「派单管理」把待派的零件分配进来"
+                            action={<button className="btn" type="button" disabled={busy} onClick={remove}>删除这张空单</button>} />
+                    </CardBody>
                 )}
             </Card>
 
-            {!draft && prod.status !== 'dropped' && (
+            {order.lines.length > 0 && (
                 <Card style={{ marginBottom: 16 }}>
-                    <CardHead title="承接" />
-                    <CardBody>
-                        <Fields>
-                            <Fld k="供应商" v={prod.sup ? findCompany(state, prod.sup)?.name ?? X : '还没人抢'} />
-                            <Fld k="抢单时刻" v={prod.tookAt ?? X} mono />
-                            <Fld k="合同" v={ct ? `${ct.id} · ${ct.status === 'signed' ? '已签' : '待签'}` : X} mono />
-                            <Fld k="排产" v={prod.scheduled ? '已确认' : '未确认'} />
-                            <Fld k="付款周期" v={prod.pay} />
-                            <Fld k="开票" v={prod.invoice ? '已上传' : '未上传'} />
-                        </Fields>
-                        {totalQty > 0 && (
-                            <div style={{ marginTop: 12 }}>
-                                <Bar pct={Math.round((doneQty / Math.max(1, totalQty)) * 100)} />
-                            </div>
-                        )}
-                    </CardBody>
-                </Card>
-            )}
-
-            {draft && (
-                <Card>
-                    <CardHead title="未安排的零件" rid={free.length ? `${free.length} 个` : undefined} />
-                    {free.length ? (
+                    <CardHead title="各家对供价（按当前折率，接单时锁定）" />
+                    {prices.length ? (
                         <CardBody flush>
                             <TableWrap>
                                 <thead>
-                                    <tr>
-                                        <th>零件</th><th>客户 / 来源订单</th><th>规格</th>
-                                        <th className="n">数量</th><th className="n">目标价</th><th />
-                                    </tr>
+                                    <tr>{assembling && <th />}<th>供应商</th><th className="n">折率</th><th className="n">对供合计 ¥</th></tr>
                                 </thead>
                                 <tbody>
-                                    {free.map(({ order, part, target }) => (
-                                        <tr key={part.id}>
-                                            <td>
-                                                <div className="t1">{part.name}</div>
-                                                <div className="t2 m">{part.no} · v{part.version}</div>
-                                            </td>
-                                            <td>
-                                                <div className="t1">{findCompany(state, order.companyId)?.name}</div>
-                                                <div className="t2 m">{order.id}</div>
-                                            </td>
-                                            <td>{part.mat || X}{part.surf ? ` · ${part.surf}` : ''}</td>
-                                            <td className="n">{part.qty}</td>
-                                            <td className="n">¥ {M(target)}</td>
-                                            <td style={{ textAlign: 'right' }}>
-                                                <button className="btn sm" type="button"
-                                                    onClick={() => act((s) => addProdLine(s, prod.id, order.id, part.id))}>
-                                                    ＋ 加进来
-                                                </button>
-                                            </td>
+                                    {prices.map((p) => (
+                                        <tr key={p.supplierOrgId}>
+                                            {assembling && (
+                                                <td style={{ width: 36 }}>
+                                                    <Checkbox checked={chosen.includes(p.supplierOrgId)}
+                                                        onChange={(v) => toggle(p.supplierOrgId, v)}>{''}</Checkbox>
+                                                </td>
+                                            )}
+                                            <td className="t1">{p.supplierName}</td>
+                                            <td className="n">× {p.discountRate}</td>
+                                            <td className="n"><b>¥ {M(p.total)}</b></td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </TableWrap>
                         </CardBody>
                     ) : (
-                        <CardBody><Empty text="没有待安排的零件" /></CardBody>
+                        <CardBody><Empty text="还没有可派单的供应商" sub="到「交易方」给供应商录折率" /></CardBody>
                     )}
+                    {assembling && (
+                        <CardFoot
+                            left={
+                                <div className="fcell">
+                                    <span className="t2">对供交期</span>
+                                    <Input value={due} onChange={setDue} placeholder="2026-10-20" style={{ width: 130 }} />
+                                </div>
+                            }
+                            right={
+                                <>
+                                    <button className="btn" type="button" disabled={busy || !prices.length} onClick={publish}>挂全市场</button>
+                                    <button className="btn pri" type="button" disabled={busy || !chosen.length} onClick={offer}>
+                                        定向派给选中的 {chosen.length} 家
+                                    </button>
+                                </>
+                            }
+                        />
+                    )}
+                </Card>
+            )}
+
+            {(open || accepted) && (
+                <Card style={{ marginBottom: 16 }}>
+                    <CardHead title={open ? '派单中' : '已被接下'} />
+                    <CardBody>
+                        {order.status === 'OFFERED' && (
+                            <TableWrap>
+                                <thead><tr><th>这一轮派给</th><th>状态</th></tr></thead>
+                                <tbody>
+                                    {currentOffers.map((o) => (
+                                        <tr key={o.supplierOrgId}><td>{o.supplierName ?? X}</td><td>{pill(OFFER_ST[o.status])}</td></tr>
+                                    ))}
+                                </tbody>
+                            </TableWrap>
+                        )}
+                        {order.status === 'PUBLISHED' && <div className="t2">挂在全市场，所有可派单的供应商都看得到，谁先接给谁。</div>}
+                        {accepted && <div>「<b>{accepted.supplierName}</b>」于 {fmtDateTime(new Date(accepted.acceptedAt))} 接单，对供交期 {accepted.supplierDueDate}。合同 / 签字下一步做。</div>}
+                    </CardBody>
+                    <CardFoot right={open
+                        ? <button className="btn" type="button" disabled={busy} onClick={recall}>收回</button>
+                        : <button className="btn" type="button" disabled={busy} onClick={revoke}>收回供应商</button>} />
+                </Card>
+            )}
+
+            {order.supplierOrders.some((s) => s.status === 'CANCELLED') && (
+                <Card>
+                    <CardHead title="取消记录" />
+                    <CardBody flush>
+                        <TableWrap>
+                            <thead><tr><th>供应商</th><th>状态</th><th>原因</th><th className="n">接单</th><th className="n">取消</th></tr></thead>
+                            <tbody>
+                                {order.supplierOrders.filter((s) => s.status === 'CANCELLED').map((s) => (
+                                    <tr key={s.id}>
+                                        <td>{s.supplierName ?? X}</td>
+                                        <td>{pill(SUPPLIER_ORDER_ST[s.status])}</td>
+                                        <td>{s.cancelReason ? CANCEL_REASON[s.cancelReason] : X}</td>
+                                        <td className="n">{fmtDateTime(new Date(s.acceptedAt))}</td>
+                                        <td className="n">{s.cancelledAt ? fmtDateTime(new Date(s.cancelledAt)) : X}</td>
+                                    </tr>
+                                ))}
+                            </tbody>
+                        </TableWrap>
+                    </CardBody>
                 </Card>
             )}
         </Page>

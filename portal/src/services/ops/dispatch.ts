@@ -1,0 +1,144 @@
+/**
+ * 运营端：派单（后端 OpsDispatchController / SupplierPriceController）。
+ *
+ * 2026-09-18 拍板：一行可拆给几张生产订单，一次拆完（各份之和 = 该行数量）；每张生产订单二选一：
+ * 定向派几家 / 挂全市场，先到先得；签字前可收回。对供价 = 原价 × 折率，由后端算。
+ */
+
+import { http } from '../core/http'
+
+export type OpsOrderStatus = 'ASSEMBLING' | 'OFFERED' | 'PUBLISHED' | 'ASSIGNED'
+export type DispatchMode = 'TARGETED' | 'MARKET'
+
+export interface PoolLine {
+    customerOrderPartId: string
+    customerOrderId: string
+    customerOrgId: string
+    customerName?: string | null
+    orderTitle?: string | null
+    code: string
+    partName: string
+    quantity: number
+    material?: string | null
+    surfaceTreatment?: string | null
+    submittedAt?: string | null
+}
+
+export interface OpsOrderSummary {
+    id: string
+    status: OpsOrderStatus
+    dispatchMode?: DispatchMode | null
+    supplierDueDate?: string | null
+    dispatchedAt?: string | null
+    lineCount: number
+    totalQuantity: number
+    customerCount: number
+    acceptedSupplierName?: string | null
+    createdAt: string
+}
+
+export interface OpsLine {
+    id: string
+    customerOrderPartId: string
+    customerOrderId: string
+    customerOrgId: string
+    customerName?: string | null
+    orderTitle?: string | null
+    code: string
+    partName: string
+    quantity: number
+    material?: string | null
+    surfaceTreatment?: string | null
+}
+
+export interface OpsOffer {
+    supplierOrgId: string
+    supplierName?: string | null
+    dispatchRound: number
+    status: 'OFFERED' | 'DECLINED' | 'REVOKED'
+    respondedAt?: string | null
+}
+
+export interface OpsSupplierOrder {
+    id: string
+    supplierOrgId: string
+    supplierName?: string | null
+    status: 'ACCEPTED' | 'CANCELLED'
+    supplierDueDate: string
+    acceptedAt: string
+    cancelledAt?: string | null
+    cancelReason?: 'WITHDRAWN' | 'REVOKED' | null
+}
+
+export interface OpsOrderDetail {
+    id: string
+    status: OpsOrderStatus
+    dispatchMode?: DispatchMode | null
+    dispatchRound: number
+    supplierDueDate?: string | null
+    dispatchedAt?: string | null
+    createdAt: string
+    lines: OpsLine[]
+    offers: OpsOffer[]
+    supplierOrders: OpsSupplierOrder[]
+}
+
+export interface OpsSupplierPrice {
+    supplierOrgId: string
+    supplierName: string
+    discountRate: number
+    total: number
+    lines: { opsOrderLineId: string; quantity: number; baseUnitPriceCny: number; unitPriceCny: number; lineTotalCny: number }[]
+}
+
+export function dispatchPool(): Promise<PoolLine[]> {
+    return http.get<PoolLine[]>('/ops/dispatch/pool')
+}
+
+/** 各份数量之和必须等于该行数量。 */
+export function allocateLine(customerOrderPartId: string, parts: { opsOrderId: string; quantity: number }[]): Promise<unknown> {
+    return http.post('/ops/dispatch/allocate', { customerOrderPartId, parts })
+}
+
+/** 整行所有份一起撤。 */
+export function unallocateLine(customerOrderPartId: string): Promise<unknown> {
+    return http.post('/ops/dispatch/unallocate', { customerOrderPartId })
+}
+
+export function listOpsDispatchOrders(status?: OpsOrderStatus): Promise<OpsOrderSummary[]> {
+    return http.get<OpsOrderSummary[]>(`/ops/ops-orders${status ? `?status=${status}` : ''}`)
+}
+
+export function createOpsDispatchOrder(): Promise<OpsOrderDetail> {
+    return http.post<OpsOrderDetail>('/ops/ops-orders')
+}
+
+export function getOpsDispatchOrder(id: string): Promise<OpsOrderDetail> {
+    return http.get<OpsOrderDetail>(`/ops/ops-orders/${id}`)
+}
+
+/** 只能删组装中、一行都没有的。 */
+export function deleteOpsDispatchOrder(id: string): Promise<unknown> {
+    return http.delete(`/ops/ops-orders/${id}`)
+}
+
+export function offerOpsOrder(id: string, supplierOrgIds: string[], supplierDueDate: string): Promise<OpsOrderDetail> {
+    return http.post<OpsOrderDetail>(`/ops/ops-orders/${id}/offer`, { supplierOrgIds, supplierDueDate })
+}
+
+export function publishOpsOrder(id: string, supplierDueDate: string): Promise<OpsOrderDetail> {
+    return http.post<OpsOrderDetail>(`/ops/ops-orders/${id}/publish`, { supplierDueDate })
+}
+
+export function recallOpsOrder(id: string): Promise<OpsOrderDetail> {
+    return http.post<OpsOrderDetail>(`/ops/ops-orders/${id}/recall`)
+}
+
+export function revokeOpsOrderSupplier(id: string): Promise<OpsOrderDetail> {
+    return http.post<OpsOrderDetail>(`/ops/ops-orders/${id}/revoke-supplier`)
+}
+
+/** 每家可派单供应商按当前折率的对供价。 */
+export function opsSupplierPrices(id: string): Promise<OpsSupplierPrice[]> {
+    return http.get<OpsSupplierPrice[]>(`/ops/ops-orders/${id}/supplier-prices`)
+}

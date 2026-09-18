@@ -153,7 +153,30 @@ CREATE TABLE public.ops_order (
     created_by_user_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    status text NOT NULL,
+    dispatch_mode text,
+    dispatch_round integer DEFAULT 0 NOT NULL,
+    supplier_due_date date,
+    dispatched_at timestamp with time zone,
+    CONSTRAINT ops_order_dispatch_mode_chk CHECK (((dispatch_mode IS NULL) OR (dispatch_mode = ANY (ARRAY['TARGETED'::text, 'MARKET'::text])))),
+    CONSTRAINT ops_order_dispatched_chk CHECK (((status = 'ASSEMBLING'::text) OR ((dispatch_mode IS NOT NULL) AND (supplier_due_date IS NOT NULL) AND (dispatched_at IS NOT NULL) AND (dispatch_round > 0)))),
+    CONSTRAINT ops_order_status_chk CHECK ((status = ANY (ARRAY['ASSEMBLING'::text, 'OFFERED'::text, 'PUBLISHED'::text, 'ASSIGNED'::text])))
+);
+
+-- Name: ops_order_offer; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.ops_order_offer (
+    id uuid NOT NULL,
+    ops_order_id uuid NOT NULL,
+    dispatch_round integer NOT NULL,
+    supplier_org_id uuid NOT NULL,
+    status text NOT NULL,
+    responded_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT ops_order_offer_status_chk CHECK ((status = ANY (ARRAY['OFFERED'::text, 'DECLINED'::text, 'REVOKED'::text])))
 );
 
 -- Name: ops_order_part; Type: TABLE; Schema: public; Owner: -
@@ -252,7 +275,7 @@ CREATE TABLE public.part_file_access_log (
     context_type text,
     context_id uuid,
     CONSTRAINT part_file_access_log_access_type_chk CHECK ((access_type = 'SIGNED_URL_ISSUED'::text)),
-    CONSTRAINT part_file_access_log_context_chk CHECK ((((context_type IS NULL) AND (context_id IS NULL)) OR ((context_type = 'CUSTOMER_ORDER'::text) AND (context_id IS NOT NULL)))),
+    CONSTRAINT part_file_access_log_context_chk CHECK ((((context_type IS NULL) AND (context_id IS NULL)) OR ((context_type = ANY (ARRAY['CUSTOMER_ORDER'::text, 'OPS_ORDER'::text, 'SUPPLIER_ORDER'::text])) AND (context_id IS NOT NULL)))),
     CONSTRAINT part_file_access_log_party_type_chk CHECK ((accessor_party_type = ANY (ARRAY['CUSTOMER'::text, 'SUPPLIER'::text, 'OPERATOR'::text])))
 );
 
@@ -392,7 +415,15 @@ CREATE TABLE public.supplier_order (
     accepted_by_user_id uuid,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    version bigint DEFAULT 0 NOT NULL
+    version bigint DEFAULT 0 NOT NULL,
+    ops_order_id uuid NOT NULL,
+    status text NOT NULL,
+    supplier_due_date date NOT NULL,
+    accepted_at timestamp with time zone NOT NULL,
+    cancelled_at timestamp with time zone,
+    cancel_reason text,
+    CONSTRAINT supplier_order_cancel_chk CHECK ((((status = 'CANCELLED'::text) AND (cancelled_at IS NOT NULL) AND (cancel_reason = ANY (ARRAY['WITHDRAWN'::text, 'REVOKED'::text]))) OR ((status <> 'CANCELLED'::text) AND (cancelled_at IS NULL) AND (cancel_reason IS NULL)))),
+    CONSTRAINT supplier_order_status_chk CHECK ((status = ANY (ARRAY['ACCEPTED'::text, 'CANCELLED'::text])))
 );
 
 -- Name: supplier_order_part; Type: TABLE; Schema: public; Owner: -
@@ -410,6 +441,26 @@ CREATE TABLE public.supplier_order_part (
     version bigint DEFAULT 0 NOT NULL,
     quantity integer NOT NULL,
     CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1))
+);
+
+-- Name: supplier_price_line; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_price_line (
+    id uuid NOT NULL,
+    supplier_order_id uuid NOT NULL,
+    supplier_order_part_id uuid NOT NULL,
+    supplier_org_id uuid NOT NULL,
+    customer_order_part_id uuid NOT NULL,
+    quantity integer NOT NULL,
+    base_unit_price_cny numeric(12,2) NOT NULL,
+    discount_rate numeric(8,4) NOT NULL,
+    unit_price_cny numeric(12,2) NOT NULL,
+    line_total_cny numeric(14,2) NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT supplier_price_line_prices_positive CHECK (((base_unit_price_cny > (0)::numeric) AND (discount_rate > (0)::numeric) AND (unit_price_cny >= (0)::numeric) AND (line_total_cny >= (0)::numeric))),
+    CONSTRAINT supplier_price_line_quantity_positive CHECK ((quantity >= 1))
 );
 
 -- Name: supplier_profile; Type: TABLE; Schema: public; Owner: -
@@ -482,6 +533,11 @@ ALTER TABLE ONLY public.external_user
 
 ALTER TABLE ONLY public.fx_rate
     ADD CONSTRAINT fx_rate_pkey PRIMARY KEY (id);
+
+-- Name: ops_order_offer ops_order_offer_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.ops_order_offer
+    ADD CONSTRAINT ops_order_offer_pkey PRIMARY KEY (id);
 
 -- Name: ops_order_part ops_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -558,6 +614,11 @@ ALTER TABLE ONLY public.supplier_order_part
 ALTER TABLE ONLY public.supplier_order
     ADD CONSTRAINT supplier_order_pkey PRIMARY KEY (id);
 
+-- Name: supplier_price_line supplier_price_line_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_price_line
+    ADD CONSTRAINT supplier_price_line_pkey PRIMARY KEY (id);
+
 -- Name: supplier_profile supplier_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.supplier_profile
@@ -620,6 +681,14 @@ CREATE INDEX external_user_org_idx ON public.external_user USING btree (org_id);
 
 CREATE UNIQUE INDEX fx_rate_source_date_pair_uk ON public.fx_rate USING btree (source, rate_date, base_currency, quote_currency);
 
+-- Name: ops_order_offer_round_supplier_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX ops_order_offer_round_supplier_uk ON public.ops_order_offer USING btree (ops_order_id, dispatch_round, supplier_org_id);
+
+-- Name: ops_order_offer_supplier_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_offer_supplier_idx ON public.ops_order_offer USING btree (supplier_org_id, status);
+
 -- Name: ops_order_part_design_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX ops_order_part_design_idx ON public.ops_order_part USING btree (part_design_id);
@@ -643,6 +712,10 @@ CREATE INDEX ops_order_part_source_customer_order_idx ON public.ops_order_part U
 -- Name: ops_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX ops_order_part_upstream_idx ON public.ops_order_part USING btree (upstream_part_id);
+
+-- Name: ops_order_status_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX ops_order_status_idx ON public.ops_order USING btree (status);
 
 -- Name: ops_user_email_uk; Type: INDEX; Schema: public; Owner: -
 
@@ -744,6 +817,14 @@ CREATE UNIQUE INDEX supplier_invite_token_hash_uk ON public.supplier_invite USIN
 
 CREATE INDEX supplier_invite_used_by_org_idx ON public.supplier_invite USING btree (used_by_org_id);
 
+-- Name: supplier_order_one_accepted_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX supplier_order_one_accepted_uk ON public.supplier_order USING btree (ops_order_id) WHERE (status = 'ACCEPTED'::text);
+
+-- Name: supplier_order_ops_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_ops_order_idx ON public.supplier_order USING btree (ops_order_id);
+
 -- Name: supplier_order_org_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_org_idx ON public.supplier_order USING btree (supplier_org_id);
@@ -771,6 +852,22 @@ CREATE INDEX supplier_order_part_source_customer_order_idx ON public.supplier_or
 -- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_upstream_idx ON public.supplier_order_part USING btree (upstream_part_id);
+
+-- Name: supplier_price_line_customer_part_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_price_line_customer_part_idx ON public.supplier_price_line USING btree (customer_order_part_id);
+
+-- Name: supplier_price_line_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_price_line_order_idx ON public.supplier_price_line USING btree (supplier_order_id);
+
+-- Name: supplier_price_line_part_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX supplier_price_line_part_uk ON public.supplier_price_line USING btree (supplier_order_part_id);
+
+-- Name: supplier_price_line_supplier_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_price_line_supplier_idx ON public.supplier_price_line USING btree (supplier_org_id);
 
 -- Name: supplier_profile_org_uk; Type: INDEX; Schema: public; Owner: -
 

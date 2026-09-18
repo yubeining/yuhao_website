@@ -68,6 +68,8 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `part_revision` / `part_file` / `part_file_access_log` | `domain/order` | 订单域。图纸挂在零件主数据 `part_design` 下，所以跟着它归订单域；审计表只记零件图纸，不是通用文件审计 |
 | `supplier_invite` | `platform/identity` | 平台。供应商只能凭运营邀请注册，建组织和用户本来就在这里 |
 | `supplier_profile` | `domain/supplier` | 供应商域。折率和能力，运营录；订单域、报价域经 `SupplierDirectory` 读 |
+| `ops_order_offer` | `domain/order` | 订单域。定向派单每轮派给了谁、谁拒接了 |
+| `supplier_price_line` | `domain/quote` | 报价域。供应商接单那一刻的对供价快照（原价 × 折率）；价格不往订单表加列 |
 | `customer_markup` / `quote` / `quote_line` | `domain/quote` | 报价域。加成率不往 `organization` 加列；报价行用裸 uuid 指回订单行，订单域不知道报价的存在（设计文档 13 §3.5） |
 | `fx_rate` | `platform/fx` | 平台。数据源（ECB）公布的原始参考汇率，没有业务语义；只由同步任务写，其他模块只读（设计文档 2 §2） |
 
@@ -103,8 +105,9 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `2026-09-17_01_fx-rate.sql` | ECB 每日参考汇率（1 张） |
 | `2026-09-17_02_quote.sql` | 订单状态加 `QUOTED` / `CONFIRMED`；客户加成率 / 报价 / 报价行（3 张） |
 | `2026-09-18_01_supplier-onboarding.sql` | 供应商邀请 / 供应商资料（折率 + 能力）（2 张） |
+| `2026-09-18_02_dispatch.sql` | 生产订单状态 / 派法 / 轮次 / 对供交期；定向派单记录；供应商订单状态；对供价快照；审计上下文加两种（2 张新表） |
 
-当前库里共 23 张业务表（另有迁移账本 `schema_migrations`）。
+当前库里共 25 张业务表（另有迁移账本 `schema_migrations`）。
 
 状态机其余的状态列、基准价 / 对供价的表、质检 / 发货 / 单据 / 结算，都还没建 ——
 分别见设计文档 12 §11 和 13 §2，到那一步再加。
