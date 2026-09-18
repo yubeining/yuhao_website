@@ -13,7 +13,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import {
     Checkbox, ErrMsg, Field, FieldRow, Input, Select, UploadDrop,
 } from '../../components/form'
-import { Card, CardBody, CardFoot, CardHead, SectionTitle, StepBar } from '../../components/ui'
+import { Card, CardBody, CardFoot, CardHead, PrototypeBanner, SectionTitle, StepBar } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { findUserByMail, onboard } from '../../mock/actions'
 import type { Machine } from '../../mock/types'
@@ -66,6 +66,7 @@ export function SupplierRegisterPage() {
 
     return (
         <OnboardShell right={<Link className="btn sm qui" to="/auth/signin">稍后再填</Link>}>
+            <PrototypeBanner />
             <StepBar names={STEPS} cur={step} />
 
             {step === 0 && (

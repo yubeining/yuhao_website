@@ -8,13 +8,28 @@
 import { useNavigate } from 'react-router-dom'
 import { Card, CardBody, CardFoot, CardHead, Hello, Kv, KvRow, Page } from '../components/ui'
 import { useMock } from '../mock/MockProvider'
-import { currentCompany, currentUser, logout } from '../mock/actions'
+import { logout } from '../mock/actions'
+import { clearSession } from '../auth/session'
+import { useSession } from '../auth/useSession'
+import { logout as apiLogout } from '../services/auth'
+
+const PARTY_LABEL = { CUSTOMER: '客户', SUPPLIER: '供应商', OPERATOR: '内部 · 运营' } as const
 
 export function SettingsPage() {
-    const { state, act, theme, setTheme, reset } = useMock()
+    const { act, theme, setTheme } = useMock()
     const navigate = useNavigate()
-    const user = currentUser(state)
-    const company = currentCompany(state)
+    const session = useSession()
+
+    // ★ 和顶栏用户菜单的退出同一套：撤销后端 refresh token + 清本地登录态。
+    //   以前这里只清原型数据仓，真实登录态还在，点了「退出」其实没退出。
+    const signOut = () => {
+        if (session?.refreshToken) {
+            void apiLogout(session.refreshToken).catch(() => undefined)
+        }
+        clearSession()
+        act(logout)
+        navigate('/auth/signin', { replace: true })
+    }
 
     return (
         <Page>
@@ -41,36 +56,19 @@ export function SettingsPage() {
             <Card style={{ maxWidth: 640, marginTop: 18 }}>
                 <CardHead title="账号" />
                 <CardBody>
+                    {/* 只显示登录态里真有的字段；邮箱、企业名登录态里没有，不显示 */}
                     <Kv>
-                        <KvRow k="姓名" v={user?.name} sans />
-                        <KvRow k="邮箱" v={user?.mail} />
-                        <KvRow k="所属企业" v={company?.name} sans />
+                        <KvRow k="姓名" v={session?.displayName} sans />
+                        <KvRow k="身份" v={session ? PARTY_LABEL[session.partyType] : undefined} sans />
                     </Kv>
                 </CardBody>
                 <CardFoot right={
-                    <button className="btn" type="button"
-                        onClick={() => { act(logout); navigate('/auth/signin') }}>
+                    <button className="btn" type="button" onClick={signOut}>
                         退出登录
                     </button>
                 } />
             </Card>
 
-            {/* ★ 演示专用，不是产品功能。接上真后端时连同 mock/ 一起删掉。 */}
-            <Card style={{ maxWidth: 640, marginTop: 18 }}>
-                <CardHead title="演示数据" />
-                <CardBody>
-                    <div style={{ fontSize: 13, color: 'var(--muted)', lineHeight: 1.65 }}>
-                        当前所有数据都在浏览器里（sessionStorage），后端尚未接入。
-                        重置会清空询价、报价、订单与派单包，回到初始的种子数据。
-                    </div>
-                </CardBody>
-                <CardFoot right={
-                    <button className="btn" type="button"
-                        onClick={() => { reset(); navigate('/auth/signin') }}>
-                        重置演示数据
-                    </button>
-                } />
-            </Card>
         </Page>
     )
 }

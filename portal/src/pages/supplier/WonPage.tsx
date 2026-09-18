@@ -8,7 +8,9 @@
  */
 
 import { Link } from 'react-router-dom'
-import { Card, CardBody, Empty, Hello, Page, Pill, TableWrap } from '../../components/ui'
+import {
+    Card, CardBody, Empty, Hello, Page, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { sign } from '../../mock/actions'
 import { M } from '../../mock/format'
@@ -20,6 +22,7 @@ export function WonPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="我抢到的" right={<Pill tone="ne" dot={false}>共 {prods.length} 单</Pill>} />
             <Card>
                 {prods.length ? (

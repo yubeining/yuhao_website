@@ -13,7 +13,9 @@
 
 import { useState } from 'react'
 import { Stepper } from '../../components/form'
-import { Bar, Card, CardBody, CardHead, Empty, Hello, Page, Pill, TableWrap } from '../../components/ui'
+import {
+    Bar, Card, CardBody, CardHead, Empty, Hello, Page, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { report, schedule } from '../../mock/actions'
 import { M, X } from '../../mock/format'
@@ -28,6 +30,7 @@ export function SupplierOrdersPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="我的订单" right={<Pill tone="ne" dot={false}>共 {prods.length} 单</Pill>} />
             {prods.length ? prods.map((d) => {
                 const qty = d.lines.reduce((a, l) => a + l.qty, 0)

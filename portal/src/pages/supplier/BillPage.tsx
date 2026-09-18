@@ -14,7 +14,9 @@
 
 import { useState } from 'react'
 import { Input } from '../../components/form'
-import { Card, CardBody, CardFoot, CardHead, Empty, Hello, Kpi, Kpis, Page, Pill, TableWrap } from '../../components/ui'
+import {
+    Card, CardBody, CardFoot, CardHead, Empty, Hello, Kpi, Kpis, Page, Pill, PrototypeBanner, TableWrap,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { dueDate, uploadInvoice } from '../../mock/actions'
 import { M, X, sum } from '../../mock/format'
@@ -34,6 +36,7 @@ export function BillPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello title="对账与开票" />
             <Kpis>
                 <Kpi k="已完工金额" v={M(sum(done, (d) => d.total), 0)} d={`元 · ${done.length} 单`} />

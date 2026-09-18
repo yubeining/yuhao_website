@@ -21,7 +21,7 @@
 import { Link, Navigate, useNavigate, useParams } from 'react-router-dom'
 import { DrawingPanel } from '../../components/brand'
 import {
-    Banner, Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, Pill, Stack, TableWrap,
+    Banner, Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, Pill, PrototypeBanner, Stack, TableWrap,
 } from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { canGrab, grab } from '../../mock/actions'
@@ -46,6 +46,7 @@ export function HallDetailPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello
                 back={<Link className="btn sm qui" to="/supplier/hall" style={{ margin: '0 0 6px -9px' }}>← 订单市场</Link>}
                 title={`${p.lines.length} 个零件 · 共 ${qty} 件`}

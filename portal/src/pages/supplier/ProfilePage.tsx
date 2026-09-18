@@ -2,7 +2,9 @@
  * 供应商企业资料。分级与可抢范围由内部考察后设定，供应商这边只读。
  */
 
-import { Card, CardBody, CardHead, Cols, Hello, Kv, KvRow, Page, Pill, Stack, TableWrap, Tier } from '../../components/ui'
+import {
+    Card, CardBody, CardHead, Cols, Empty, Hello, Kv, KvRow, Page, Pill, PrototypeBanner, Stack, TableWrap, Tier,
+} from '../../components/ui'
 import { useMock } from '../../mock/MockProvider'
 import { currentCompany } from '../../mock/actions'
 import { X } from '../../mock/format'
@@ -10,10 +12,19 @@ import { X } from '../../mock/format'
 export function SupplierProfilePage() {
     const { state } = useMock()
     const c = currentCompany(state)
-    if (!c) return null
+    if (!c) {
+        return (
+            <Page>
+                <PrototypeBanner />
+                <Hello title="企业资料" />
+                <Card><CardBody><Empty text="还没接真实数据" /></CardBody></Card>
+            </Page>
+        )
+    }
 
     return (
         <Page>
+            <PrototypeBanner />
             <Hello
                 title="企业资料"
                 right={

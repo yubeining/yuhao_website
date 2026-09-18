@@ -111,7 +111,7 @@ const NODES: [number, number, number][] = [
 ]
 
 /** 登录 / 注册页左侧的深色品牌栏。窄屏隐藏（见 styles.css 的 .auth 媒体查询）。 */
-export function BrandSide({ flow }: { flow: [string, string][] }) {
+export function BrandSide({ flow }: { flow: string[] }) {
     return (
         <div className="brandside">
             <div className="bmark">
@@ -128,8 +128,7 @@ export function BrandSide({ flow }: { flow: [string, string][] }) {
                     {NODES.map(([cx, cy, tx], i) => (
                         <g key={i}>
                             <circle className="nd" cx={cx} cy={cy} r="7" />
-                            <text className="st" x={tx} y={cy + 8}>{flow[i][0]}</text>
-                            <text className="cp" x={tx} y={cy + 33}>{flow[i][1]}</text>
+                            <text className="st" x={tx} y={cy + 8}>{flow[i]}</text>
                         </g>
                     ))}
                 </svg>

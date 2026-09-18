@@ -252,7 +252,8 @@ export function SupplierShell({ children, full, path }: {
 }) {
     const { state } = useMock()
     const co = currentCompany(state)
-    const sub = `${co?.name || ''} · ${co?.status === 'active' ? co.tier + ' 级' : '待考察'}`
+    // ★ 以前写「· 待考察」：原型数据仓里没有这家公司时一律显示待考察，是编的状态（2026-09-18 删）
+    const sub = co?.name ?? '供应商'
     return (
         <AppShell nav={full ? undefined : SUP_NAV} settingsTo="/supplier/settings"
             areas={SUP_AREAS} currentPath={path} sub={sub}>

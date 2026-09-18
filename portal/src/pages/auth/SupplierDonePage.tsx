@@ -5,6 +5,7 @@
  *   不讲的话，供应商登进去看见满屏派单包却点不动抢单按钮，会当成 bug 来问。
  */
 
+import { PrototypeBanner } from '../../components/ui'
 import { useNavigate } from 'react-router-dom'
 import { NoticeCard, OnboardShell } from './OnboardShell'
 
@@ -12,6 +13,7 @@ export function SupplierDonePage() {
     const navigate = useNavigate()
     return (
         <OnboardShell slim>
+            <PrototypeBanner />
             <NoticeCard
                 mark="◷" tone="wa"
                 title="已提交，等待资质考察"

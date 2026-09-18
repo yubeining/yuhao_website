@@ -19,7 +19,9 @@
 
 import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Banner, Empty, Page } from '../../components/ui'
+import {
+    Banner, Empty, Page, PrototypeBanner,
+} from '../../components/ui'
 import { DrawingSlot } from '../../components/brand'
 import { useMock } from '../../mock/MockProvider'
 import { canGrab, grab } from '../../mock/actions'
@@ -56,6 +58,7 @@ export function HallPage() {
 
     return (
         <Page>
+            <PrototypeBanner />
             {/* ★ 搜索框已删（2026-09-09）：按钮无 onClick、输入框无 state，搜不动。
                 更糟的是搜不到会被当成"市场里没有这类活"，而不是"这个框是假的"。 */}
 
@@ -77,10 +80,12 @@ export function HallPage() {
 
             <div className="sortrow">
                 <span className="sortsp" />
-                <span className="sortcnt">{live.length} 个可抢 · 共 {all.length} 个</span>
+                {/* 原型数据仓是空的时候不显示「0 个可抢」—— 那是一个没有数据来源的数 */}
+                {all.length > 0 && <span className="sortcnt">{live.length} 个可抢 · 共 {all.length} 个</span>}
             </div>
 
-            {!grabbable && (
+            {/* 原型里「资质考察」只存在于浏览器里的数据仓，真实供应商没有这个状态，数据仓为空时不提示 */}
+            {!grabbable && all.length > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 16 }}>
                     资质考察通过后才能抢单，现在可以先浏览。
                 </Banner>

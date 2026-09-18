@@ -5,6 +5,7 @@
  *   这一页要把这件事说清楚，而不是给个注册表单让人填完才发现进不来。
  */
 
+import { PrototypeBanner } from '../../components/ui'
 import { Link, useNavigate } from 'react-router-dom'
 import { useMock } from '../../mock/MockProvider'
 import { X } from '../../mock/format'
@@ -17,6 +18,7 @@ export function InvitePage() {
 
     return (
         <OnboardShell slim right={<Link className="btn sm qui" to="/auth/signin">返回登录</Link>}>
+            <PrototypeBanner />
             {invite ? (
                 <NoticeCard
                     mark="⊕" tone="ok"

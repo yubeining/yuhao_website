@@ -15,12 +15,15 @@ export type Lang = 'zh' | 'en'
 
 export interface Strings {
     roles: Record<'customer' | 'supplier' | 'ops', string>
-    /** 品牌侧的四步流程图：[标题, 说明] */
-    flow: [string, string][]
+    /**
+     * 品牌侧的四步流程图：只有步骤名。
+     * ★ 2026-09-18 删掉了每步的说明（「解析后当场给价」「供应商接单，成本锁定」等）—— 和实际不符，报价是人工的。
+     */
+    flow: string[]
     login: {
         h: string; sub: string; subA: string
         email: string; pw: string; forgot: string; submit: string; or: string
-        wx: string; demo: string; demoHint: string
+        wx: string
         note: string; invited: string; invitedA: string
     }
     reg: {
@@ -36,16 +39,11 @@ export interface Strings {
 export const STRINGS: Record<Lang, Strings> = {
     zh: {
         roles: { customer: '客户', supplier: '供应商', ops: '内部' },
-        flow: [
-            ['上传', '图纸与清单，格式不限'],
-            ['报价', '解析后当场给价'],
-            ['抢单', '供应商接单，成本锁定'],
-            ['交付', '生产、质检、出货'],
-        ],
+        flow: ['上传', '报价', '抢单', '交付'],
         login: {
             h: '登录', sub: '还没有账号？', subA: '注册',
             email: '企业邮箱', pw: '密码', forgot: '忘记密码？', submit: '登录', or: '或',
-            wx: '微信登录', demo: '演示账号', demoHint: '点一下自动填入邮箱与密码',
+            wx: '微信登录',
             note: '继续即表示同意服务条款与隐私政策。',
             invited: '收到供应商邀请？', invitedA: '从邀请链接入驻',
         },
@@ -99,18 +97,12 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     en: {
         roles: { customer: 'Customer', supplier: 'Supplier', ops: 'Internal' },
-        flow: [
-            ['Upload', 'Drawings and BOM, any format'],
-            ['Quote', 'Priced on the spot'],
-            ['Claim', 'A supplier takes it, cost locked'],
-            ['Deliver', 'Production, QC, shipment'],
-        ],
+        flow: ['Upload', 'Quote', 'Claim', 'Deliver'],
         login: {
             h: 'Sign in', sub: "Don't have an account? ", subA: 'Sign up',
             email: 'Work email', pw: 'Password', forgot: 'Forgot password?',
             submit: 'Sign in', or: 'or',
-            wx: 'Continue with WeChat', demo: 'Demo accounts',
-            demoHint: 'Click to fill in the email and password',
+            wx: 'Continue with WeChat',
             note: 'By continuing you agree to our Terms and Privacy Policy.',
             invited: 'Invited as a supplier?', invitedA: 'Start onboarding',
         },
