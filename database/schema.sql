@@ -366,6 +366,24 @@ CREATE TABLE public.schema_migrations (
     duration_ms bigint
 );
 
+-- Name: supplier_invite; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_invite (
+    id uuid NOT NULL,
+    token_hash text NOT NULL,
+    org_name text NOT NULL,
+    email text NOT NULL,
+    expires_at timestamp with time zone NOT NULL,
+    used_at timestamp with time zone,
+    used_by_org_id uuid,
+    revoked_at timestamp with time zone,
+    created_by_user_id uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT supplier_invite_used_chk CHECK (((used_at IS NULL) = (used_by_org_id IS NULL)))
+);
+
 -- Name: supplier_order; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.supplier_order (
@@ -392,6 +410,22 @@ CREATE TABLE public.supplier_order_part (
     version bigint DEFAULT 0 NOT NULL,
     quantity integer NOT NULL,
     CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1))
+);
+
+-- Name: supplier_profile; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_profile (
+    id uuid NOT NULL,
+    supplier_org_id uuid NOT NULL,
+    discount_rate numeric(8,4),
+    processes text,
+    materials text,
+    size_range text,
+    precision_grade text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT supplier_profile_discount_positive CHECK (((discount_rate IS NULL) OR (discount_rate > (0)::numeric)))
 );
 
 -- Name: user_role; Type: TABLE; Schema: public; Owner: -
@@ -509,6 +543,11 @@ ALTER TABLE ONLY public.role
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename);
 
+-- Name: supplier_invite supplier_invite_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_invite
+    ADD CONSTRAINT supplier_invite_pkey PRIMARY KEY (id);
+
 -- Name: supplier_order_part supplier_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.supplier_order_part
@@ -518,6 +557,11 @@ ALTER TABLE ONLY public.supplier_order_part
 
 ALTER TABLE ONLY public.supplier_order
     ADD CONSTRAINT supplier_order_pkey PRIMARY KEY (id);
+
+-- Name: supplier_profile supplier_profile_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_profile
+    ADD CONSTRAINT supplier_profile_pkey PRIMARY KEY (id);
 
 -- Name: user_role user_role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -688,6 +732,18 @@ CREATE UNIQUE INDEX quote_order_version_uk ON public.quote USING btree (customer
 
 CREATE UNIQUE INDEX role_scope_code_uk ON public.role USING btree (scope, code);
 
+-- Name: supplier_invite_email_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_invite_email_idx ON public.supplier_invite USING btree (email);
+
+-- Name: supplier_invite_token_hash_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX supplier_invite_token_hash_uk ON public.supplier_invite USING btree (token_hash);
+
+-- Name: supplier_invite_used_by_org_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_invite_used_by_org_idx ON public.supplier_invite USING btree (used_by_org_id);
+
 -- Name: supplier_order_org_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_org_idx ON public.supplier_order USING btree (supplier_org_id);
@@ -715,6 +771,10 @@ CREATE INDEX supplier_order_part_source_customer_order_idx ON public.supplier_or
 -- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_upstream_idx ON public.supplier_order_part USING btree (upstream_part_id);
+
+-- Name: supplier_profile_org_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX supplier_profile_org_uk ON public.supplier_profile USING btree (supplier_org_id);
 
 -- Name: user_role_role_idx; Type: INDEX; Schema: public; Owner: -
 
