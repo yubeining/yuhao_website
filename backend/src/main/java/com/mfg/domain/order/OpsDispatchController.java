@@ -100,6 +100,18 @@ class OpsDispatchController {
         return service.publish(id, request.supplierDueDate());
     }
 
+    /** 建合同（本轮不生成 PDF、不写条款，只是把单据推到「待供应商签字」）。 */
+    @PostMapping("/ops/supplier-orders/{id}/contract")
+    DispatchViews.OpsSupplierOrder createContract(@CurrentUser UserPrincipal user, @PathVariable UUID id) {
+        return service.createContract(user.id(), id);
+    }
+
+    /** 作废合同：回到「已接单、等合同」，可以重建。签过字的作废不了。 */
+    @DeleteMapping("/ops/supplier-orders/{id}/contract")
+    DispatchViews.OpsSupplierOrder cancelContract(@PathVariable UUID id) {
+        return service.cancelContract(id);
+    }
+
     @PostMapping("/ops/ops-orders/{id}/recall")
     DispatchViews.OpsOrderDetail recall(@PathVariable UUID id) {
         return service.recall(id);

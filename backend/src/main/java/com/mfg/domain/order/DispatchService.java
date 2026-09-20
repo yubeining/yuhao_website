@@ -29,6 +29,10 @@ import java.util.stream.Collectors;
 @Service
 class DispatchService implements OrderDispatching {
 
+    /** 还在手上的供应商订单（没取消的）：已接、待签、已签。 */
+    static final Set<SupplierOrder.Status> ACTIVE_SUPPLIER_ORDER = Set.of(SupplierOrder.Status.ACCEPTED,
+            SupplierOrder.Status.CONTRACT_PENDING, SupplierOrder.Status.CONTRACTED);
+
     private final OpsOrderRepository opsOrders;
     private final OpsOrderPartRepository opsParts;
     private final OpsOrderOfferRepository offers;
@@ -39,11 +43,13 @@ class DispatchService implements OrderDispatching {
     private final OfferVisibility visibility;
     private final SupplierDirectory suppliers;
     private final OrganizationRepository organizations;
+    private final SignDeadline signDeadline;
 
     DispatchService(OpsOrderRepository opsOrders, OpsOrderPartRepository opsParts, OpsOrderOfferRepository offers,
                     SupplierOrderRepository supplierOrders, CustomerOrderRepository customerOrders,
                     CustomerOrderPartRepository customerLines, DispatchLineDetails details,
-                    OfferVisibility visibility, SupplierDirectory suppliers, OrganizationRepository organizations) {
+                    OfferVisibility visibility, SupplierDirectory suppliers, OrganizationRepository organizations,
+                    SignDeadline signDeadline) {
         this.opsOrders = opsOrders;
         this.opsParts = opsParts;
         this.offers = offers;
@@ -54,6 +60,7 @@ class DispatchService implements OrderDispatching {
         this.visibility = visibility;
         this.suppliers = suppliers;
         this.organizations = organizations;
+        this.signDeadline = signDeadline;
     }
 
     record PartInput(UUID opsOrderId, int quantity) {
@@ -113,7 +120,7 @@ class DispatchService implements OrderDispatching {
         List<UUID> ids = list.stream().map(OpsOrder::getId).toList();
         Map<UUID, List<OpsOrderPart>> partsByOrder = opsParts.findByOpsOrderIdIn(ids).stream()
                 .collect(Collectors.groupingBy(OpsOrderPart::getOpsOrderId));
-        Map<UUID, UUID> acceptedSupplier = supplierOrders.findByOpsOrderIdInAndStatus(ids, SupplierOrder.Status.ACCEPTED)
+        Map<UUID, UUID> acceptedSupplier = supplierOrders.findByOpsOrderIdInAndStatusIn(ids, ACTIVE_SUPPLIER_ORDER)
                 .stream().collect(Collectors.toMap(SupplierOrder::getOpsOrderId, SupplierOrder::getSupplierOrgId));
         Map<UUID, String> names = orgNames(acceptedSupplier.values());
         return list.stream().map(o -> {
@@ -144,9 +151,7 @@ class DispatchService implements OrderDispatching {
                         p.getQuantity())).toList()),
                 os.stream().map(x -> new DispatchViews.OpsOffer(x.getSupplierOrgId(), names.get(x.getSupplierOrgId()),
                         x.getDispatchRound(), x.getStatus().name(), x.getRespondedAt())).toList(),
-                sos.stream().map(x -> new DispatchViews.OpsSupplierOrder(x.getId(), x.getSupplierOrgId(),
-                        names.get(x.getSupplierOrgId()), x.getStatus().name(), x.getSupplierDueDate(),
-                        x.getAcceptedAt(), x.getCancelledAt(), name(x.getCancelReason()))).toList());
+                sos.stream().map(x -> supplierOrderView(x, names)).toList());
     }
 
     // ---------- 拆行 ----------
@@ -240,18 +245,62 @@ class DispatchService implements OrderDispatching {
         return detail(opsOrderId);
     }
 
-    /** 签字前收回供应商（文档 12 §4）：供应商订单取消（REVOKED），生产订单回组装中重派。 */
+    /** 签字前收回供应商（文档 12 §4）：供应商订单取消（REVOKED），生产订单回组装中重派。签过字的收不回。 */
     @Transactional
     public DispatchViews.OpsOrderDetail revokeSupplier(UUID opsOrderId) {
         OpsOrder o = lock(opsOrderId);
-        SupplierOrder so = supplierOrders.findByOpsOrderIdAndStatus(o.getId(), SupplierOrder.Status.ACCEPTED)
+        SupplierOrder so = supplierOrders.findFirstByOpsOrderIdAndStatusIn(o.getId(), ACTIVE_SUPPLIER_ORDER)
                 .filter(x -> o.getStatus() == OpsOrder.Status.ASSIGNED)
                 .orElseThrow(() -> BusinessException.conflict("dispatch.not_assigned"));
+        if (so.isSigned()) {
+            throw BusinessException.conflict("dispatch.contract_signed");
+        }
         so.cancel(SupplierOrder.CancelReason.REVOKED, Instant.now());
         supplierOrders.saveAndFlush(so);
         o.backToAssembling();
         opsOrders.saveAndFlush(o);
         return detail(opsOrderId);
+    }
+
+    // ---------- 合同（2026-09-20：只有交互和签字，没有 PDF、没有条款正文） ----------
+
+    /** 运营建合同：已接单 → 待签。已经建过 409；签过字的不能重建。 */
+    @Transactional
+    public DispatchViews.OpsSupplierOrder createContract(UUID opsUserId, UUID supplierOrderId) {
+        SupplierOrder so = requireSupplierOrder(supplierOrderId);
+        switch (so.getStatus()) {
+            case ACCEPTED -> so.createContract(opsUserId, Instant.now());
+            case CONTRACT_PENDING -> throw BusinessException.conflict("dispatch.contract_exists");
+            case CONTRACTED -> throw BusinessException.conflict("dispatch.contract_signed");
+            default -> throw BusinessException.conflict("dispatch.supplier_order_not_active");
+        }
+        return supplierOrderView(supplierOrders.saveAndFlush(so));
+    }
+
+    /** 运营作废合同：待签 → 回到已接单，可以重建。签过字的作废不了。 */
+    @Transactional
+    public DispatchViews.OpsSupplierOrder cancelContract(UUID supplierOrderId) {
+        SupplierOrder so = requireSupplierOrder(supplierOrderId);
+        if (so.isSigned()) {
+            throw BusinessException.conflict("dispatch.contract_signed");
+        }
+        if (so.getStatus() != SupplierOrder.Status.CONTRACT_PENDING) {
+            throw BusinessException.conflict("dispatch.contract_missing");
+        }
+        so.cancelContract();
+        return supplierOrderView(supplierOrders.saveAndFlush(so));
+    }
+
+    private SupplierOrder requireSupplierOrder(UUID supplierOrderId) {
+        SupplierOrder so = supplierOrders.findById(supplierOrderId)
+                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
+        opsOrders.lockById(so.getOpsOrderId())
+                .orElseThrow(() -> BusinessException.notFound("dispatch.ops_order_not_found"));
+        return so;
+    }
+
+    private DispatchViews.OpsSupplierOrder supplierOrderView(SupplierOrder so) {
+        return supplierOrderView(so, orgNames(List.of(so.getSupplierOrgId())));
     }
 
     // ---------- OrderDispatching ----------
@@ -329,6 +378,13 @@ class DispatchService implements OrderDispatching {
         Map<UUID, String> m = new HashMap<>();
         organizations.findAllById(ids).forEach(o -> m.put(o.getId(), o.getName()));
         return m;
+    }
+
+    private DispatchViews.OpsSupplierOrder supplierOrderView(SupplierOrder so, Map<UUID, String> names) {
+        return new DispatchViews.OpsSupplierOrder(so.getId(), so.getSupplierOrgId(),
+                names.get(so.getSupplierOrgId()), so.getStatus().name(), so.getSupplierDueDate(), so.getAcceptedAt(),
+                so.getContractCreatedAt(), so.getSignedAt(), signDeadline.deadlineOf(so.getAcceptedAt()),
+                so.getCancelledAt(), name(so.getCancelReason()));
     }
 
     private static String name(Enum<?> e) {

@@ -1,7 +1,9 @@
 /**
  * 我的订单 —— 接下的单（含已取消的）、价格（接单时锁定）、看图、退单（2026-09-18 拍板）。
  *
- * ★ 签合同之前可以退单：退单后这张单回到平台重派。合同 / 签字下一步做，所以现在都能退。
+ * ★ 合同（2026-09-20）：平台建好合同后这里出现「签字」按钮。本轮没有 PDF、没有条款正文，签的就是页面上这些内容。
+ * ★ **接单后 7 天内要签字**，到点没签系统自动取消、单子回平台重派。页面上写明期限。
+ * ★ 签字前可以退单；签完锁定，退不了也改不了。
  * ★ 价格是接单那一刻按你的折率锁定的，之后平台改折率不影响。
  * ★ 以前这一页是原型（排产、报工进度都是演示数据），已换成真数据；生产进度等做到那一步再加。
  */
@@ -12,7 +14,7 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
 import {
-    listSupplierOrders, supplierOrderFileUrl, supplierOrderPrices, withdrawSupplierOrder,
+    listSupplierOrders, signSupplierOrder, supplierOrderFileUrl, supplierOrderPrices, withdrawSupplierOrder,
     type OrderPrice, type SupplierOrderView,
 } from '../../services'
 import { CANCEL_REASON, shortId, SUPPLIER_ORDER_ST } from '../ops/dispatchStatus'
@@ -36,6 +38,15 @@ export function SupplierOrdersPage() {
     }, [t])
 
     useEffect(() => { void load() }, [load])
+
+    const sign = (o: SupplierOrderView) => {
+        if (!window.confirm(`签字确认这张单？合计 ¥ ${M(prices[o.id]?.total ?? 0)}、交期 ${o.supplierDueDate}。签完不能退单、不能改。`)) return
+        setBusy(true)
+        signSupplierOrder(o.id)
+            .then(() => load())
+            .catch((e) => setErr(errorText(t, e)))
+            .finally(() => setBusy(false))
+    }
 
     const withdraw = (o: SupplierOrderView) => {
         if (!window.confirm('退掉这张单？退单后平台会重新派给别人。')) return
@@ -71,6 +82,12 @@ export function SupplierOrdersPage() {
                                 <Fld k="交期" v={o.supplierDueDate} mono />
                                 <Fld k="合计" v={p ? `¥ ${M(p.total)}` : X} mono />
                                 <Fld k="接单时间" v={fmtDateTime(new Date(o.acceptedAt))} mono />
+                                {o.status !== 'CANCELLED' && (
+                                    <Fld k={o.status === 'CONTRACTED' ? '签字时间' : '签字期限'}
+                                        v={o.status === 'CONTRACTED'
+                                            ? fmtDateTime(new Date(o.signedAt!))
+                                            : `${fmtDateTime(new Date(o.signByDeadline))}（接单起 7 天）`} mono />
+                                )}
                                 {o.status === 'CANCELLED' && (
                                     <Fld k="取消" v={`${o.cancelReason ? CANCEL_REASON[o.cancelReason] : X} · ${o.cancelledAt ? fmtDateTime(new Date(o.cancelledAt)) : X}`} />
                                 )}
@@ -91,7 +108,8 @@ export function SupplierOrdersPage() {
                                             <td className="n">{lp(l.id) ? M(lp(l.id)!.unitPriceCny) : X}</td>
                                             <td className="n">{lp(l.id) ? M(lp(l.id)!.lineTotalCny) : X}</td>
                                             <td>
-                                                {o.status === 'ACCEPTED' && l.files.length ? l.files.map((f) => (
+                                                {/* 取消的单不给图；已接 / 待签 / 已签都给 —— 签完才是最需要图纸的时候 */}
+                                                {o.status !== 'CANCELLED' && l.files.length ? l.files.map((f) => (
                                                     <div key={f.id}>
                                                         <button className="btn qui sm" type="button" onClick={() => view(o.id, l.id, f.id)}>{f.originalFilename}</button>
                                                     </div>
@@ -104,9 +122,23 @@ export function SupplierOrdersPage() {
                         </CardBody>
                         {o.status === 'ACCEPTED' && (
                             <CardFoot
-                                left={<span className="t2">签合同之前可以退单；合同 / 签字下一步上线。</span>}
+                                left={<span className="t2">等平台把合同建出来。到期还没签字，这张单会自动取消、退回平台重派。</span>}
                                 right={<button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>退单</button>}
                             />
+                        )}
+                        {o.status === 'CONTRACT_PENDING' && (
+                            <CardFoot
+                                left={<span className="t2">签字即确认这张单的零件、价格和交期，签完不能退、不能改。</span>}
+                                right={
+                                    <>
+                                        <button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>退单</button>
+                                        <button className="btn pri" type="button" disabled={busy} onClick={() => sign(o)}>签字确认</button>
+                                    </>
+                                }
+                            />
+                        )}
+                        {o.status === 'CONTRACTED' && (
+                            <CardFoot left={<span className="t2">已签字，单据锁定。生产、质检、发货的功能还没上线。</span>} />
                         )}
                     </Card>
                 )

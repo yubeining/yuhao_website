@@ -3,7 +3,7 @@
  */
 
 import type { PillSpec } from '../../components/ui'
-import type { DispatchMode, OpsOrderStatus } from '../../services'
+import type { CancelReason, DispatchMode, OpsOrderStatus, SupplierOrderStatus } from '../../services'
 
 export const OPS_ORDER_ST: Record<OpsOrderStatus, PillSpec> = {
     ASSEMBLING: ['ne', '组装中'],
@@ -23,14 +23,17 @@ export const OFFER_ST: Record<'OFFERED' | 'DECLINED' | 'REVOKED', PillSpec> = {
     REVOKED: ['ne', '已收回'],
 }
 
-export const SUPPLIER_ORDER_ST: Record<'ACCEPTED' | 'CANCELLED', PillSpec> = {
-    ACCEPTED: ['ok', '已接单'],
+export const SUPPLIER_ORDER_ST: Record<SupplierOrderStatus, PillSpec> = {
+    ACCEPTED: ['in', '已接单 · 等合同'],
+    CONTRACT_PENDING: ['wa', '待供应商签字'],
+    CONTRACTED: ['ok', '已签字'],
     CANCELLED: ['ne', '已取消'],
 }
 
-export const CANCEL_REASON: Record<'WITHDRAWN' | 'REVOKED', string> = {
+export const CANCEL_REASON: Record<CancelReason, string> = {
     WITHDRAWN: '供应商退单',
     REVOKED: '运营收回',
+    SIGN_TIMEOUT: '超时未签字',
 }
 
 /**

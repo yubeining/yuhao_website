@@ -120,6 +120,14 @@ app:
       max-attempts: ${LOGIN_MAX_ATTEMPTS:10}
       window-seconds: ${LOGIN_WINDOW_SECONDS:300}
 
+  dispatch:
+    # ★ 7 天是需求方定的业务规则（2026-09-20：供应商接单后 7 天不签字，自动取消、回待派），不是工程取值。
+    #   扫描间隔才是工程取值。
+    sign-timeout-days: ${SIGN_TIMEOUT_DAYS:7}
+    sign-timeout-scan-enabled: ${SIGN_TIMEOUT_SCAN_ENABLED:true}
+    sign-timeout-initial-delay: PT2M
+    sign-timeout-interval: PT1H
+
   cache:
     key-prefix: "mfg:"
     default-ttl-seconds: 300

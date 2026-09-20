@@ -59,15 +59,22 @@ export interface OpsOffer {
     respondedAt?: string | null
 }
 
+export type SupplierOrderStatus = 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'CANCELLED'
+export type CancelReason = 'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT'
+
 export interface OpsSupplierOrder {
     id: string
     supplierOrgId: string
     supplierName?: string | null
-    status: 'ACCEPTED' | 'CANCELLED'
+    status: SupplierOrderStatus
     supplierDueDate: string
     acceptedAt: string
+    contractCreatedAt?: string | null
+    signedAt?: string | null
+    /** 接单 + 7 天；到点没签字系统自动取消 */
+    signByDeadline: string
     cancelledAt?: string | null
-    cancelReason?: 'WITHDRAWN' | 'REVOKED' | null
+    cancelReason?: CancelReason | null
 }
 
 export interface OpsOrderDetail {
@@ -136,6 +143,16 @@ export function recallOpsOrder(id: string): Promise<OpsOrderDetail> {
 
 export function revokeOpsOrderSupplier(id: string): Promise<OpsOrderDetail> {
     return http.post<OpsOrderDetail>(`/ops/ops-orders/${id}/revoke-supplier`)
+}
+
+/** 建合同：把供应商订单推到「待签字」。本轮不生成 PDF、不写条款（2026-09-20 拍板）。 */
+export function createSupplierContract(supplierOrderId: string): Promise<OpsSupplierOrder> {
+    return http.post<OpsSupplierOrder>(`/ops/supplier-orders/${supplierOrderId}/contract`)
+}
+
+/** 作废合同：回到「已接单、等合同」，可以重建。签过字的作废不了。 */
+export function cancelSupplierContract(supplierOrderId: string): Promise<OpsSupplierOrder> {
+    return http.delete<OpsSupplierOrder>(`/ops/supplier-orders/${supplierOrderId}/contract`)
 }
 
 /** 每家可派单供应商按当前折率的对供价。 */

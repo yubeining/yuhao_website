@@ -38,11 +38,15 @@ export interface SupplierOffer {
 export interface SupplierOrderView {
     id: string
     opsOrderId: string
-    status: 'ACCEPTED' | 'CANCELLED'
+    status: 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'CANCELLED'
     supplierDueDate: string
     acceptedAt: string
+    contractCreatedAt?: string | null
+    signedAt?: string | null
+    /** 接单 + 7 天；到点没签字系统自动取消，单子回平台重派 */
+    signByDeadline: string
     cancelledAt?: string | null
-    cancelReason?: 'WITHDRAWN' | 'REVOKED' | null
+    cancelReason?: 'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT' | null
     lines: SupplierLine[]
 }
 
@@ -86,6 +90,11 @@ export function supplierOfferFileUrl(id: string, lineId: string, fileId: string)
 
 export function listSupplierOrders(): Promise<SupplierOrderView[]> {
     return http.get<SupplierOrderView[]>('/supplier/orders')
+}
+
+/** 签字 = 锁定：签完退不了也改不了。 */
+export function signSupplierOrder(id: string): Promise<SupplierOrderView> {
+    return http.post<SupplierOrderView>(`/supplier/orders/${id}/sign`)
 }
 
 export function withdrawSupplierOrder(id: string): Promise<SupplierOrderView> {

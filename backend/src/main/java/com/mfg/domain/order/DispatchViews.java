@@ -44,8 +44,10 @@ public final class DispatchViews {
                            Instant respondedAt) {
     }
 
+    /** {@code signByDeadline}：接单时间 + 7 天，到点没签字系统自动取消（2026-09-20 拍板）。 */
     public record OpsSupplierOrder(UUID id, UUID supplierOrgId, String supplierName, String status,
-                                   LocalDate supplierDueDate, Instant acceptedAt, Instant cancelledAt,
+                                   LocalDate supplierDueDate, Instant acceptedAt, Instant contractCreatedAt,
+                                   Instant signedAt, Instant signByDeadline, Instant cancelledAt,
                                    String cancelReason) {
     }
 
@@ -70,8 +72,10 @@ public final class DispatchViews {
                                String surfaceTreatment, List<FileView> files) {
     }
 
+    /** {@code signByDeadline}：接单时间 + 7 天，到点没签字系统自动取消（2026-09-20 拍板）。 */
     public record SupplierOrderView(UUID id, UUID opsOrderId, String status, LocalDate supplierDueDate,
-                                    Instant acceptedAt, Instant cancelledAt, String cancelReason,
+                                    Instant acceptedAt, Instant contractCreatedAt, Instant signedAt,
+                                    Instant signByDeadline, Instant cancelledAt, String cancelReason,
                                     List<SupplierLine> lines) {
     }
 

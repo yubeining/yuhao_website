@@ -422,8 +422,13 @@ CREATE TABLE public.supplier_order (
     accepted_at timestamp with time zone NOT NULL,
     cancelled_at timestamp with time zone,
     cancel_reason text,
-    CONSTRAINT supplier_order_cancel_chk CHECK ((((status = 'CANCELLED'::text) AND (cancelled_at IS NOT NULL) AND (cancel_reason = ANY (ARRAY['WITHDRAWN'::text, 'REVOKED'::text]))) OR ((status <> 'CANCELLED'::text) AND (cancelled_at IS NULL) AND (cancel_reason IS NULL)))),
-    CONSTRAINT supplier_order_status_chk CHECK ((status = ANY (ARRAY['ACCEPTED'::text, 'CANCELLED'::text])))
+    contract_created_at timestamp with time zone,
+    contract_created_by_user_id uuid,
+    signed_at timestamp with time zone,
+    signed_by_user_id uuid,
+    CONSTRAINT supplier_order_cancel_chk CHECK ((((status = 'CANCELLED'::text) AND (cancelled_at IS NOT NULL) AND (cancel_reason = ANY (ARRAY['WITHDRAWN'::text, 'REVOKED'::text, 'SIGN_TIMEOUT'::text]))) OR ((status <> 'CANCELLED'::text) AND (cancelled_at IS NULL) AND (cancel_reason IS NULL)))),
+    CONSTRAINT supplier_order_contract_chk CHECK ((((status <> 'CONTRACT_PENDING'::text) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NULL))) AND ((status <> 'CONTRACTED'::text) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NOT NULL) AND (signed_by_user_id IS NOT NULL))))),
+    CONSTRAINT supplier_order_status_chk CHECK ((status = ANY (ARRAY['ACCEPTED'::text, 'CONTRACT_PENDING'::text, 'CONTRACTED'::text, 'CANCELLED'::text])))
 );
 
 -- Name: supplier_order_part; Type: TABLE; Schema: public; Owner: -
@@ -817,9 +822,9 @@ CREATE UNIQUE INDEX supplier_invite_token_hash_uk ON public.supplier_invite USIN
 
 CREATE INDEX supplier_invite_used_by_org_idx ON public.supplier_invite USING btree (used_by_org_id);
 
--- Name: supplier_order_one_accepted_uk; Type: INDEX; Schema: public; Owner: -
+-- Name: supplier_order_one_active_uk; Type: INDEX; Schema: public; Owner: -
 
-CREATE UNIQUE INDEX supplier_order_one_accepted_uk ON public.supplier_order USING btree (ops_order_id) WHERE (status = 'ACCEPTED'::text);
+CREATE UNIQUE INDEX supplier_order_one_active_uk ON public.supplier_order USING btree (ops_order_id) WHERE (status <> 'CANCELLED'::text);
 
 -- Name: supplier_order_ops_order_idx; Type: INDEX; Schema: public; Owner: -
 
@@ -852,6 +857,10 @@ CREATE INDEX supplier_order_part_source_customer_order_idx ON public.supplier_or
 -- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_upstream_idx ON public.supplier_order_part USING btree (upstream_part_id);
+
+-- Name: supplier_order_status_accepted_at_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_status_accepted_at_idx ON public.supplier_order USING btree (status, accepted_at);
 
 -- Name: supplier_price_line_customer_part_idx; Type: INDEX; Schema: public; Owner: -
 

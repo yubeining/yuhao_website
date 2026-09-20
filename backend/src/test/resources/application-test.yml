@@ -34,6 +34,10 @@ app:
   api:
     prefix: ""
 
+  # 签字超时扫描在测试里手动触发（ContractFlowIT 调 runOnce），不让定时器插进来
+  dispatch:
+    sign-timeout-scan-enabled: false
+
   jwt:
     # ★ 走 ${ENV:默认值} 形式，和其他配置项一致。
     #   这不只是为了让密钥闸门通过 —— 裸写一个 40 字符的值，

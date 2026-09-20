@@ -14,25 +14,36 @@ import java.time.LocalDate;
 import java.util.UUID;
 
 /**
- * 供应商接下的订单。接单那一刻从生产订单生成（零件一并派生），本轮只有「已接」和「已取消」两个状态；
- * 合同 / 签字放下一轮（2026-09-18）。签字前供应商可退单、运营可收回（文档 12 §4），都是取消这一张，
- * 生产订单回组装中；再派再接生成新的一张，旧的留作记录。
+ * 供应商接下的订单：接单 → 运营建合同 → 供应商签字锁定（文档 12 §4，2026-09-20 实现）。
  *
- * <p>同一张生产订单同时最多一张 ACCEPTED —— 代码里靠生产订单行锁，库里有部分唯一索引兜底。
+ * <p>签字前双方都能退（供应商退单 / 运营收回），生产订单回组装中重派；<b>签了就锁定</b>，退不了也改不了。
+ * 接单后 7 天还没签字，定时任务自动取消（{@link SignTimeoutJob}）—— 7 天从<b>接单</b>那一刻算，不是从建合同算。
+ *
+ * <p>合同本轮只有几个时间戳，没有条款正文、没有 PDF（2026-09-20 需求方决定先做交互），所以不单开一张表。
+ *
+ * <p>同一张生产订单同时最多一张没取消的供应商订单 —— 代码里靠生产订单行锁，库里有部分唯一索引兜底。
  */
 @Entity
 @Table(name = "supplier_order")
 class SupplierOrder extends BaseEntity {
 
     enum Status {
-        ACCEPTED, CANCELLED
+        /** 已接单，等运营建合同 */
+        ACCEPTED,
+        /** 合同已建，等供应商签字 */
+        CONTRACT_PENDING,
+        /** 已签字 = 锁定，不能退也不能改（文档 12 §4） */
+        CONTRACTED,
+        CANCELLED
     }
 
     enum CancelReason {
         /** 供应商退单 */
         WITHDRAWN,
         /** 运营收回 */
-        REVOKED
+        REVOKED,
+        /** 接单后 7 天还没签字，系统自动取消（2026-09-20 拍板） */
+        SIGN_TIMEOUT
     }
 
     @JdbcTypeCode(SqlTypes.UUID)
@@ -65,6 +76,20 @@ class SupplierOrder extends BaseEntity {
     @Column(name = "cancel_reason")
     private CancelReason cancelReason;
 
+    @Column(name = "contract_created_at", columnDefinition = "timestamp with time zone")
+    private Instant contractCreatedAt;
+
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "contract_created_by_user_id", columnDefinition = "uuid")
+    private UUID contractCreatedByUserId;
+
+    @Column(name = "signed_at", columnDefinition = "timestamp with time zone")
+    private Instant signedAt;
+
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "signed_by_user_id", columnDefinition = "uuid")
+    private UUID signedByUserId;
+
     protected SupplierOrder() {
     }
 
@@ -75,6 +100,34 @@ class SupplierOrder extends BaseEntity {
         this.opsOrderId = opsOrderId;
         this.supplierDueDate = supplierDueDate;
         this.acceptedAt = acceptedAt;
+    }
+
+    void createContract(UUID opsUserId, Instant now) {
+        this.status = Status.CONTRACT_PENDING;
+        this.contractCreatedAt = now;
+        this.contractCreatedByUserId = opsUserId;
+    }
+
+    /** 作废合同：回到「已接单、等合同」，运营可以重建。签过字的不许走这条路。 */
+    void cancelContract() {
+        this.status = Status.ACCEPTED;
+        this.contractCreatedAt = null;
+        this.contractCreatedByUserId = null;
+    }
+
+    void sign(UUID supplierUserId, Instant now) {
+        this.status = Status.CONTRACTED;
+        this.signedAt = now;
+        this.signedByUserId = supplierUserId;
+    }
+
+    boolean isSigned() {
+        return status == Status.CONTRACTED;
+    }
+
+    /** 还没签、也没取消：这段时间双方都能退。 */
+    boolean isOpenBeforeSigning() {
+        return status == Status.ACCEPTED || status == Status.CONTRACT_PENDING;
     }
 
     void cancel(CancelReason reason, Instant now) {
@@ -109,5 +162,13 @@ class SupplierOrder extends BaseEntity {
 
     CancelReason getCancelReason() {
         return cancelReason;
+    }
+
+    Instant getContractCreatedAt() {
+        return contractCreatedAt;
+    }
+
+    Instant getSignedAt() {
+        return signedAt;
     }
 }

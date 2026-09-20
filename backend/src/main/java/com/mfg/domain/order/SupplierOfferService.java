@@ -38,13 +38,15 @@ class SupplierOfferService {
     private final DispatchLineDetails details;
     private final OfferVisibility visibility;
     private final SupplierDirectory suppliers;
+    private final SignDeadline signDeadline;
     private final ApplicationEventPublisher events;
 
     SupplierOfferService(OpsOrderRepository opsOrders, OpsOrderPartRepository opsParts,
                          OpsOrderOfferRepository offers, SupplierOrderRepository supplierOrders,
                          SupplierOrderPartRepository supplierParts, CustomerOrderPartRepository customerLines,
                          PartFileRepository files, PartDrawingService drawings, DispatchLineDetails details,
-                         OfferVisibility visibility, SupplierDirectory suppliers, ApplicationEventPublisher events) {
+                         OfferVisibility visibility, SupplierDirectory suppliers, SignDeadline signDeadline,
+                         ApplicationEventPublisher events) {
         this.opsOrders = opsOrders;
         this.opsParts = opsParts;
         this.offers = offers;
@@ -56,6 +58,7 @@ class SupplierOfferService {
         this.details = details;
         this.visibility = visibility;
         this.suppliers = suppliers;
+        this.signDeadline = signDeadline;
         this.events = events;
     }
 
@@ -157,14 +160,32 @@ class SupplierOfferService {
         return orderView(so, supplierParts.findBySupplierOrderIdOrderByCreatedAtAsc(so.getId()));
     }
 
-    /** 签字前退单（文档 12 §4）：供应商订单取消（WITHDRAWN），生产订单回组装中重派。 */
+    /** 供应商签字 = 锁定（文档 12 §4）。只有「待签」能签；签完退不了、改不了。 */
+    @Transactional
+    public DispatchViews.SupplierOrderView sign(UUID supplierOrgId, UUID userId, UUID supplierOrderId) {
+        SupplierOrder peek = requireMine(supplierOrgId, supplierOrderId);
+        opsOrders.lockById(peek.getOpsOrderId())
+                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
+        SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
+        if (so.getStatus() != SupplierOrder.Status.CONTRACT_PENDING) {
+            throw BusinessException.conflict("dispatch.supplier_order_not_pending");
+        }
+        so.sign(userId, Instant.now());
+        supplierOrders.saveAndFlush(so);
+        return orderView(so, supplierParts.findBySupplierOrderIdOrderByCreatedAtAsc(so.getId()));
+    }
+
+    /** 签字前退单（文档 12 §4）：供应商订单取消（WITHDRAWN），生产订单回组装中重派。签了就退不了。 */
     @Transactional
     public DispatchViews.SupplierOrderView withdraw(UUID supplierOrgId, UUID supplierOrderId) {
         SupplierOrder peek = requireMine(supplierOrgId, supplierOrderId);
         OpsOrder o = opsOrders.lockById(peek.getOpsOrderId())
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
         SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
-        if (so.getStatus() != SupplierOrder.Status.ACCEPTED) {
+        if (so.isSigned()) {
+            throw BusinessException.conflict("dispatch.contract_signed");
+        }
+        if (!so.isOpenBeforeSigning()) {
             throw BusinessException.conflict("dispatch.supplier_order_not_active");
         }
         so.cancel(SupplierOrder.CancelReason.WITHDRAWN, Instant.now());
@@ -186,7 +207,7 @@ class SupplierOfferService {
 
     public ViewUrl orderFileViewUrl(UUID supplierOrgId, UUID userId, UUID supplierOrderId, UUID lineId, UUID fileId) {
         SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
-        if (so.getStatus() != SupplierOrder.Status.ACCEPTED) {
+        if (so.getStatus() == SupplierOrder.Status.CANCELLED) {
             throw BusinessException.notFound("part.file_not_found");
         }
         SupplierOrderPart sp = supplierParts.findById(lineId).filter(x -> x.getSupplierOrderId().equals(so.getId()))
@@ -230,7 +251,8 @@ class SupplierOfferService {
                         sp.getQuantity()))
                 .toList());
         return new DispatchViews.SupplierOrderView(so.getId(), so.getOpsOrderId(), so.getStatus().name(),
-                so.getSupplierDueDate(), so.getAcceptedAt(), so.getCancelledAt(),
+                so.getSupplierDueDate(), so.getAcceptedAt(), so.getContractCreatedAt(), so.getSignedAt(),
+                signDeadline.deadlineOf(so.getAcceptedAt()), so.getCancelledAt(),
                 so.getCancelReason() == null ? null : so.getCancelReason().name(), lines);
     }
 }

@@ -5,6 +5,9 @@
  * ★ 对供价 = 原价 × 该供应商折率，后端按当前折率现算；供应商接单那一刻锁定。页面不自己乘。
  * ★ 对供交期由运营每次派单时手填；客户那边的交期在报价页看（客户确认后 N 天）。
  * ★ 签字前可收回：还没人接 →「收回」；已被接下 →「收回供应商」（对方的单取消，这张回组装中重派）。
+ * ★ 合同（2026-09-20）：供应商接单后运营点「建合同」，供应商在自己那边签字。本轮不生成 PDF、没有条款正文，
+ *   页面上就是单据本身的内容。**接单后 7 天没签字系统自动取消**（从接单算），页面上写明这个期限。
+ *   签字之后锁定：收不回、作废不了。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -17,8 +20,8 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
 import {
-    ApiError, deleteOpsDispatchOrder, getOpsDispatchOrder, offerOpsOrder, opsSupplierPrices, publishOpsOrder,
-    recallOpsOrder, revokeOpsOrderSupplier, unallocateLine,
+    ApiError, cancelSupplierContract, createSupplierContract, deleteOpsDispatchOrder, getOpsDispatchOrder,
+    offerOpsOrder, opsSupplierPrices, publishOpsOrder, recallOpsOrder, revokeOpsOrderSupplier, unallocateLine,
     type OpsOrderDetail, type OpsSupplierPrice,
 } from '../../services'
 import { CANCEL_REASON, DISPATCH_MODE, OFFER_ST, OPS_ORDER_ST, shortId, SUPPLIER_ORDER_ST } from './dispatchStatus'
@@ -62,7 +65,8 @@ export function OpsProdPage() {
 
     const assembling = order.status === 'ASSEMBLING'
     const open = order.status === 'OFFERED' || order.status === 'PUBLISHED'
-    const accepted = order.supplierOrders.find((s) => s.status === 'ACCEPTED')
+    const accepted = order.supplierOrders.find((s) => s.status !== 'CANCELLED')
+    const signed = accepted?.status === 'CONTRACTED'
     const currentOffers = order.offers.filter((o) => o.dispatchRound === order.dispatchRound)
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const dueProblem = !DATE_RE.test(due.trim()) ? '请填对供交期（如 2026-10-20）' : null
@@ -97,6 +101,17 @@ export function OpsProdPage() {
     const recall = () => {
         if (!window.confirm('收回？还没人接，收回后回到组装中。')) return
         void run(() => recallOpsOrder(order.id).then(() => undefined), '已收回')
+    }
+
+    const createContract = () => {
+        if (!accepted) return
+        void run(() => createSupplierContract(accepted.id).then(() => undefined), '合同已建，等供应商签字')
+    }
+
+    const dropContract = () => {
+        if (!accepted) return
+        if (!window.confirm('作废这份合同？回到「已接单、等合同」，可以重新建。')) return
+        void run(() => cancelSupplierContract(accepted.id).then(() => undefined), '合同已作废')
     }
 
     const revoke = () => {
@@ -239,11 +254,27 @@ export function OpsProdPage() {
                             </TableWrap>
                         )}
                         {order.status === 'PUBLISHED' && <div className="t2">挂在全市场，所有可派单的供应商都看得到，谁先接给谁。</div>}
-                        {accepted && <div>「<b>{accepted.supplierName}</b>」于 {fmtDateTime(new Date(accepted.acceptedAt))} 接单，对供交期 {accepted.supplierDueDate}。合同 / 签字下一步做。</div>}
+                        {accepted && (
+                            <>
+                                <div>「<b>{accepted.supplierName}</b>」于 {fmtDateTime(new Date(accepted.acceptedAt))} 接单，对供交期 {accepted.supplierDueDate}。</div>
+                                <div style={{ marginTop: 8 }}>{pill(SUPPLIER_ORDER_ST[accepted.status])}</div>
+                                <div className="t2" style={{ marginTop: 8, lineHeight: 1.6 }}>
+                                    {accepted.status === 'ACCEPTED' && <>还没建合同。签字期限 {fmtDateTime(new Date(accepted.signByDeadline))}（接单起 7 天），到点还没签字，系统会自动取消这张单、退回待派。</>}
+                                    {accepted.status === 'CONTRACT_PENDING' && <>合同已建（{fmtDateTime(new Date(accepted.contractCreatedAt!))}），等供应商签字。签字期限 {fmtDateTime(new Date(accepted.signByDeadline))}，到点没签自动取消退回待派。</>}
+                                    {signed && <>供应商已于 {fmtDateTime(new Date(accepted.signedAt!))} 签字，单据锁定：收不回、改不了。生产、质检、发货还没做。</>}
+                                </div>
+                            </>
+                        )}
                     </CardBody>
-                    <CardFoot right={open
-                        ? <button className="btn" type="button" disabled={busy} onClick={recall}>收回</button>
-                        : <button className="btn" type="button" disabled={busy} onClick={revoke}>收回供应商</button>} />
+                    <CardFoot
+                        left={accepted && !signed ? (
+                            accepted.status === 'ACCEPTED'
+                                ? <button className="btn pri" type="button" disabled={busy} onClick={createContract}>建合同</button>
+                                : <button className="btn" type="button" disabled={busy} onClick={dropContract}>作废合同</button>
+                        ) : undefined}
+                        right={open
+                            ? <button className="btn" type="button" disabled={busy} onClick={recall}>收回</button>
+                            : <button className="btn" type="button" disabled={busy || signed} onClick={revoke}>收回供应商</button>} />
                 </Card>
             )}
 

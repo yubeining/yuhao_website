@@ -2,6 +2,7 @@ package com.mfg.domain.order;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 
+import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
@@ -16,7 +17,13 @@ interface SupplierOrderRepository extends JpaRepository<SupplierOrder, UUID> {
 
     Optional<SupplierOrder> findByOpsOrderIdAndStatus(UUID opsOrderId, SupplierOrder.Status status);
 
+    Optional<SupplierOrder> findFirstByOpsOrderIdAndStatusIn(UUID opsOrderId, Collection<SupplierOrder.Status> statuses);
+
+    /** 超时扫描：接单早于 {@code before} 且还没签字的。 */
+    List<SupplierOrder> findByStatusInAndAcceptedAtBefore(Collection<SupplierOrder.Status> statuses, Instant before);
+
     List<SupplierOrder> findByOpsOrderIdOrderByAcceptedAtDesc(UUID opsOrderId);
 
-    List<SupplierOrder> findByOpsOrderIdInAndStatus(Collection<UUID> opsOrderIds, SupplierOrder.Status status);
+    List<SupplierOrder> findByOpsOrderIdInAndStatusIn(Collection<UUID> opsOrderIds,
+                                                     Collection<SupplierOrder.Status> statuses);
 }

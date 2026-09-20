@@ -61,6 +61,12 @@ class SupplierOfferController {
         return service.order(user.partyId(), id);
     }
 
+    /** 签字 = 锁定，签完退不了也改不了。 */
+    @PostMapping("/supplier/orders/{id}/sign")
+    DispatchViews.SupplierOrderView sign(@CurrentUser UserPrincipal user, @PathVariable UUID id) {
+        return service.sign(user.partyId(), user.id(), id);
+    }
+
     @PostMapping("/supplier/orders/{id}/withdraw")
     DispatchViews.SupplierOrderView withdraw(@CurrentUser UserPrincipal user, @PathVariable UUID id) {
         return service.withdraw(user.partyId(), id);
