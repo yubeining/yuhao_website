@@ -29,9 +29,10 @@ import java.util.stream.Collectors;
 @Service
 class DispatchService implements OrderDispatching {
 
-    /** 还在手上的供应商订单（没取消的）：已接、待签、已签。 */
+    /** 还在手上的供应商订单（没取消的）：已接、待签、已签、生产中、已发、已完成。 */
     static final Set<SupplierOrder.Status> ACTIVE_SUPPLIER_ORDER = Set.of(SupplierOrder.Status.ACCEPTED,
-            SupplierOrder.Status.CONTRACT_PENDING, SupplierOrder.Status.CONTRACTED);
+            SupplierOrder.Status.CONTRACT_PENDING, SupplierOrder.Status.CONTRACTED,
+            SupplierOrder.Status.IN_PRODUCTION, SupplierOrder.Status.SHIPPED, SupplierOrder.Status.FULFILLED);
 
     private final OpsOrderRepository opsOrders;
     private final OpsOrderPartRepository opsParts;
@@ -82,7 +83,7 @@ class DispatchService implements OrderDispatching {
                 .stream().map(OpsOrderPart::getUpstreamPartId).collect(Collectors.toSet());
         List<CustomerOrderPart> open = lines.stream().filter(l -> !allocated.contains(l.getId())).toList();
         Map<UUID, DispatchViews.OpsLine> view = details.forOps(open.stream()
-                        .map(l -> new DispatchLineDetails.Row(l.getId(), l.getId(), l.getQuantity())).toList())
+                        .map(l -> DispatchLineDetails.Row.plain(l.getId(), l.getId(), l.getQuantity())).toList())
                 .stream().collect(Collectors.toMap(DispatchViews.OpsLine::id, v -> v));
         return open.stream().map(l -> {
             DispatchViews.OpsLine v = view.get(l.getId());
@@ -147,7 +148,7 @@ class DispatchService implements OrderDispatching {
         Map<UUID, String> names = orgNames(orgIds);
         return new DispatchViews.OpsOrderDetail(o.getId(), o.getStatus().name(), name(o.getDispatchMode()),
                 o.getDispatchRound(), o.getSupplierDueDate(), o.getDispatchedAt(), o.getCreatedAt(),
-                details.forOps(ps.stream().map(p -> new DispatchLineDetails.Row(p.getId(), p.getUpstreamPartId(),
+                details.forOps(ps.stream().map(p -> DispatchLineDetails.Row.plain(p.getId(), p.getUpstreamPartId(),
                         p.getQuantity())).toList()),
                 os.stream().map(x -> new DispatchViews.OpsOffer(x.getSupplierOrgId(), names.get(x.getSupplierOrgId()),
                         x.getDispatchRound(), x.getStatus().name(), x.getRespondedAt())).toList(),

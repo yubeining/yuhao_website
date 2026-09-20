@@ -17,6 +17,7 @@ export interface SupplierOfferSummary {
     totalQuantity: number
 }
 
+/** 叶子零件行。`status` / `replacesPartId` 只有接单之后的行才有，派单大厅里的行没有。 */
 export interface SupplierLine {
     id: string
     code: string
@@ -25,7 +26,14 @@ export interface SupplierLine {
     material?: string | null
     surfaceTreatment?: string | null
     files: FileView[]
+    status?: LineStatus | null
+    /** 这一行是从哪一行拆出来的（返工 / 重做件） */
+    replacesPartId?: string | null
 }
+
+export type LineStatus =
+    | 'PENDING' | 'IN_PRODUCTION' | 'PRODUCED' | 'QC_PENDING' | 'QC_PASSED'
+    | 'SUPERSEDED' | 'SCRAPPED' | 'CANCELLED'
 
 export interface SupplierOffer {
     id: string
@@ -38,7 +46,7 @@ export interface SupplierOffer {
 export interface SupplierOrderView {
     id: string
     opsOrderId: string
-    status: 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'CANCELLED'
+    status: 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'IN_PRODUCTION' | 'SHIPPED' | 'FULFILLED' | 'CANCELLED'
     supplierDueDate: string
     acceptedAt: string
     contractCreatedAt?: string | null
@@ -99,6 +107,20 @@ export function signSupplierOrder(id: string): Promise<SupplierOrderView> {
 
 export function withdrawSupplierOrder(id: string): Promise<SupplierOrderView> {
     return http.post<SupplierOrderView>(`/supplier/orders/${id}/withdraw`)
+}
+
+/** 报开工（2026-09-20：只报开工 / 完工，不报件数）。 */
+export function startSupplierLine(orderId: string, lineId: string): Promise<SupplierOrderView> {
+    return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/lines/${lineId}/start`)
+}
+
+export function producedSupplierLine(orderId: string, lineId: string): Promise<SupplierOrderView> {
+    return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/lines/${lineId}/produced`)
+}
+
+/** 发给平台：整单全部完工才能发；返工 / 重做的行做完后再发那几行。 */
+export function shipSupplierOrder(orderId: string): Promise<SupplierOrderView> {
+    return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/ship`)
 }
 
 export function supplierOrderFileUrl(id: string, lineId: string, fileId: string): Promise<ViewUrl> {

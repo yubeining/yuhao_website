@@ -20,8 +20,17 @@ import java.util.stream.Collectors;
 @Component
 class DispatchLineDetails {
 
-    /** 一行：本行 id、上游客户零件行 id、件数。 */
-    record Row(UUID id, UUID customerOrderPartId, int quantity) {
+    /**
+     * 一行：本行 id、上游客户零件行 id、件数，外加生产进度三件套
+     * （只有供应商订单的叶子行有，派单池 / 生产订单的行一律 null）。
+     */
+    record Row(UUID id, UUID customerOrderPartId, int quantity, String status, UUID replacesPartId,
+               UUID supersededBy) {
+
+        /** 还没进生产的行（派单池、生产订单）。 */
+        static Row plain(UUID id, UUID customerOrderPartId, int quantity) {
+            return new Row(id, customerOrderPartId, quantity, null, null, null);
+        }
     }
 
     private final CustomerOrderPartRepository customerLines;
@@ -54,7 +63,8 @@ class DispatchLineDetails {
             CustomerOrder o = orders.get(l.getCustomerOrderId());
             return new DispatchViews.OpsLine(r.id(), l.getId(), l.getCustomerOrderId(), l.getCustomerOrgId(),
                     names.get(l.getCustomerOrgId()), o == null ? null : o.getTitle(), codes.get(l.getPartDesignId()),
-                    l.getPartName(), r.quantity(), l.getMaterial(), l.getSurfaceTreatment());
+                    l.getPartName(), r.quantity(), l.getMaterial(), l.getSurfaceTreatment(), r.status(),
+                    r.replacesPartId(), r.supersededBy());
         }).toList();
     }
 
@@ -70,7 +80,7 @@ class DispatchLineDetails {
             CustomerOrderPart l = byId.get(r.customerOrderPartId());
             return new DispatchViews.SupplierLine(r.id(), codes.get(l.getPartDesignId()), l.getPartName(),
                     r.quantity(), l.getMaterial(), l.getSurfaceTreatment(),
-                    files.getOrDefault(l.getPartRevisionId(), List.of()));
+                    files.getOrDefault(l.getPartRevisionId(), List.of()), r.status(), r.replacesPartId());
         }).toList();
     }
 

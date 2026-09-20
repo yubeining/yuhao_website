@@ -3,6 +3,8 @@ package com.mfg.domain.order;
 import com.mfg.platform.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
@@ -24,6 +26,24 @@ import java.util.UUID;
 @Entity
 @Table(name = "customer_order_part")
 class CustomerOrderPart extends BaseEntity {
+
+    /**
+     * 客户看得到的进度 —— <b>只有四态</b>(设计文档 12 §7)。返工、报废、供应商侧的取消一律折成「进行中」：
+     * 客户看不到供应侧的波折,状态也不倒退。
+     *
+     * <p>这一列由叶子零件行在同一个事务里回写({@code ProductionService}),不是读的时候现算 ——
+     * 客户端要按它筛,现算要跨三层零件链。
+     */
+    enum FulfillmentStatus {
+        /** 还没安排下去 */
+        PENDING,
+        /** 在做了 */
+        IN_PROGRESS,
+        /** 全部质检合格 */
+        FULFILLED,
+        /** 取消(本轮没有触发路径:提交后的取消归运营,还没做) */
+        CANCELLED
+    }
 
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "customer_order_id", columnDefinition = "uuid", nullable = false, updatable = false)
@@ -62,6 +82,10 @@ class CustomerOrderPart extends BaseEntity {
     @Column(name = "surface_treatment")
     private String surfaceTreatment;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fulfillment_status", nullable = false)
+    private FulfillmentStatus fulfillmentStatus = FulfillmentStatus.PENDING;
+
     protected CustomerOrderPart() {
     }
 
@@ -83,6 +107,10 @@ class CustomerOrderPart extends BaseEntity {
         this.quantity = quantity;
         this.material = material;
         this.surfaceTreatment = surfaceTreatment;
+    }
+
+    void moveTo(FulfillmentStatus fulfillmentStatus) {
+        this.fulfillmentStatus = fulfillmentStatus;
     }
 
     void repointRevision(UUID partRevisionId) {
@@ -123,5 +151,9 @@ class CustomerOrderPart extends BaseEntity {
 
     String getSurfaceTreatment() {
         return surfaceTreatment;
+    }
+
+    FulfillmentStatus getFulfillmentStatus() {
+        return fulfillmentStatus;
     }
 }

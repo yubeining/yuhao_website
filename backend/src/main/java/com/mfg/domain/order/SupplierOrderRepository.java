@@ -26,4 +26,7 @@ interface SupplierOrderRepository extends JpaRepository<SupplierOrder, UUID> {
 
     List<SupplierOrder> findByOpsOrderIdInAndStatusIn(Collection<UUID> opsOrderIds,
                                                      Collection<SupplierOrder.Status> statuses);
+
+    /** 运营的生产与质检页：已签字之后的单，最近接的在前。 */
+    List<SupplierOrder> findByStatusInOrderByAcceptedAtDesc(Collection<SupplierOrder.Status> statuses);
 }

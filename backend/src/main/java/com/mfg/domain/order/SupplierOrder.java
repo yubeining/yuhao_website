@@ -34,6 +34,12 @@ class SupplierOrder extends BaseEntity {
         CONTRACT_PENDING,
         /** 已签字 = 锁定，不能退也不能改（文档 12 §4） */
         CONTRACTED,
+        /** 至少一行开了工，还没全部发到平台 */
+        IN_PRODUCTION,
+        /** 已发到平台，等运营质检 */
+        SHIPPED,
+        /** 所有零件质检合格（文档 12 §4） */
+        FULFILLED,
         CANCELLED
     }
 
@@ -121,8 +127,15 @@ class SupplierOrder extends BaseEntity {
         this.signedByUserId = supplierUserId;
     }
 
+    /** 签过字 = 锁定。生产中 / 已发 / 已完成都在签字之后，一样退不了、收不回。 */
     boolean isSigned() {
-        return status == Status.CONTRACTED;
+        return status == Status.CONTRACTED || status == Status.IN_PRODUCTION || status == Status.SHIPPED
+                || status == Status.FULFILLED;
+    }
+
+    /** 生产进度（{@link ProductionService} 按叶子零件行算出来后回写）。 */
+    void moveTo(Status status) {
+        this.status = status;
     }
 
     /** 还没签、也没取消：这段时间双方都能退。 */

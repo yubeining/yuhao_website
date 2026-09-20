@@ -38,14 +38,14 @@ class SupplierOfferService {
     private final DispatchLineDetails details;
     private final OfferVisibility visibility;
     private final SupplierDirectory suppliers;
-    private final SignDeadline signDeadline;
+    private final SupplierOrderViews views;
     private final ApplicationEventPublisher events;
 
     SupplierOfferService(OpsOrderRepository opsOrders, OpsOrderPartRepository opsParts,
                          OpsOrderOfferRepository offers, SupplierOrderRepository supplierOrders,
                          SupplierOrderPartRepository supplierParts, CustomerOrderPartRepository customerLines,
                          PartFileRepository files, PartDrawingService drawings, DispatchLineDetails details,
-                         OfferVisibility visibility, SupplierDirectory suppliers, SignDeadline signDeadline,
+                         OfferVisibility visibility, SupplierDirectory suppliers, SupplierOrderViews views,
                          ApplicationEventPublisher events) {
         this.opsOrders = opsOrders;
         this.opsParts = opsParts;
@@ -58,7 +58,7 @@ class SupplierOfferService {
         this.details = details;
         this.visibility = visibility;
         this.suppliers = suppliers;
-        this.signDeadline = signDeadline;
+        this.views = views;
         this.events = events;
     }
 
@@ -86,7 +86,7 @@ class SupplierOfferService {
         OpsOrder o = requireOpen(opsOrders.findById(opsOrderId), supplierOrgId);
         return new DispatchViews.SupplierOffer(o.getId(), o.getDispatchMode().name(), o.getSupplierDueDate(),
                 o.getDispatchedAt(), details.forSupplier(opsParts.findByOpsOrderIdOrderByCreatedAtAsc(o.getId())
-                .stream().map(p -> new DispatchLineDetails.Row(p.getId(), p.getUpstreamPartId(), p.getQuantity()))
+                .stream().map(p -> DispatchLineDetails.Row.plain(p.getId(), p.getUpstreamPartId(), p.getQuantity()))
                 .toList()));
     }
 
@@ -243,16 +243,6 @@ class SupplierOfferService {
     }
 
     private DispatchViews.SupplierOrderView orderView(SupplierOrder so, List<SupplierOrderPart> ps) {
-        Map<UUID, UUID> upstreamCustomerLine = opsParts.findAllById(
-                        ps.stream().map(SupplierOrderPart::getUpstreamPartId).toList()).stream()
-                .collect(Collectors.toMap(OpsOrderPart::getId, OpsOrderPart::getUpstreamPartId));
-        List<DispatchViews.SupplierLine> lines = details.forSupplier(ps.stream()
-                .map(sp -> new DispatchLineDetails.Row(sp.getId(), upstreamCustomerLine.get(sp.getUpstreamPartId()),
-                        sp.getQuantity()))
-                .toList());
-        return new DispatchViews.SupplierOrderView(so.getId(), so.getOpsOrderId(), so.getStatus().name(),
-                so.getSupplierDueDate(), so.getAcceptedAt(), so.getContractCreatedAt(), so.getSignedAt(),
-                signDeadline.deadlineOf(so.getAcceptedAt()), so.getCancelledAt(),
-                so.getCancelReason() == null ? null : so.getCancelReason().name(), lines);
+        return views.forSupplier(so, ps);
     }
 }

@@ -35,9 +35,14 @@ public final class DispatchViews {
                                  List<OpsLine> lines, List<OpsOffer> offers, List<OpsSupplierOrder> supplierOrders) {
     }
 
+    /**
+     * {@code status} / {@code replacesPartId} / {@code supersededBy} 只有供应商订单的叶子行有
+     * （生产进度 + 质检，文档 12 §1）；派单池和生产订单自己的行没有，字段不出现在响应里。
+     */
     public record OpsLine(UUID id, UUID customerOrderPartId, UUID customerOrderId, UUID customerOrgId,
                           String customerName, String orderTitle, String code, String partName, int quantity,
-                          String material, String surfaceTreatment) {
+                          String material, String surfaceTreatment, String status, UUID replacesPartId,
+                          UUID supersededBy) {
     }
 
     public record OpsOffer(UUID supplierOrgId, String supplierName, int dispatchRound, String status,
@@ -49,6 +54,12 @@ public final class DispatchViews {
                                    LocalDate supplierDueDate, Instant acceptedAt, Instant contractCreatedAt,
                                    Instant signedAt, Instant signByDeadline, Instant cancelledAt,
                                    String cancelReason) {
+    }
+
+    /** 运营的生产与质检页：一张已签字的供应商订单 + 它的零件行（2026-09-20）。 */
+    public record OpsProductionOrder(UUID id, UUID opsOrderId, UUID supplierOrgId, String supplierName, String status,
+                                     LocalDate supplierDueDate, Instant acceptedAt, Instant signedAt,
+                                     List<OpsLine> lines) {
     }
 
     public record Allocation(UUID customerOrderPartId, List<AllocatedPart> parts) {
@@ -67,9 +78,12 @@ public final class DispatchViews {
                                 List<SupplierLine> lines) {
     }
 
-    /** {@code code} 是客户的图号（2026-09-18 定可以给供应商看）。 */
+    /**
+     * {@code code} 是客户的图号（2026-09-18 定可以给供应商看）。
+     * {@code status} / {@code replacesPartId} 是生产进度，只有接单之后的行才有；派单大厅里的行没有。
+     */
     public record SupplierLine(UUID id, String code, String partName, int quantity, String material,
-                               String surfaceTreatment, List<FileView> files) {
+                               String surfaceTreatment, List<FileView> files, String status, UUID replacesPartId) {
     }
 
     /** {@code signByDeadline}：接单时间 + 7 天，到点没签字系统自动取消（2026-09-20 拍板）。 */

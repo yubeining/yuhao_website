@@ -24,7 +24,10 @@ import java.util.UUID;
 class CustomerOrder extends BaseEntity {
 
     enum Status {
-        DRAFT, SUBMITTED, QUOTED, CONFIRMED, CANCELLED
+        DRAFT, SUBMITTED, QUOTED, CONFIRMED,
+        /** 零件全部质检合格，等发给客户（发货那一轮再往下走，文档 12 §2） */
+        READY,
+        CANCELLED
     }
 
     @JdbcTypeCode(SqlTypes.UUID)

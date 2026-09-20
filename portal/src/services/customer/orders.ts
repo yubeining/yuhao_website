@@ -9,7 +9,10 @@
 import { http } from '../core/http'
 import type { RevisionView, ViewUrl } from './parts'
 
-export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'CANCELLED'
+export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'READY' | 'CANCELLED'
+
+/** 客户看得到的零件进度 —— 只有四态；返工、报废、换供应商一律折成「进行中」（文档 12 §7）。 */
+export type LineFulfillmentStatus = 'PENDING' | 'IN_PROGRESS' | 'FULFILLED' | 'CANCELLED'
 
 export interface PagedResponse<T> {
     items: T[]
@@ -42,6 +45,8 @@ export interface OrderLineView {
     quantity: number
     material?: string | null
     surfaceTreatment?: string | null
+    /** 进度：待安排 / 进行中 / 已完成 */
+    fulfillmentStatus: LineFulfillmentStatus
     /** 这一行锁定的图纸版本 */
     revision: RevisionView
 }

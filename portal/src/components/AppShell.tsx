@@ -268,6 +268,7 @@ const OPS_NAV: NavItem[] = [
     { to: '/ops/quotes', ic: '€', n: '报价' },
     { to: '/ops/dispatch', ic: '⇉', n: '派单管理' },
     { sec: '执行' },
+    { to: '/ops/production', ic: '⚙', n: '生产与质检' },
     { to: '/ops/orders', ic: '▣', n: '订单' },
     { sec: '入驻' },
     { to: '/ops/onboarding', ic: '⊕', n: '供应商入驻' },

@@ -20,7 +20,7 @@ import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
     ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
 } from '../../services'
-import { ORDER_ST } from './status'
+import { LINE_FULFILL_ST, ORDER_ST } from './status'
 
 export function OrderDetailPage() {
     const { t } = useMock()
@@ -74,6 +74,8 @@ export function OrderDetailPage() {
     }
 
     const draft = order.status === 'DRAFT'
+    // 确认报价之后才谈得上进度；在那之前这一列是空的，不如不显示（CLAUDE.md §10 C5）
+    const inProduction = order.status === 'CONFIRMED' || order.status === 'READY'
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const canSubmit = draft && order.lines.length > 0 && noDrawing === 0
@@ -180,7 +182,8 @@ export function OrderDetailPage() {
                             <thead>
                                 <tr>
                                     <th className="n">#</th><th>图号</th><th>名称</th><th>版本</th><th>材料</th>
-                                    <th className="n">数量</th><th className="n">图纸</th><th>状态</th><th />
+                                    <th className="n">数量</th><th className="n">图纸</th><th>状态</th>
+                                    {inProduction && <th>进度</th>}<th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -197,6 +200,7 @@ export function OrderDetailPage() {
                                         <td className="n">{l.quantity}</td>
                                         <td className="n">{l.revision.files.length || X}</td>
                                         <td>{l.revision.files.length ? <Pill tone="ok">图纸已传</Pill> : <Pill tone="wa">缺图纸</Pill>}</td>
+                                        {inProduction && <td>{pill(LINE_FULFILL_ST[l.fulfillmentStatus])}</td>}
                                         <td style={{ textAlign: 'right' }}>
                                             {draft
                                                 ? <button className="btn qui sm" type="button"

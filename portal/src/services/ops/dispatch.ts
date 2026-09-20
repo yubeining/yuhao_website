@@ -6,8 +6,10 @@
  */
 
 import { http } from '../core/http'
+// 叶子零件行的状态是供应侧的词汇，定义在供应商 service 里，这里只引用，不再定义一份
+import type { LineStatus } from '../supplier/offers'
 
-export type OpsOrderStatus = 'ASSEMBLING' | 'OFFERED' | 'PUBLISHED' | 'ASSIGNED'
+export type OpsOrderStatus = 'ASSEMBLING' | 'OFFERED' | 'PUBLISHED' | 'ASSIGNED' | 'FULFILLED'
 export type DispatchMode = 'TARGETED' | 'MARKET'
 
 export interface PoolLine {
@@ -49,7 +51,12 @@ export interface OpsLine {
     quantity: number
     material?: string | null
     surfaceTreatment?: string | null
+    /** 下面三个只有供应商订单的叶子行才有（生产进度 + 质检拆行的溯源） */
+    status?: LineStatus | null
+    replacesPartId?: string | null
+    supersededBy?: string | null
 }
+
 
 export interface OpsOffer {
     supplierOrgId: string
@@ -59,7 +66,8 @@ export interface OpsOffer {
     respondedAt?: string | null
 }
 
-export type SupplierOrderStatus = 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'CANCELLED'
+export type SupplierOrderStatus =
+    | 'ACCEPTED' | 'CONTRACT_PENDING' | 'CONTRACTED' | 'IN_PRODUCTION' | 'SHIPPED' | 'FULFILLED' | 'CANCELLED'
 export type CancelReason = 'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT'
 
 export interface OpsSupplierOrder {

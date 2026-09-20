@@ -64,7 +64,7 @@ CREATE TABLE public.customer_order (
     title text,
     wanted_lead_days integer,
     submitted_at timestamp with time zone,
-    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'CANCELLED'::text]))),
+    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'READY'::text, 'CANCELLED'::text]))),
     CONSTRAINT customer_order_wanted_lead_days_positive CHECK (((wanted_lead_days IS NULL) OR (wanted_lead_days > 0)))
 );
 
@@ -84,6 +84,8 @@ CREATE TABLE public.customer_order_part (
     part_name text NOT NULL,
     material text,
     surface_treatment text,
+    fulfillment_status text DEFAULT 'PENDING'::text NOT NULL,
+    CONSTRAINT customer_order_part_fulfillment_chk CHECK ((fulfillment_status = ANY (ARRAY['PENDING'::text, 'IN_PROGRESS'::text, 'FULFILLED'::text, 'CANCELLED'::text]))),
     CONSTRAINT customer_order_part_quantity_positive CHECK ((quantity >= 1))
 );
 
@@ -161,7 +163,7 @@ CREATE TABLE public.ops_order (
     dispatched_at timestamp with time zone,
     CONSTRAINT ops_order_dispatch_mode_chk CHECK (((dispatch_mode IS NULL) OR (dispatch_mode = ANY (ARRAY['TARGETED'::text, 'MARKET'::text])))),
     CONSTRAINT ops_order_dispatched_chk CHECK (((status = 'ASSEMBLING'::text) OR ((dispatch_mode IS NOT NULL) AND (supplier_due_date IS NOT NULL) AND (dispatched_at IS NOT NULL) AND (dispatch_round > 0)))),
-    CONSTRAINT ops_order_status_chk CHECK ((status = ANY (ARRAY['ASSEMBLING'::text, 'OFFERED'::text, 'PUBLISHED'::text, 'ASSIGNED'::text])))
+    CONSTRAINT ops_order_status_chk CHECK ((status = ANY (ARRAY['ASSEMBLING'::text, 'OFFERED'::text, 'PUBLISHED'::text, 'ASSIGNED'::text, 'FULFILLED'::text])))
 );
 
 -- Name: ops_order_offer; Type: TABLE; Schema: public; Owner: -
@@ -427,8 +429,8 @@ CREATE TABLE public.supplier_order (
     signed_at timestamp with time zone,
     signed_by_user_id uuid,
     CONSTRAINT supplier_order_cancel_chk CHECK ((((status = 'CANCELLED'::text) AND (cancelled_at IS NOT NULL) AND (cancel_reason = ANY (ARRAY['WITHDRAWN'::text, 'REVOKED'::text, 'SIGN_TIMEOUT'::text]))) OR ((status <> 'CANCELLED'::text) AND (cancelled_at IS NULL) AND (cancel_reason IS NULL)))),
-    CONSTRAINT supplier_order_contract_chk CHECK ((((status <> 'CONTRACT_PENDING'::text) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NULL))) AND ((status <> 'CONTRACTED'::text) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NOT NULL) AND (signed_by_user_id IS NOT NULL))))),
-    CONSTRAINT supplier_order_status_chk CHECK ((status = ANY (ARRAY['ACCEPTED'::text, 'CONTRACT_PENDING'::text, 'CONTRACTED'::text, 'CANCELLED'::text])))
+    CONSTRAINT supplier_order_contract_chk CHECK ((((status <> 'CONTRACT_PENDING'::text) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NULL))) AND ((status <> ALL (ARRAY['CONTRACTED'::text, 'IN_PRODUCTION'::text, 'SHIPPED'::text, 'FULFILLED'::text])) OR ((contract_created_at IS NOT NULL) AND (signed_at IS NOT NULL) AND (signed_by_user_id IS NOT NULL))))),
+    CONSTRAINT supplier_order_status_chk CHECK ((status = ANY (ARRAY['ACCEPTED'::text, 'CONTRACT_PENDING'::text, 'CONTRACTED'::text, 'IN_PRODUCTION'::text, 'SHIPPED'::text, 'FULFILLED'::text, 'CANCELLED'::text])))
 );
 
 -- Name: supplier_order_part; Type: TABLE; Schema: public; Owner: -
@@ -445,7 +447,17 @@ CREATE TABLE public.supplier_order_part (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
     quantity integer NOT NULL,
-    CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1))
+    fulfillment_status text DEFAULT 'PENDING'::text NOT NULL,
+    superseded_by uuid,
+    replaces_part_id uuid,
+    started_at timestamp with time zone,
+    produced_at timestamp with time zone,
+    shipped_at timestamp with time zone,
+    qc_decided_at timestamp with time zone,
+    CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1)),
+    CONSTRAINT supplier_order_part_status_chk CHECK ((fulfillment_status = ANY (ARRAY['PENDING'::text, 'IN_PRODUCTION'::text, 'PRODUCED'::text, 'QC_PENDING'::text, 'QC_PASSED'::text, 'SUPERSEDED'::text, 'SCRAPPED'::text, 'CANCELLED'::text]))),
+    CONSTRAINT supplier_order_part_superseded_chk CHECK (((fulfillment_status <> 'SUPERSEDED'::text) OR (superseded_by IS NOT NULL))),
+    CONSTRAINT supplier_order_part_timeline_chk CHECK ((((fulfillment_status <> 'IN_PRODUCTION'::text) OR (started_at IS NOT NULL)) AND ((fulfillment_status <> ALL (ARRAY['PRODUCED'::text, 'QC_PENDING'::text, 'QC_PASSED'::text])) OR (produced_at IS NOT NULL)) AND ((fulfillment_status <> ALL (ARRAY['QC_PENDING'::text, 'QC_PASSED'::text])) OR (shipped_at IS NOT NULL)) AND ((fulfillment_status <> ALL (ARRAY['QC_PASSED'::text, 'SCRAPPED'::text])) OR (qc_decided_at IS NOT NULL))))
 );
 
 -- Name: supplier_price_line; Type: TABLE; Schema: public; Owner: -
@@ -846,6 +858,14 @@ CREATE UNIQUE INDEX supplier_order_part_no_uk ON public.supplier_order_part USIN
 
 CREATE INDEX supplier_order_part_order_idx ON public.supplier_order_part USING btree (supplier_order_id);
 
+-- Name: supplier_order_part_order_status_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_order_status_idx ON public.supplier_order_part USING btree (supplier_order_id, fulfillment_status);
+
+-- Name: supplier_order_part_replaces_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_replaces_idx ON public.supplier_order_part USING btree (replaces_part_id);
+
 -- Name: supplier_order_part_source_customer_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_source_customer_idx ON public.supplier_order_part USING btree (source_customer_id);
@@ -853,6 +873,10 @@ CREATE INDEX supplier_order_part_source_customer_idx ON public.supplier_order_pa
 -- Name: supplier_order_part_source_customer_order_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_source_customer_order_idx ON public.supplier_order_part USING btree (source_customer_order_id);
+
+-- Name: supplier_order_part_superseded_by_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_superseded_by_idx ON public.supplier_order_part USING btree (superseded_by);
 
 -- Name: supplier_order_part_upstream_idx; Type: INDEX; Schema: public; Owner: -
 

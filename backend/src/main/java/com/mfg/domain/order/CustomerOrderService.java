@@ -261,7 +261,7 @@ class CustomerOrderService {
                                             List<FileView> revisionFiles) {
         return new OrderLineView(line.getId(), line.getPartDesignId(), part.getCode(), line.getPartName(),
                 line.getQuantity(), line.getMaterial(), line.getSurfaceTreatment(),
-                RevisionView.of(revision, revisionFiles));
+                line.getFulfillmentStatus().name(), RevisionView.of(revision, revisionFiles));
     }
 
     private CustomerOrder requireOrder(UUID customerOrgId, UUID orderId) {

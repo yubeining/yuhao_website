@@ -7,14 +7,28 @@
 
 import type { PillSpec } from '../../components/ui'
 import type { LineStat, OrderStatus, PartExecStatus, Quote } from '../../mock/types'
-import type { OrderStatus as ApiOrderStatus, QuoteStatus as ApiQuoteStatus } from '../../services'
+import type {
+    LineFulfillmentStatus, OrderStatus as ApiOrderStatus, QuoteStatus as ApiQuoteStatus,
+} from '../../services'
 
-/** 真订单的状态（后端现在的五个；派单之后的状态随后续步骤加）。 */
+/** 真订单的状态（发货之后的状态等做到那一步再加）。 */
 export const ORDER_ST: Record<ApiOrderStatus, PillSpec> = {
     DRAFT: ['ne', '草稿中'],
     SUBMITTED: ['in', '已提交'],
     QUOTED: ['wa', '待确认报价'],
     CONFIRMED: ['ok', '已确认报价'],
+    READY: ['ok', '已完工 · 待发货'],
+    CANCELLED: ['ba', '已取消'],
+}
+
+/**
+ * 零件行的进度 —— 客户只看得到这四个（文档 12 §7）。
+ * 供应侧的返工、报废、换供应商都折在「进行中」里，客户看不到，也不该看到。
+ */
+export const LINE_FULFILL_ST: Record<LineFulfillmentStatus, PillSpec> = {
+    PENDING: ['ne', '待安排'],
+    IN_PROGRESS: ['in', '进行中'],
+    FULFILLED: ['ok', '已完成'],
     CANCELLED: ['ba', '已取消'],
 }
 

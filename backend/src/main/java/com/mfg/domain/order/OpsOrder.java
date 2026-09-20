@@ -27,7 +27,9 @@ import java.util.UUID;
 class OpsOrder extends BaseEntity {
 
     enum Status {
-        ASSEMBLING, OFFERED, PUBLISHED, ASSIGNED
+        ASSEMBLING, OFFERED, PUBLISHED, ASSIGNED,
+        /** 供应商订单的零件全部质检合格（文档 12 §3） */
+        FULFILLED
     }
 
     enum DispatchMode {
@@ -77,6 +79,11 @@ class OpsOrder extends BaseEntity {
 
     void assign() {
         this.status = Status.ASSIGNED;
+    }
+
+    /** 零件全部质检合格 / 有行又回到在做（{@link ProductionService} 按叶子零件行算完回写）。 */
+    void moveTo(Status status) {
+        this.status = status;
     }
 
     /** 收回 / 全部拒接 / 供应商退单 / 运营收回供应商：回组装中。上一轮的派法、交期留着备查。 */

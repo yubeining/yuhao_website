@@ -3,19 +3,48 @@ package com.mfg.domain.order;
 import com.mfg.platform.persistence.BaseEntity;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
  * 供应商订单里的零件实例 —— 派生自某 {@link OpsOrderPart}(upstreamPartId),
  * 并冗余源客户订单 / 源客户(创建时快照,溯源用)。
+ *
+ * <p>★ <b>这里是零件链上唯一的真状态机</b>(设计文档 12 §1)。上面两层不存供应侧状态:
+ * 运营页面按这些行现算,客户零件行只存折叠过的四态。
+ *
+ * <p>质检拆行(2026-09-20 拍板):原行留下合格件数,问题件另开一行。溯源两头都记 ——
+ * 旧行 {@code supersededBy} 指向新行,新行 {@code replacesPartId} 指向旧行。
+ * 原行合格 0 件时件数不动、状态改 {@code SUPERSEDED}(库里 quantity 的 CHECK 是 >= 1,减不到 0)。
  */
 @Entity
 @Table(name = "supplier_order_part")
 class SupplierOrderPart extends BaseEntity {
+
+    enum FulfillmentStatus {
+        /** 等供应商开工 */
+        PENDING,
+        /** 供应商已报开工 */
+        IN_PRODUCTION,
+        /** 供应商已报完工,还没发给平台 */
+        PRODUCED,
+        /** 已发到平台,等运营质检 */
+        QC_PENDING,
+        /** 质检合格(终态) */
+        QC_PASSED,
+        /** 整行被拆走,件数落在新行上(终态) */
+        SUPERSEDED,
+        /** 报废(终态);没补料前它的件数仍算在客户那一批里 */
+        SCRAPPED,
+        /** 供应商订单取消时连带作废,本轮没有触发路径 */
+        CANCELLED
+    }
 
     @JdbcTypeCode(SqlTypes.UUID)
     @Column(name = "supplier_order_id", columnDefinition = "uuid", nullable = false)
@@ -52,6 +81,32 @@ class SupplierOrderPart extends BaseEntity {
     @Column(name = "quantity", nullable = false)
     private int quantity;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "fulfillment_status", nullable = false)
+    private FulfillmentStatus fulfillmentStatus = FulfillmentStatus.PENDING;
+
+    /** 本行被拆走后,件数落在哪一行上(溯源正向)。 */
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "superseded_by", columnDefinition = "uuid")
+    private UUID supersededBy;
+
+    /** 本行是从哪一行拆出来的(溯源反向);原始行为 null。 */
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "replaces_part_id", columnDefinition = "uuid")
+    private UUID replacesPartId;
+
+    @Column(name = "started_at", columnDefinition = "timestamp with time zone")
+    private Instant startedAt;
+
+    @Column(name = "produced_at", columnDefinition = "timestamp with time zone")
+    private Instant producedAt;
+
+    @Column(name = "shipped_at", columnDefinition = "timestamp with time zone")
+    private Instant shippedAt;
+
+    @Column(name = "qc_decided_at", columnDefinition = "timestamp with time zone")
+    private Instant qcDecidedAt;
+
     protected SupplierOrderPart() {
     }
 
@@ -64,6 +119,64 @@ class SupplierOrderPart extends BaseEntity {
         this.upstreamPartId = upstreamPartId;
         this.sourceCustomerOrderId = sourceCustomerOrderId;
         this.sourceCustomerId = sourceCustomerId;
+    }
+
+    /** 从 {@code origin} 拆出 {@code quantity} 件,新行在同一张供应商订单里。 */
+    static SupplierOrderPart splitFrom(SupplierOrderPart origin, int quantity, FulfillmentStatus status,
+                                       Instant now) {
+        SupplierOrderPart p = new SupplierOrderPart(origin.getSupplierOrderId(), origin.getPartDesignId(),
+                UUID.randomUUID().toString(), quantity, origin.getUpstreamPartId(),
+                origin.getSourceCustomerOrderId(), origin.getSourceCustomerId());
+        p.replacesPartId = origin.getId();
+        p.fulfillmentStatus = status;
+        if (status == FulfillmentStatus.SCRAPPED) {
+            p.qcDecidedAt = now;
+        }
+        return p;
+    }
+
+    void start(Instant now) {
+        this.fulfillmentStatus = FulfillmentStatus.IN_PRODUCTION;
+        this.startedAt = now;
+    }
+
+    void produce(Instant now) {
+        this.fulfillmentStatus = FulfillmentStatus.PRODUCED;
+        this.producedAt = now;
+    }
+
+    void ship(Instant now) {
+        this.fulfillmentStatus = FulfillmentStatus.QC_PENDING;
+        this.shippedAt = now;
+    }
+
+    /** 质检合格:本行留下 {@code passed} 件。 */
+    void qcPassed(int passed, Instant now) {
+        this.quantity = passed;
+        this.fulfillmentStatus = FulfillmentStatus.QC_PASSED;
+        this.qcDecidedAt = now;
+    }
+
+    /** 整行被拆走:件数不动(CHECK 是 >= 1),状态改成已被替代。 */
+    void supersede(UUID newPartId, Instant now) {
+        this.fulfillmentStatus = FulfillmentStatus.SUPERSEDED;
+        this.supersededBy = newPartId;
+        this.qcDecidedAt = now;
+    }
+
+    /** 报废件已补料:指向补料的新行。状态仍是 SCRAPPED —— 报废这件事不撤销。 */
+    void remadeBy(UUID newPartId) {
+        this.supersededBy = newPartId;
+    }
+
+    /** 还没补料的报废件:它的件数仍算在客户那一批里(数量守恒)。 */
+    boolean isScrapAwaitingRemake() {
+        return fulfillmentStatus == FulfillmentStatus.SCRAPPED && supersededBy == null;
+    }
+
+    /** 供应商还得干活的行。 */
+    boolean isUnfinished() {
+        return fulfillmentStatus == FulfillmentStatus.PENDING || fulfillmentStatus == FulfillmentStatus.IN_PRODUCTION;
     }
 
     public UUID getSupplierOrderId() {
@@ -92,5 +205,33 @@ class SupplierOrderPart extends BaseEntity {
 
     public int getQuantity() {
         return quantity;
+    }
+
+    FulfillmentStatus getFulfillmentStatus() {
+        return fulfillmentStatus;
+    }
+
+    UUID getSupersededBy() {
+        return supersededBy;
+    }
+
+    UUID getReplacesPartId() {
+        return replacesPartId;
+    }
+
+    Instant getStartedAt() {
+        return startedAt;
+    }
+
+    Instant getProducedAt() {
+        return producedAt;
+    }
+
+    Instant getShippedAt() {
+        return shippedAt;
+    }
+
+    Instant getQcDecidedAt() {
+        return qcDecidedAt;
     }
 }

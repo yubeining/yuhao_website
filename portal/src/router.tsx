@@ -29,6 +29,7 @@ import { OpsQuotesPage } from './pages/ops/QuotesPage'
 import { OpsQuoteWorkPage } from './pages/ops/QuoteWorkPage'
 import { OpsDispatchPage } from './pages/ops/DispatchPage'
 import { OpsProdPage } from './pages/ops/ProdPage'
+import { OpsProductionPage } from './pages/ops/ProductionPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsOnboardingPage } from './pages/ops/OnboardingPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
@@ -133,6 +134,7 @@ export const router = createBrowserRouter([
             { path: 'dispatch', element: <OpsDispatchPage /> },
             // 生产订单详情。:id 是 PO- 开头的生产订单，不是客户订单 SO-
             { path: 'dispatch/:id', element: <OpsProdPage /> },
+            { path: 'production', element: <OpsProductionPage /> },
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'onboarding', element: <OpsOnboardingPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
