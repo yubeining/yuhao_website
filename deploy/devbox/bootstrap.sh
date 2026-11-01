@@ -261,14 +261,20 @@ else
     log ".env already exists, leaving it alone"
 fi
 
-# ---------- 5. 容器重启后自动拉起 ----------
-# ★ DevBox 是容器不是虚拟机，通常【没有 systemd】。
-#   所以用 Sealos DevBox 约定的 entrypoint.sh 来保证重启后应用能起来。
-#   没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。
+# ---------- 5. 安装 entrypoint.sh ----------
+# ★ 这个文件是【发布成应用镜像后】的容器入口，也是多副本时的启动脚本。
+#   正本在仓库里（deploy/devbox/entrypoint.sh），这里只负责安装。
+#
+# ★★ 它【不会】在 DevBox 开发容器里执行 —— 2026-11-01 实测：
+#      文件能正常装到 /home/devbox/project/，权限对、内容对，
+#      但 DevBox 重启后 ss/ps 都看不到应用，公网返回 111。两次重启都一样。
+#      Sealos 文档对这个文件的定义是「应用【在发布后】的启动方式」，
+#      只有「发布版本 → 部署应用」产出的镜像才把它当 ENTRYPOINT。
+#    所以：DevBox 重启后应用不会自启，需要重跑一次 Action 或手动拉起。
+#    生产请用「应用管理」跑镜像，那里才有副本管理和自动重启。
 ENTRYPOINT=/home/devbox/project/entrypoint.sh
 mkdir -p "$(dirname "$ENTRYPOINT")"
-# ★ 正本在仓库里（deploy/devbox/entrypoint.sh），这里只负责安装，不再内联生成。
-#   以前是内联生成 + 「已存在就不覆盖」，导致改了永远同步不过来、只能上机器手改。
+# ★ 以前是内联生成 + 「已存在就不覆盖」，导致改了永远同步不过来、只能上机器手改。
 #   现在每次部署由 deploy.sh 重新安装，改文件 → 点 Action 就生效。
 if [ -f "$SRC_DIR/deploy/devbox/entrypoint.sh" ]; then
     install -m 0755 "$SRC_DIR/deploy/devbox/entrypoint.sh" "$ENTRYPOINT"

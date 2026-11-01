@@ -175,8 +175,19 @@ ssh -i <私钥> -p <端口> devbox@<主机> 'bash /tmp/bootstrap.sh'
    > 装上了却没用上，是这里最难查的坑。
    > `build.sh` / `deploy.sh` / `entrypoint.sh` 都 source 这个文件，三者必定用同一个 JDK。
 2. 建 `/home/devbox/app/` 和 `.env` 模板
-3. 装 `/home/devbox/project/entrypoint.sh` —— **DevBox 是容器不是虚拟机，
-   通常没有 systemd**。没有这一步，DevBox 一被暂停/重启，应用就再也不会自己回来。
+3. 装 `/home/devbox/project/entrypoint.sh` —— 这是**发布成应用镜像后**的容器入口
+   （`deploy.sh` 每次部署会从仓库把它抄过去）。
+
+   > ★★ **DevBox 开发容器不会执行这个文件。**
+   > 2026-11-01 实测：文件正常装上了，权限对、内容对，但 DevBox 重启后
+   > `ss -lntp | grep 8080` 无输出、`ps -ef | grep java` 无进程，
+   > 公网地址返回 `delayed connect error: 111`。两次重启都一样。
+   > Sealos 官方文档对这个文件的定义是「应用**在发布后**的启动方式，
+   > 是项目**发布为 OCI 镜像时**的关键组件」—— 它服务于发布出去的镜像，
+   > 不服务于开发容器。
+   >
+   > 所以：**DevBox 重启后应用不会自己回来**，需要重跑一次 Action 或手动拉起。
+   > 生产请走「应用管理」跑镜像（见文末「扩缩容」一节），那里才有副本管理和自动重启。
 
 然后**编辑 `.env` 填地址类的值**（口令类不用填 —— 第 3 步配进 GitHub 后，
 第一次部署会自动覆盖进来；地址类也可以配成 GitHub Variables 省掉这一步）：
@@ -313,7 +324,7 @@ cp app.jar.prev app.jar.new && bash deploy.sh
 | 启动报 `missing table` | 迁移没跑。检查 jar 里有没有 `BOOT-INF/classes/db/migrations/*.sql` |
 | 启动报 `app.jar.secret is missing or too short` | `JWT_SECRET` 没填或不足 32 字节 |
 | 公网地址 502 | 应用没起来，或 `SERVER_PORT` 不是 8080 |
-| DevBox 重启后应用没了 | `entrypoint.sh` 没装上，重跑 `bootstrap.sh` |
+| DevBox 重启后应用没了 | **预期行为，不是故障。** DevBox 开发容器不执行 `entrypoint.sh`（实测，见第 2 步的说明），重启后需重跑一次 Action 或手动拉起。要「重启自愈」必须用「应用管理」部署镜像 |
 
 看日志：
 
