@@ -1,0 +1,101 @@
+name: Build Image
+
+# 构建可部署的容器镜像并推送到 GitHub Container Registry (GHCR)。
+#
+# ★ 为什么需要这个 workflow
+#
+#   现有的 deploy.yml 是「把源码同步到 DevBox，在 DevBox 上构建并直接跑」——
+#   那是【开发/预发】链路。它的致命问题是：DevBox 是容器不是虚拟机，
+#   重启后没有任何东西会把应用拉起来（实测：entrypoint.sh 装在
+#   /home/devbox/project/ 上也不会被执行，那是发布出去的镜像才用的）。
+#   于是每次 DevBox 重启 = 线上白屏，必须手动点一次 Action。
+#
+#   Sealos 的正规路径是「镜像 → 应用管理 → N 个副本」，而它要求先有一个
+#   在公网可拉的镜像。DevBox 的「发布版本」本来负责产出这个镜像，
+#   但该功能在 bja 区实测反复失败：点发版后 DevBox 进入「关机中」，
+#   随后没有任何版本记录，也不报错（前端只在自动关机超过 2 分钟时才抛错，
+#   源码见 sealos PR #6459）。这条路不可控，所以改由 Actions 自己构建。
+#
+# ★ 为什么用 GHCR 而不是 Sealos 自带的 hub.bja.sealos.run
+#   后者是集群内网地址（172.16.0.11/12），GitHub 的 runner 在公网，推不进去。
+#   GHCR 免费、和仓库同源、GITHUB_TOKEN 自带权限，不需要额外配 secret。
+#
+# ★ 推上去之后必须把 package 设为 Public，
+#   否则 Sealos 拉镜像会 ImagePullBackOff（除非在应用里配 imagePullSecret）。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+# ★ 同一分支只保留最新一次构建。
+#   连着推两次的话，前一次的结果对部署方没有意义，白占 runner 时间。
+concurrency:
+  group: image-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE: ghcr.io/yubeining/yuhao_website
+
+jobs:
+  image:
+    name: 构建并推送镜像
+    runs-on: ubuntu-latest
+    # ★ 首次构建要装 npm 依赖 + Maven 依赖（go-offline）+ 前端 tsc/vite + 打 jar，
+    #   冷缓存实测 8~12 分钟。给足超时，别让它在中途被砍。
+    timeout-minutes: 40
+
+    steps:
+      - name: 检出源码
+        uses: actions/checkout@v4
+
+      # buildx 是 GHA 缓存的载体，没有它 cache-from/cache-to 不生效
+      - name: 准备 Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: 登录 GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # ★ 统一在这里算一次短 commit，和 deploy.yml 保持同样的 7 位口径。
+      #   应用侧用 /api/v1/public/ping 返回的 commit 核对线上版本时，
+      #   两边长度必须一致，否则"核对版本"会永远不通过。
+      - name: 计算版本号
+        id: v
+        run: echo "short=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
+
+      # ★ context 是仓库根目录 —— Dockerfile 要从 portal/、backend/、database/
+      #   三处取材，不能指定子目录当上下文。
+      # ★ 缓存用 gha：把 npm ci 和 mvn dependency 那两层留在 runner 缓存里，
+      #   第二次构建能从 10 分钟降到 2 分钟左右。
+      - name: 构建并推送
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE }}:latest
+            ${{ env.IMAGE }}:${{ steps.v.outputs.short }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: 结果摘要
+        run: |
+          {
+            echo "### 镜像已推送"
+            echo ""
+            echo "| 项 | 值 |"
+            echo "|---|---|"
+            echo "| 地址 | \`${{ env.IMAGE }}:latest\` |"
+            echo "| commit | \`${{ steps.v.outputs.short }}\` |"
+            echo "| 架构 | linux/amd64 |"
+            echo ""
+            echo "下一步：Sealos 应用管理 → 新建应用 → 镜像填上面的地址 → 端口 8080"
+          } >> "$GITHUB_STEP_SUMMARY"
