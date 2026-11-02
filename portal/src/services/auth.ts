@@ -88,3 +88,38 @@ export function registerWithSupplierInvite(
         body: input,
     })
 }
+
+// ---------- 验证码登录（邮箱）----------
+
+export type OtpChannel = 'EMAIL' | 'SMS'
+
+/**
+ * 校验结果。
+ *
+ * `registrationRequired=true` 表示「邮箱已验证，但这个邮箱还没有账号」——
+ * 后端**不签发登录态**。此时前端应该引导去注册，而不是当登录成功。
+ */
+export interface OtpVerifyResult {
+    registrationRequired: boolean
+    token?: TokenResponse
+}
+
+/**
+ * 发码。响应里没有"这个邮箱是否存在" —— 服务端刻意不区分（防账号枚举）。
+ *
+ * 目前只有 EMAIL 通道可用；SMS 会被后端以 `auth.otp_channel_unavailable` 拒绝。
+ */
+export function sendOtp(channel: OtpChannel, identifier: string): Promise<{ sent: boolean }> {
+    return publicRequest<{ sent: boolean }>('/auth/otp/send', {
+        method: 'POST',
+        body: { channel, identifier },
+    })
+}
+
+/** 校验并登录。成功时 `token` 与密码登录的响应同形。 */
+export function verifyOtp(channel: OtpChannel, identifier: string, code: string): Promise<OtpVerifyResult> {
+    return publicRequest<OtpVerifyResult>('/auth/otp/verify', {
+        method: 'POST',
+        body: { channel, identifier, code },
+    })
+}
