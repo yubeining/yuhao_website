@@ -11,12 +11,11 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Logo } from './brand'
-import { useMock } from '../mock/MockProvider'
-import { currentCompany, currentUser, findCompany, logout } from '../mock/actions'
 import { useSession } from '../auth/useSession'
 import { clearSession } from '../auth/session'
 import { logout as apiLogout } from '../services/auth'
 import { getMyOrganization } from '../services/customer/organization'
+import { getMySupplierOrganization } from '../services/supplier/organization'
 
 export interface NavItem {
     /** 分组标题。给了 sec 就只渲染标题，其余字段忽略。 */
@@ -94,48 +93,28 @@ function GlobalNav({ badge, areas, currentPath, sub }: Pick<Props, 'badge' | 'ar
     )
 }
 
-/** 身份切换菜单里固定展示的两个槽位 —— 没开通的显示为灰态，而不是隐藏。 */
-const ID_SLOTS: [('customer' | 'supplier'), string][] = [
-    ['customer', '客户'],
-    ['supplier', '供应商'],
-]
-
 /**
- * 用户菜单 —— 身份切换 + 退出。
+ * 用户菜单 —— 只做退出。
  *
- * ★ 未开通的身份显示成禁用项而不是不显示：让人看见「还能是供应商」
- *   本身就是产品信息。隐藏掉的话，一个客户永远不会知道自己可以入驻。
+ * ★ 身份切换（一个账号多身份）是原型演示专属功能，2026-11-02 随 mock 层一起删掉：
+ *   真实登录下一个账号只属于一个端，不存在「切换」。原来那段代码在空种子下
+ *   本来也恒为假 —— 留着只是让人以为这里有功能。
  */
 function UserMenu({ sub }: { sub: string }) {
-    const { state, act } = useMock()
     const session = useSession()
     const navigate = useNavigate()
     const [open, setOpen] = useState(false)
 
-    const user = currentUser(state)
-    // 身份显示优先用真实登录态(已接后端);mock user 仅在原型演示时兜底
-    const displayName = user?.name ?? session?.displayName ?? '用户'
-    if (!user && !session) return null
-    // 身份切换是原型 mock 专属功能(一个人多身份),真实登录态下暂不提供
-    const switchable = !!user && user.roles.some((r) => r.role !== 'ops')
+    const displayName = session?.displayName ?? '用户'
+    if (!session) return null
 
     const signOut = () => {
         // 撤销后端 refresh token(尽力而为,失败也要本地登出)
-        if (session?.refreshToken) {
+        if (session.refreshToken) {
             void apiLogout(session.refreshToken).catch(() => undefined)
         }
         clearSession()
-        act(logout)
         navigate('/auth/signin', { replace: true })
-    }
-
-    const pickRole = (i: number) => {
-        if (!user) return
-        act((s) => {
-            s.session.roleIndex = i
-        })
-        setOpen(false)
-        navigate(user.roles[i].role === 'supplier' ? '/supplier/hall' : '/customer')
     }
 
     return (
@@ -149,29 +128,6 @@ function UserMenu({ sub }: { sub: string }) {
             </button>
             {open && (
                 <div className="idmenu down">
-                    {switchable && user && (
-                        <>
-                            <div className="imt">切换身份</div>
-                            {ID_SLOTS.map(([role, label]) => {
-                                const i = user.roles.findIndex((r) => r.role === role)
-                                const on = i >= 0
-                                const cur = on && i === state.session.roleIndex
-                                const co = on ? findCompany(state, user.roles[i].companyId) : undefined
-                                return (
-                                    <button key={role} type="button" disabled={!on}
-                                        aria-current={cur ? 'true' : undefined}
-                                        onClick={on ? () => pickRole(i) : undefined}>
-                                        <span>
-                                            <span className="ir">{label}</span>
-                                            <span className="ip">{on ? co?.name : '未开通'}</span>
-                                        </span>
-                                        {cur && <span className="ick">✓</span>}
-                                    </button>
-                                )
-                            })}
-                            <div className="imd" />
-                        </>
-                    )}
                     <button className="out" type="button" onClick={signOut}>
                         退出登录
                     </button>
@@ -249,10 +205,12 @@ export function SupplierShell({ children, full, path }: {
     full?: boolean
     path: string
 }) {
-    const { state } = useMock()
-    const co = currentCompany(state)
-    // ★ 以前写「· 待考察」：原型数据仓里没有这家公司时一律显示待考察，是编的状态（2026-09-18 删）
-    const sub = co?.name ?? '供应商'
+    // ★ 公司名读后端，和 CustomerShell 一致；读不到就退回角色名「供应商」，
+    //   不编一个公司名出来。
+    const [sub, setSub] = useState('供应商')
+    useEffect(() => {
+        getMySupplierOrganization().then((o) => setSub(o.name)).catch(() => setSub('供应商'))
+    }, [])
     return (
         <AppShell nav={full ? undefined : SUP_NAV} settingsTo="/supplier/settings"
             areas={SUP_AREAS} currentPath={path} sub={sub}>
@@ -274,7 +232,6 @@ const OPS_NAV: NavItem[] = [
     { to: '/ops/onboarding', ic: '⊕', n: '供应商入驻' },
     { sec: '主数据' },
     { to: '/ops/parties', ic: '⌂', n: '交易方' },
-    { to: '/ops/rates', ic: '∑', n: '定价参数' },
 ]
 
 export function OpsShell({ children }: { children: ReactNode }) {
