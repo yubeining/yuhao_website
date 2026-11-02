@@ -204,16 +204,6 @@ vi /home/devbox/app/.env
 | `DB_USERNAME` / `DB_PASSWORD` | 第 1 步记下的 |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 第 1 步记下的 |
 | `JWT_SECRET` | `openssl rand -base64 48` 生成，**不要与本地开发共用** |
-| `DEV_LOGIN_ENABLED` | **`false`** —— 见下面的红线 |
-
-> ### ★★★ `DEV_LOGIN_ENABLED` 必须是 false
->
-> `DevAuthController` 不校验任何凭据就能签出任意端的 token，包括 OPERATOR。
-> 在生产打开它，等于把内部后台的完全访问权公开 —— 前面所有的端级隔离、
-> 数据隔离六条铁律、白名单序列化全部作废，因为攻击者根本不需要越权，
-> 他直接就是管理员。
->
-> 真实登录做完的那个 PR 里，把 `DevAuthController` 和前端的 `devLogin` 一起删掉。
 
 ---
 

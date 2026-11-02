@@ -229,11 +229,6 @@ REDIS_PASSWORD=<口令>
 #   绝不与本地开发或任何其他环境共用同一个值。
 JWT_SECRET=
 
-# ---------- 开发后门 ----------
-# ★★★ 必须是 false。true = 任何人 POST 一下就能拿到 OPERATOR token，
-#      前面所有的隔离设计瞬间作废。
-DEV_LOGIN_ENABLED=false
-
 # ---------- JVM ----------
 # ★ 50% 而不是 70%：这台 DevBox 既跑应用又跑构建，只有 4 GiB。
 #   构建时 Maven 要 ~1 GB、npm 要 ~1 GB，而应用还开着。
