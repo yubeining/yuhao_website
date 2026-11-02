@@ -114,6 +114,7 @@ CREATE TABLE public.external_user (
     display_name text NOT NULL,
     status text DEFAULT 'ACTIVE'::text NOT NULL,
     locale text,
+    email_verified_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,

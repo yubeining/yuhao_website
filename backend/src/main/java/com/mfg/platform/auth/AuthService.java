@@ -16,6 +16,8 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
+import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -89,6 +91,37 @@ public class AuthService {
             throw new BusinessException(401, BAD_CREDENTIALS);
         }
         return new Authenticated(externalPrincipal(u, org), u.getDisplayName());
+    }
+
+    // ---------- 验证码登录 ----------
+
+    /**
+     * 按邮箱找一个外部账号 —— 验证码登录用（不校验密码，密码那条路走 {@link #authenticateExternal}）。
+     *
+     * <p>返回 {@code Optional.empty()} 表示"没有这个可用账号"，不抛异常：调用方要靠它区分
+     * 「邮箱已验证但还要先注册」和「可以直接登录」。与密码登录的差别是这里<b>不返回</b>
+     * {@code auth.bad_credentials} —— 此时验证码已经证明邮箱归属，再说"凭证错误"没有意义。
+     *
+     * <p>★ <b>只能在验证码校验通过之后调。</b>在那之前调用它就是一个账号枚举接口。
+     */
+    @Transactional(readOnly = true)
+    public Optional<Authenticated> findExternalByEmail(String email) {
+        ExternalUser u = externalUsers.findByEmail(normalize(email)).orElse(null);
+        if (u == null || u.getStatus() != ExternalUser.Status.ACTIVE) {
+            return Optional.empty();
+        }
+        Organization org = organizations.findById(u.getOrgId()).orElse(null);
+        if (org == null || org.getStatus() != Organization.Status.ACTIVE
+                || audienceOf(org.getType()) == PartyType.OPERATOR) {
+            return Optional.empty();
+        }
+        return Optional.of(new Authenticated(externalPrincipal(u, org), u.getDisplayName()));
+    }
+
+    /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */
+    @Transactional
+    public void markEmailVerified(UUID userId, Instant at) {
+        externalUsers.findById(userId).ifPresent(u -> u.markEmailVerified(at));
     }
 
     // ---------- 刷新时重载(反映当前状态:被禁用/被删的刷新失败)----------

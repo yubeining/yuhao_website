@@ -10,6 +10,22 @@ spring:
   application:
     name: mfg-backend
 
+  # 发信（登录验证码）。★ 没配 MAIL_HOST 时不要创建 JavaMailSender：
+  #   写成 host: "" 也会让 Spring 的自动配置认为"配了邮件"，于是发信直接抛异常。
+  #   EmailSender 里有一道 host 为空的兜底（降级成 log-only），两处配合保证
+  #   "没配 SMTP 也能正常启动、正常发码接口只是把码打到日志里"。
+  mail:
+    host: ${MAIL_HOST:}
+    port: ${MAIL_PORT:587}
+    username: ${MAIL_USERNAME:}
+    password: ${MAIL_PASSWORD:}
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+
   lifecycle:
     # 收到 SIGTERM 后先停止接收新请求，给在途请求 20 秒收尾。
     # 滚动更新时没有这个，正在提交的报价会直接连接中断。
@@ -82,6 +98,15 @@ spring:
         enabled: false
 
 management:
+  health:
+    # ★ 关掉邮件健康检查。
+    #   只要 application.yml 里声明了 spring.mail.host（哪怕值是空），Spring 就会装配
+    #   MailHealthIndicator，它会真的去连 SMTP；没配 SMTP 时连不上 → 整体 /actuator/health
+    #   变成 DOWN，而 deploy.sh 正是拿它判活，部署会"启动失败"然后回滚。
+    #   而且邮件可达性不是本应用的存活信号：发不出去只影响验证码那一条链路，
+    #   业务本身照常，接口层已经有自己的错误处理。
+    mail:
+      enabled: false
   endpoints:
     web:
       exposure:

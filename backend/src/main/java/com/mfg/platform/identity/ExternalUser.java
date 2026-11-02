@@ -9,6 +9,7 @@ import jakarta.persistence.Table;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import java.time.Instant;
 import java.util.UUID;
 
 /**
@@ -45,6 +46,14 @@ public class ExternalUser extends BaseEntity {
 
     @Column(name = "locale")
     private String locale;
+
+    /**
+     * 第一次通过邮箱验证码证明归属的时间；为空 = 从未验证过。
+     *
+     * <p>只记「证明过」，不记「验证了多少次」—— 后者属于审计，不该塞进主表。
+     */
+    @Column(name = "email_verified_at", columnDefinition = "timestamp with time zone")
+    private Instant emailVerifiedAt;
 
     protected ExternalUser() {
         // JPA
@@ -96,5 +105,16 @@ public class ExternalUser extends BaseEntity {
 
     public void setLocale(String locale) {
         this.locale = locale;
+    }
+
+    public Instant getEmailVerifiedAt() {
+        return emailVerifiedAt;
+    }
+
+    /** 幂等：已经验证过就不覆盖第一次的时间。 */
+    public void markEmailVerified(Instant at) {
+        if (this.emailVerifiedAt == null) {
+            this.emailVerifiedAt = at;
+        }
     }
 }

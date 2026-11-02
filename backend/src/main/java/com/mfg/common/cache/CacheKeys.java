@@ -105,6 +105,27 @@ public final class CacheKeys {
         return global("auth", "refresh", token);
     }
 
+    // ---------- 登录验证码（OTP）----------
+
+    /**
+     * 一条 OTP 的存储 key。{@code identifierHash} 是标识的 SHA-256 ——
+     * <b>key 里不放邮箱原文</b>：Redis 的 key 会被 SCAN、监控和备份带走，
+     * 那是 PII 的又一个副本，而且没有任何代码会去打码它。
+     */
+    public static String otpCode(String channel, String identifierHash) {
+        return global("auth", "otp", "code", channel, identifierHash);
+    }
+
+    /** 同一条 OTP 的「已试错次数」。和码分开存 —— 码本身只写一次，不该为了记次数把 TTL 重置。 */
+    public static String otpAttempts(String channel, String identifierHash) {
+        return global("auth", "otp", "attempts", channel, identifierHash);
+    }
+
+    /** 全局每日发码预算（防发信被刷费用）。按 UTC 日期滚动。 */
+    public static String otpDailyBudget(String channel, String utcDate) {
+        return global("auth", "otp", "budget", channel, utcDate);
+    }
+
     // ---------- 幂等（@Idempotent）----------
 
     /**
