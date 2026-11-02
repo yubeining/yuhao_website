@@ -5,10 +5,7 @@ import { CustomerShell, OpsShell, SupplierShell } from './components/AppShell'
 import { SignInPage } from './pages/auth/SignInPage'
 import { OpsSignInPage } from './pages/auth/OpsSignInPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
-import { VerifyPage } from './pages/auth/VerifyPage'
 import { InvitePage } from './pages/auth/InvitePage'
-import { SupplierRegisterPage } from './pages/auth/SupplierRegisterPage'
-import { SupplierDonePage } from './pages/auth/SupplierDonePage'
 
 import { CustomerHomePage } from './pages/customer/HomePage'
 import { QuoteListPage } from './pages/customer/QuoteListPage'
@@ -33,7 +30,6 @@ import { OpsProductionPage } from './pages/ops/ProductionPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsOnboardingPage } from './pages/ops/OnboardingPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
-import { OpsRatesPage } from './pages/ops/RatesPage'
 
 import { SettingsPage } from './pages/SettingsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -69,10 +65,7 @@ export const router = createBrowserRouter([
             { path: 'signin', element: <SignInPage /> },
             { path: 'internal/signin', element: <OpsSignInPage /> },
             { path: 'register', element: <RegisterPage /> },
-            { path: 'verify', element: <VerifyPage /> },
             { path: 'invite', element: <InvitePage /> },
-            { path: 'supplier-register', element: <SupplierRegisterPage /> },
-            { path: 'supplier-done', element: <SupplierDonePage /> },
         ],
     },
 
@@ -138,7 +131,6 @@ export const router = createBrowserRouter([
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'onboarding', element: <OpsOnboardingPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
-            { path: 'rates', element: <OpsRatesPage /> },
             { path: 'settings', element: <SettingsPage /> },
         ],
     },
