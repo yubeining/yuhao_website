@@ -204,6 +204,22 @@ vi /home/devbox/app/.env
 | `DB_USERNAME` / `DB_PASSWORD` | 第 1 步记下的 |
 | `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 第 1 步记下的 |
 | `JWT_SECRET` | `openssl rand -base64 48` 生成，**不要与本地开发共用** |
+| `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` | Resend：`smtp.resend.com` / `587` / `resend` |
+| `MAIL_PASSWORD` | Resend 的 API key（`re_...`）。**不填就等于没接邮件** |
+| `MAIL_FROM` | 发信地址，必须落在**已验证**的发信子域上（如 `noreply@mail.partcut.com`） |
+
+> ### ★ 验证码能不能发出去，取决于 `MAIL_*` 这三件事
+>
+> 1. **发信域名在 Resend 里已 Verified**。只配 `MAIL_*` 不够 —— 域名没验证时，
+>    用 Resend 的试用发件人只能发到账号自己的邮箱，发给真实客户会被拒。
+> 2. **`MAIL_FROM` 用独立发信子域**（如 `mail.partcut.com`），不要用根域。子域要配
+>    SPF / DKIM / DMARC，否则验证码大面积进垃圾箱 —— 而现象是"用户说没收到"，
+>    后端日志里一切正常。
+> 3. **没配 `MAIL_HOST` 时应用照常启动，但只把邮件打进日志前缀 `[email log-only]`**。
+>    线上出现这一行就说明配置没生效，用户永远收不到验证码。
+>
+> 另外：Resend 免费档 **100 封/天**。验证码一登录一封，100 封约等于 100 次登录，
+> 撞顶后发信会被拒。`app.auth.otp.daily-budget` 的默认值就是按这个额度定的。
 
 ---
 
