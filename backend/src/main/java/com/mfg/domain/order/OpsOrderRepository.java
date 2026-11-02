@@ -26,4 +26,7 @@ interface OpsOrderRepository extends JpaRepository<OpsOrder, UUID> {
     List<OpsOrder> findByIdInAndStatus(Collection<UUID> ids, OpsOrder.Status status);
 
     List<OpsOrder> findByStatusOrderByDispatchedAtDesc(OpsOrder.Status status);
+
+    /** 运营工作台：按状态计数。 */
+    long countByStatus(OpsOrder.Status status);
 }

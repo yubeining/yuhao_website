@@ -28,6 +28,9 @@ interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UUID> {
 
     Page<CustomerOrder> findByStatusAndSubmittedAtIsNotNull(CustomerOrder.Status status, Pageable pageable);
 
+    /** 运营工作台：按状态计数（跨客户）。 */
+    long countByStatus(CustomerOrder.Status status);
+
     Optional<CustomerOrder> findByIdAndSubmittedAtIsNotNull(UUID id);
 
     List<CustomerOrder> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
