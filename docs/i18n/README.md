@@ -113,6 +113,8 @@ python3 scripts/check-i18n-literals.py --init   # 把当前未迁移的文件写
 ## 7. 还没做的（别当成已完成）
 
 - 登录之后没有语言切换入口（放顶栏还是设置页未定）
-- 后端接口 `PATCH /{portal}/me/locale` 未实现 —— 手动切换目前只存本地，不跟账号走
-- 邮件/通知语言未按 locale 渲染（验证码邮件写死英文）
+- ~~后台接口 `PATCH /{portal}/me/locale` 未实现~~ —— 已实现：`/customer/me/locale` 与
+  `/supplier/me/locale`，写 `external_user.locale`；手动切换会同步到账号，登录时本地手选也会推上去
+- ~~邮件语言未按 locale 渲染~~ —— 已实现：验证码邮件按「账号 locale > 浏览器 `Accept-Language` > 英文」选模板
+  （`resources/i18n/otp-email-{zh,en}.txt`）
 - 只有中英两种语言；是否加德/法语未定

@@ -1,4 +1,4 @@
-import { publicRequest } from './core/http'
+import { http, publicRequest } from './core/http'
 import type { PartyType } from '../auth/session'
 
 /**
@@ -122,4 +122,19 @@ export function verifyOtp(channel: OtpChannel, identifier: string, code: string)
         method: 'POST',
         body: { channel, identifier, code },
     })
+}
+
+// ---------- 语言偏好 ----------
+
+/**
+ * 把自己的语言偏好写回账号 —— 换设备、换浏览器也跟着走。
+ *
+ * ★ 按端分路径（{@code /customer/me/locale} 与 {@code /supplier/me/locale}）：
+ *   路径前缀即受众，写成一个通用的 {@code /me/locale} 就成了三端公共入口。
+ *
+ * ★ 失败不抛给调用方 —— 存语言失败不该让人用不了页面。
+ */
+export function updateMyLocale(partyType: PartyType, locale: string): Promise<void> {
+    const path = partyType === 'SUPPLIER' ? '/supplier/me/locale' : '/customer/me/locale'
+    return http.patch<void>(path, { locale })
 }

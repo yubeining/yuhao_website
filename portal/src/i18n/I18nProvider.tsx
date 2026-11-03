@@ -15,6 +15,7 @@ import {
 import { STRINGS, type Strings } from './strings'
 import { detect, getUserLang, setUserLang, subscribeLang, type Lang } from './lang'
 import { useSession } from '../auth/useSession'
+import { updateMyLocale } from '../services/auth'
 
 interface I18nValue {
     lang: Lang
@@ -38,6 +39,16 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         setLangState(detect(session?.locale))
     }, [session?.locale])
 
+    // 反过来：本机手选过、和账号里的不一致 → 把手选推上去。
+    // 场景：用户在 A 电脑选了中文，账号里还是旧的英文；登录时应该以他的选择为准。
+    useEffect(() => {
+        const manual = getUserLang()
+        if (!manual || !session?.partyType) return
+        if (manual !== session.locale) {
+            void updateMyLocale(session.partyType, manual).catch(() => undefined)
+        }
+    }, [session?.partyType, session?.locale])
+
     // 别的标签页改了语言，这里跟着变
     useEffect(() => subscribeLang((next) => setLangState(next)), [])
 
@@ -46,19 +57,28 @@ export function I18nProvider({ children }: { children: ReactNode }) {
         document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
     }, [lang])
 
+    const partyType = session?.partyType
+
     const setLang = useCallback((next: Lang) => {
         // 走 lang.ts 而不是直接 setState：手选要落盘，且要通知其它标签页
         setUserLang(next)
         setLangState(next)
-    }, [])
+        // 已登录就同步到账号，否则换台设备就丢了。失败静默 —— 语言存不上不该挡住页面。
+        if (partyType) {
+            void updateMyLocale(partyType, next).catch(() => undefined)
+        }
+    }, [partyType])
 
     const toggleLang = useCallback(() => {
         setLangState((cur) => {
             const next: Lang = cur === 'zh' ? 'en' : 'zh'
             setUserLang(next)
+            if (partyType) {
+                void updateMyLocale(partyType, next).catch(() => undefined)
+            }
             return next
         })
-    }, [])
+    }, [partyType])
 
     const value = useMemo<I18nValue>(
         () => ({ lang, t: STRINGS[lang], setLang, toggleLang }),

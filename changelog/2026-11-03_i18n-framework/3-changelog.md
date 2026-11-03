@@ -67,10 +67,23 @@ python3 scripts/check-i18n-literals.py   通过
 `融一智造`、`中 / EN` 本来就不该翻译。加了 `i18n-exempt-start/-end` 标记，
 而不是整文件加入白名单 —— 例外要局部、可解释。
 
+## 六、补齐「跟账号走」与「邮件语言」
+
+**接口**：`PATCH /customer/me/locale`、`PATCH /supplier/me/locale`（按端各一份，路径前缀即受众）。
+只改自己 —— 用户 id 从 principal 取，请求体里没有身份字段。取值必须落在
+`app.i18n.supported-locales` 里，否则 400，避免"存下来前端查空、整页变 key"。
+
+**前端**：手动切换 → 本地 + 账号各写一份；登录时若本地手选过、和账号不一致，
+以手选为准并推回账号（换设备也不丢）。
+
+**邮件**：验证码邮件按「账号 locale > 浏览器 `Accept-Language` > 英文」选模板，
+模板放 `backend/src/main/resources/i18n/otp-email-{zh,en}.txt`（首行主题、其余正文）。
+不写进 Java 字面量 —— 文案要能交给翻译。
+
+测试：`MeLocaleIT` 4 个用例（改自己的 / 非法取值被拒 / 客户 token 打不到供应商路径 / 匿名 401）。
+
 ## 遗留项
 
-- **ops 9 个文件、225 行**未迁移
-- **`PATCH /{portal}/me/locale` 未实现**：手动切换目前只存本地，不跟账号走
-- **邮件语言未跟随**：验证码邮件写死英文
+- **ops 最后 2 个文件**（`QuoteWorkPage`、`ProdPage`）在后续提交里已补齐
 - **术语表里标 ⚠ 的条目**（原价等）需业务方确认
 - **语言切换按钮只在登录页**：登录后放哪里未定

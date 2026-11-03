@@ -13,6 +13,13 @@ spring:
     url: ${TEST_DB_URL:jdbc:postgresql://localhost:5432/mfg_test}
     username: ${TEST_DB_USERNAME:mfg}
     password: ${TEST_DB_PASSWORD:}
+    hikari:
+      # ★ 每个测试类一个 Spring 上下文、每个上下文一个连接池，而上下文在执行期间**不会释放**。
+      #   类一多（现在 20+ 个 IT），默认 10 连接/池会把 PostgreSQL 的 max_connections 吃光，
+      #   表现是后加载的上下文报 "Unable to determine Dialect without JDBC metadata" ——
+      #   看着像连不上库，其实是池子开太多。测试串行执行，2 个连接足够。
+      maximum-pool-size: 2
+      minimum-idle: 1
 
   jpa:
     hibernate:

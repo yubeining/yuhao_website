@@ -58,6 +58,7 @@ public class OtpService {
             .withZone(ZoneOffset.UTC);
 
     private final OtpCodeStore store;
+    private final OtpEmailTemplate templates;
     private final NotificationService notifications;
     private final AuthService auth;
     private final AuthTokenIssuer tokenIssuer;
@@ -68,7 +69,8 @@ public class OtpService {
     private final int identifierLimit;
     private final int dailyBudget;
 
-    public OtpService(OtpCodeStore store, NotificationService notifications, AuthService auth,
+    public OtpService(OtpCodeStore store, OtpEmailTemplate templates,
+                      NotificationService notifications, AuthService auth,
                       AuthTokenIssuer tokenIssuer, RateLimiter rateLimiter, RedisService redis,
                       @Value("${app.auth.otp.identifier-limit:5}") int identifierLimit,
                       // ★ 必须 ≤ 发信供应商的每日额度，否则熔断永远不触发：
@@ -77,6 +79,7 @@ public class OtpService {
                       //   （合同、通知），这里要调低，额度是共用的。
                       @Value("${app.auth.otp.daily-budget:100}") int dailyBudget) {
         this.store = store;
+        this.templates = templates;
         this.notifications = notifications;
         this.auth = auth;
         this.tokenIssuer = tokenIssuer;
@@ -99,7 +102,7 @@ public class OtpService {
      * 是否注册只在 {@link #verify} 里、<b>码校验通过之后</b>才区分 —— 那时对方已经证明
      * 自己能收到这个邮箱的邮件，不构成对第三方的信息泄露。
      */
-    public void send(OtpChannel channel, String identifier) {
+    public void send(OtpChannel channel, String identifier, String localeHint) {
         String normalized = normalize(channel, identifier);
         requireChannelAvailable(channel);
         String identifierHash = sha256(normalized);
@@ -122,12 +125,11 @@ public class OtpService {
         String code = String.format("%06d", random.nextInt(CODE_BOUND));
         store.put(channel, identifierHash, hashCode(identifierHash, code), CODE_TTL_SECONDS);
 
+        // 语言：账号里存的优先（他选过），其次浏览器声明，最后英文
+        String locale = auth.localeOf(normalized).filter(v -> !v.isBlank()).orElse(localeHint);
+        String[] mail = templates.render(locale, code, CODE_TTL_SECONDS);
         try {
-            notifications.sendNow(NotificationRequest.email(normalized,
-                    "Your sign-in code",
-                    "Your verification code is " + code + ".\n\n"
-                            + "It expires in " + (CODE_TTL_SECONDS / 60) + " minutes and can be used once.\n"
-                            + "If you did not try to sign in, ignore this email."));
+            notifications.sendNow(NotificationRequest.email(normalized, mail[0], mail[1]));
         } catch (NotificationException e) {
             // 码已经写进去了，但用户收不到 —— 删掉，免得占着"还能用"的状态
             store.clear(channel, identifierHash);

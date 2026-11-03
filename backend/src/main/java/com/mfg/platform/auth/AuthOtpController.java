@@ -7,6 +7,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -58,8 +59,9 @@ class AuthOtpController {
     /** 第二层限流：同一 IP 每小时 20 次发码（第一层"同标识 5 次/小时"在 service 里）。 */
     @RateLimit(scope = "otp-send-ip", limit = "${app.auth.otp.ip-limit:20}", windowSeconds = "3600")
     @PostMapping("/send")
-    SendResponse send(@Valid @RequestBody SendRequest request) {
-        service.send(request.channel(), request.identifier());
+    SendResponse send(@Valid @RequestBody SendRequest request,
+                      @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage) {
+        service.send(request.channel(), request.identifier(), acceptLanguage);
         return new SendResponse(true);
     }
 

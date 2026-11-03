@@ -118,6 +118,18 @@ public class AuthService {
         return Optional.of(new Authenticated(externalPrincipal(u, org), u.getDisplayName()));
     }
 
+    /** 取某个邮箱已保存的语言偏好（未注册 / 没设过返回 empty）。发信时用来选模板。 */
+    @Transactional(readOnly = true)
+    public Optional<String> localeOf(String email) {
+        return externalUsers.findByEmail(normalize(email)).map(ExternalUser::getLocale);
+    }
+
+    /** 改自己的语言偏好。取值为 {@code zh} / {@code en}（由调用方校验）。 */
+    @Transactional
+    public void updateLocale(UUID userId, String locale) {
+        externalUsers.findById(userId).ifPresent(u -> u.setLocale(locale));
+    }
+
     /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */
     @Transactional
     public void markEmailVerified(UUID userId, Instant at) {
