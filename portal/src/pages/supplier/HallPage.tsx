@@ -37,25 +37,25 @@ export function HallPage() {
 
     return (
         <Page>
-            <Hello title="订单市场" />
+            <Hello title={t.supplier.hall.title} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             <Card>
-                <CardHead title="可以接的单" rid={offers ? `${offers.length} 张` : undefined} />
+                <CardHead title={t.supplier.hall.availableTitle} rid={offers ? t.supplier.hall.available(offers.length) : undefined} />
                 {offers === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : offers.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>来源</th><th className="n">零件行</th><th className="n">件数</th>
-                                    <th className="n">对供合计</th><th className="n">交期</th><th className="n">派出时间</th>
+                                    <th>{t.supplier.hall.colSource}</th><th className="n">{t.supplier.hall.colLines}</th><th className="n">{t.supplier.hall.colQty}</th>
+                                    <th className="n">{t.supplier.hall.colTotal}</th><th className="n">{t.supplier.hall.colDue}</th><th className="n">{t.supplier.hall.colDispatched}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {offers.map((o) => (
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/supplier/hall/${o.id}`)}>
-                                        <td>{o.dispatchMode === 'TARGETED' ? pill(['in', '定向派给你']) : pill(['ne', '全市场'])}</td>
+                                        <td>{o.dispatchMode === 'TARGETED' ? pill(['in', t.supplier.hall.targeted]) : pill(['ne', t.supplier.hall.openMarket])}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
                                         <td className="n"><b>{prices[o.id] ? `¥ ${M(prices[o.id].total)}` : X}</b></td>
@@ -67,7 +67,7 @@ export function HallPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="暂时没有可以接的单" sub="平台派单后会出现在这里" /></CardBody>
+                    <CardBody><Empty text={t.supplier.hall.empty} sub={t.supplier.hall.emptySub} /></CardBody>
                 )}
             </Card>
         </Page>

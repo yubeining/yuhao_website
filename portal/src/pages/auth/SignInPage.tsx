@@ -21,23 +21,10 @@ import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { externalLogin, sendOtp, verifyOtp } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
+import { errorText } from '../../i18n/errorText'
 import { HOME_BY_TYPE, setSession, type Session } from '../../auth/session'
 
 type Mode = 'password' | 'code'
-
-/** 后端只返 i18n code，翻译在前端。这几个是验证码链路上会出现的全部错误。 */
-function otpErrorMessage(e: unknown): string {
-    if (!(e instanceof ApiError)) return '登录失败，请重试'
-    switch (e.messageCode) {
-        case 'auth.otp_rate_limited': return '发送太频繁，请稍后再试'
-        case 'auth.otp_expired': return '验证码已失效，请重新获取'
-        case 'auth.otp_code_incorrect': return '验证码不正确'
-        case 'auth.otp_identifier_invalid': return '邮箱格式不正确'
-        case 'auth.otp_send_failed': return '验证码发送失败，请稍后再试'
-        case 'auth.otp_channel_unavailable': return '该登录方式暂未开放'
-        default: return e.messageCode
-    }
-}
 
 export function SignInPage() {
     const { t } = useMock()
@@ -85,8 +72,8 @@ export function SignInPage() {
                 locale: token.locale,
             })
         } catch (e) {
-            setErr(e instanceof ApiError && e.code === 401 ? '账号或密码错误'
-                : e instanceof ApiError ? e.messageCode : '登录失败,请重试')
+            setErr(e instanceof ApiError && e.code === 401 ? t.errors['auth.bad_credentials'] ?? c.h
+                : errorText(t, e, c.submit))
         } finally {
             setBusy(false)
         }
@@ -102,7 +89,7 @@ export function SignInPage() {
             setCodeSent(true)
             setCountdown(60)
         } catch (e) {
-            setErr(otpErrorMessage(e))
+            setErr(errorText(t, e, t.common.actionFailed))
         } finally {
             setBusy(false)
         }
@@ -127,7 +114,7 @@ export function SignInPage() {
                 locale: result.token.locale,
             })
         } catch (e) {
-            setErr(otpErrorMessage(e))
+            setErr(errorText(t, e, t.common.actionFailed))
         } finally {
             setBusy(false)
         }
@@ -156,11 +143,11 @@ export function SignInPage() {
                     <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
                         <button type="button" className={`btn sm${mode === 'password' ? ' pri' : ''}`}
                             onClick={() => { setMode('password'); setErr(null); setNeedsRegistration(false) }}>
-                            密码登录
+                            {c.modePassword}
                         </button>
                         <button type="button" className={`btn sm${mode === 'code' ? ' pri' : ''}`}
                             onClick={() => { setMode('code'); setErr(null) }}>
-                            验证码登录
+                            {c.modeCode}
                         </button>
                     </div>
 
@@ -179,10 +166,10 @@ export function SignInPage() {
                         </>
                     ) : codeSent ? (
                         <>
-                            <Field label="验证码已发送至">
+                            <Field label={c.codeSentTo}>
                                 <div style={{ padding: '10px 0', fontSize: 14 }}>{mail.trim()}</div>
                             </Field>
-                            <Field label="6 位验证码">
+                            <Field label={c.codeLabel}>
                                 <Input id="otp" type="text" autoComplete="one-time-code"
                                     placeholder="123456" value={code}
                                     onChange={(v) => { setCode(v.replace(/\D/g, '').slice(0, 6)); setErr(null) }} />
@@ -190,28 +177,28 @@ export function SignInPage() {
                             <ErrMsg>{err}</ErrMsg>
                             {needsRegistration && (
                                 <div className="fnote" style={{ marginBottom: 12 }}>
-                                    这个邮箱还没有账号。<Link to="/auth/register">去注册</Link>后再用验证码登录。
+                                    {c.needsRegistration}<Link to="/auth/register">{c.subA}</Link>
                                 </div>
                             )}
-                            <BigButton onClick={submitCode}>{busy ? '…' : '登录'}</BigButton>
+                            <BigButton onClick={submitCode}>{busy ? '…' : c.submit}</BigButton>
                             <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
-                                <button type="button" className="btn sm" onClick={backToEmail}>← 换个邮箱</button>
+                                <button type="button" className="btn sm" onClick={backToEmail}>{c.backToEmail}</button>
                                 <button type="button" className="btn sm" disabled={countdown > 0 || busy}
                                     onClick={requestCode}>
-                                    {countdown > 0 ? `${countdown}s 后可重发` : '重新发送'}
+                                    {countdown > 0 ? c.resendIn(countdown) : c.resend}
                                 </button>
                             </div>
                         </>
                     ) : (
                         <>
-                            <Field label="邮箱">
+                            <Field label={c.email}>
                                 <Input id="em" type="email" autoComplete="username" placeholder="you@company.com"
                                     value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
-                            <BigButton onClick={requestCode}>{busy ? '…' : '发送验证码'}</BigButton>
+                            <BigButton onClick={requestCode}>{busy ? '…' : c.sendCode}</BigButton>
                             <div className="fnote" style={{ marginTop: 12 }}>
-                                验证码 5 分钟内有效，只能用一次。
+                                {c.codeHint}
                             </div>
                         </>
                     )}
@@ -221,7 +208,7 @@ export function SignInPage() {
                         {c.invited}<Link to="/auth/invite">{c.invitedA}</Link>
                     </div>
                     <div className="fnote" style={{ marginTop: 8 }}>
-                        内部员工?<Link to="/auth/internal/signin"> 从这里登录</Link>
+                        {c.staffPrompt}<Link to="/auth/internal/signin">{c.staffLink}</Link>
                     </div>
                 </div>
             </div>

@@ -6,6 +6,7 @@
  *   重画整棵树；这里改成每个表单自己管自己的值。
  */
 
+import { useI18n } from '../i18n/I18nProvider'
 import type { CSSProperties, ReactNode } from 'react'
 
 export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, style, id, autoComplete }: {
@@ -110,7 +111,7 @@ export function UploadDrop({ title, hint }: { title: string; hint: string }) {
  *
  * ★ 不给 0：数量为 0 的零件不该存在于订单里，要么填数要么删掉这一行。
  */
-export function Stepper({ value, onChange, min = 1, max, placeholder = '件', width = 132, disabled }: {
+export function Stepper({ value, onChange, min = 1, max, placeholder, width = 132, disabled }: {
     value: string
     onChange: (v: string) => void
     min?: number
@@ -119,6 +120,7 @@ export function Stepper({ value, onChange, min = 1, max, placeholder = '件', wi
     width?: number
     disabled?: boolean
 }) {
+    const { t } = useI18n()
     const n = parseInt(String(value).replace(/[^\d-]/g, ''), 10)
     const cur = Number.isFinite(n) ? n : null
 
@@ -133,17 +135,17 @@ export function Stepper({ value, onChange, min = 1, max, placeholder = '件', wi
     return (
         <div className="stepper" style={{ width }}>
             <button type="button" className="st-btn" onClick={() => step(-1)}
-                disabled={disabled || (cur !== null && cur <= min)} aria-label="减一">−</button>
+                disabled={disabled || (cur !== null && cur <= min)} aria-label={t.common.decrease}>−</button>
             <input
                 className="st-in"
                 inputMode="numeric"
-                placeholder={placeholder}
+                placeholder={placeholder ?? t.common.unitPieces}
                 value={value}
                 disabled={disabled}
                 onChange={(e) => onChange(e.target.value.replace(/[^\d]/g, ''))}
             />
             <button type="button" className="st-btn" onClick={() => step(1)}
-                disabled={disabled || (max !== undefined && cur !== null && cur >= max)} aria-label="加一">＋</button>
+                disabled={disabled || (max !== undefined && cur !== null && cur >= max)} aria-label={t.common.increase}>＋</button>
         </div>
     )
 }

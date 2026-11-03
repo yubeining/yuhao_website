@@ -20,7 +20,7 @@ import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
     ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
 } from '../../services'
-import { LINE_FULFILL_ST, ORDER_ST } from './status'
+import { lineFulfillSt, orderSt } from './status'
 
 export function OrderDetailPage() {
     const { t } = useMock()
@@ -57,7 +57,7 @@ export function OrderDetailPage() {
         return (
             <Page>
                 <Card><CardBody>
-                    <Empty text="订单不存在" action={<Link className="btn" to="/customer/orders">← 我的订单</Link>} />
+                    <Empty text={t.customer.orderDetail.notFound} action={<Link className="btn" to="/customer/orders">{t.customer.orderDetail.backToOrders}</Link>} />
                 </CardBody></Card>
             </Page>
         )
@@ -67,8 +67,8 @@ export function OrderDetailPage() {
         return (
             <Page><Card><CardBody>
                 {loadErr
-                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load()}>重试</button>} />
-                    : <Empty text="加载中…" />}
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                    : <Empty text={t.common.loading} />}
             </CardBody></Card></Page>
         )
     }
@@ -83,7 +83,7 @@ export function OrderDetailPage() {
     const saveDraftInfo = async () => {
         const days = lead.trim() ? Number(lead.trim()) : null
         if (days !== null && (!Number.isInteger(days) || days <= 0)) {
-            setErr('期望交期请填正整数天数')
+            setErr(t.customer.orderDetail.errLeadDays)
             return
         }
         // 后端不输出 null 字段，拿到的是 undefined —— 统一成 null 再比，否则每次失焦都会多发一次保存
@@ -121,69 +121,69 @@ export function OrderDetailPage() {
     return (
         <Page>
             <Hello
-                back={<Link className="btn sm qui" to="/customer/orders" style={{ margin: '0 0 6px -9px' }}>← 我的订单</Link>}
-                title={order.title || '未命名订单'}
+                back={<Link className="btn sm qui" to="/customer/orders" style={{ margin: '0 0 6px -9px' }}>{t.customer.orderDetail.backToOrders}</Link>}
+                title={order.title || t.common.untitledOrder}
                 right={
                     <>
-                        {pill(ORDER_ST[order.status])}
-                        {draft && <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>＋ 添加零件</Link>}
+                        {pill(orderSt(t)[order.status])}
+                        {draft && <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>}
                     </>
                 }
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {draft && noDrawing > 0 && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>{noDrawing} 个零件还没传图纸，传齐后才能提交。</Banner>
+                <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
             )}
             {order.status === 'SUBMITTED' && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>订单已提交，各零件的图纸版本已锁定，不能再修改。</Banner>
+                <Banner tone="in" style={{ marginBottom: 14 }}>{t.customer.orderDetail.submittedBanner}</Banner>
             )}
             {order.status === 'QUOTED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    平台已报价，等你确认。<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>查看报价 →</Link>
+                    {t.customer.orderDetail.quotedBanner}<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>{t.customer.orderDetail.quoteLink}</Link>
                 </Banner>
             )}
             {order.status === 'CONFIRMED' && (
                 <Banner tone="ok" style={{ marginBottom: 14 }}>
-                    报价已确认。<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>查看报价 →</Link>
+                    {t.customer.orderDetail.confirmedBanner}<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>{t.customer.orderDetail.quoteLink}</Link>
                 </Banner>
             )}
             {order.status === 'CANCELLED' && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>订单已取消。</Banner>
+                <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.cancelledBanner}</Banner>
             )}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="订单信息" />
+                <CardHead title={t.customer.orderDetail.infoTitle} />
                 <CardBody>
                     <Fields>
-                        <Fld k="名称" v={draft
-                            ? <Input value={title} placeholder="订单名称" onChange={setTitle} onBlur={saveDraftInfo} />
+                        <Fld k={t.customer.orderDetail.fldName} v={draft
+                            ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={saveDraftInfo} />
                             : (order.title || X)} />
-                        <Fld k="期望交期" v={draft
-                            ? <Input value={lead} placeholder="天（仅供参考）" onChange={setLead} onBlur={saveDraftInfo} />
-                            : (order.wantedLeadDays ? `${order.wantedLeadDays} 天（仅供参考）` : X)} />
-                        <Fld k="零件数" v={order.lines.length} mono />
-                        <Fld k="总件数" v={totalQty} mono />
+                        <Fld k={t.customer.orderDetail.fldLead} v={draft
+                            ? <Input value={lead} placeholder={t.customer.orderDetail.leadPlaceholder} onChange={setLead} onBlur={saveDraftInfo} />
+                            : (order.wantedLeadDays ? t.customer.orderDetail.leadDays(order.wantedLeadDays) : X)} />
+                        <Fld k={t.customer.orderDetail.fldParts} v={order.lines.length} mono />
+                        <Fld k={t.customer.orderDetail.fldTotalQty} v={totalQty} mono />
                         {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示，不能直接截字符串（CLAUDE.md §4） */}
-                        <Fld k="建单日期" v={fmtDate(new Date(order.createdAt))} mono />
-                        <Fld k="提交时间" v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
+                        <Fld k={t.customer.orderDetail.fldCreated} v={fmtDate(new Date(order.createdAt))} mono />
+                        <Fld k={t.customer.orderDetail.fldSubmitted} v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
                     </Fields>
                 </CardBody>
             </Card>
 
             <Card>
                 <CardHead
-                    title={`零件 ${order.lines.length} 个`}
-                    right={draft && noDrawing > 0 ? <Pill tone="wa">{noDrawing} 缺图纸</Pill> : undefined}
+                    title={t.customer.orderDetail.partsTitle(order.lines.length)}
+                    right={draft && noDrawing > 0 ? <Pill tone="wa">{t.customer.orderDetail.missingDrawingPill(noDrawing)}</Pill> : undefined}
                 />
                 {order.lines.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th className="n">#</th><th>图号</th><th>名称</th><th>版本</th><th>材料</th>
-                                    <th className="n">数量</th><th className="n">图纸</th><th>状态</th>
-                                    {inProduction && <th>进度</th>}<th />
+                                    <th className="n">#</th><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.customer.orderDetail.colRevision}</th><th>{t.customer.orderDetail.colMaterial}</th>
+                                    <th className="n">{t.customer.orderDetail.colQty}</th><th className="n">{t.customer.orderDetail.colDrawing}</th><th>{t.common.table.status}</th>
+                                    {inProduction && <th>{t.customer.orderDetail.colProgress}</th>}<th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -194,17 +194,17 @@ export function OrderDetailPage() {
                                         <td className="t1">{l.partName}</td>
                                         <td>
                                             <span className="m">v{l.revision.revNo}</span>
-                                            {l.revision.customerRev && <div className="t2">客户标记 {l.revision.customerRev}</div>}
+                                            {l.revision.customerRev && <div className="t2">{t.customer.orderDetail.customerRev(l.revision.customerRev)}</div>}
                                         </td>
                                         <td>{l.material || X}</td>
                                         <td className="n">{l.quantity}</td>
                                         <td className="n">{l.revision.files.length || X}</td>
-                                        <td>{l.revision.files.length ? <Pill tone="ok">图纸已传</Pill> : <Pill tone="wa">缺图纸</Pill>}</td>
-                                        {inProduction && <td>{pill(LINE_FULFILL_ST[l.fulfillmentStatus])}</td>}
+                                        <td>{l.revision.files.length ? <Pill tone="ok">{t.customer.orderDetail.drawingUploaded}</Pill> : <Pill tone="wa">{t.customer.orderDetail.drawingMissing}</Pill>}</td>
+                                        {inProduction && <td>{pill(lineFulfillSt(t)[l.fulfillmentStatus])}</td>}
                                         <td style={{ textAlign: 'right' }}>
                                             {draft
                                                 ? <button className="btn qui sm" type="button"
-                                                    onClick={(e) => { e.stopPropagation(); void remove(l.id) }}>删除</button>
+                                                    onClick={(e) => { e.stopPropagation(); void remove(l.id) }}>{t.customer.orderDetail.remove}</button>
                                                 : <span style={{ color: 'var(--faint)' }}>›</span>}
                                         </td>
                                     </tr>
@@ -214,16 +214,16 @@ export function OrderDetailPage() {
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text="暂无零件" sub="录入零件并传好图纸后提交"
-                            action={draft ? <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>＋ 录入零件</Link> : undefined} />
+                        <Empty text={t.customer.orderDetail.emptyParts} sub={t.customer.orderDetail.emptyPartsSub}
+                            action={draft ? <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addFirstPart}</Link> : undefined} />
                     </CardBody>
                 )}
                 {draft && order.lines.length > 0 && (
                     <CardFoot
-                        left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>＋ 添加零件</Link>}
+                        left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>}
                         right={
                             <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
-                                {canSubmit ? `提交订单（${order.lines.length} 个零件）→` : `还有 ${noDrawing} 个零件缺图纸`}
+                                {canSubmit ? t.customer.orderDetail.submitOrder(order.lines.length) : t.customer.orderDetail.needDrawings(noDrawing)}
                             </button>
                         }
                     />

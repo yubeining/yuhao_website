@@ -11,7 +11,7 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
 import { listMyQuotes, type CustomerQuoteSummaryView } from '../../services'
-import { QUOTE_ST } from './status'
+import { quoteSt } from './status'
 
 export function QuoteListPage() {
     const { t } = useMock()
@@ -32,38 +32,38 @@ export function QuoteListPage() {
 
     return (
         <Page>
-            <Hello title="我的报价" />
+            <Hello title={t.customer.quotes.title} />
             <Card>
                 {quotes === null ? (
                     <CardBody>
                         {err
-                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>重试</button>} />
-                            : <Empty text="加载中…" />}
+                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                            : <Empty text={t.common.loading} />}
                     </CardBody>
                 ) : quotes.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>订单</th><th className="n">总价</th><th>价格</th>
-                                    <th className="n">交期</th><th className="n">报价时间</th><th>状态</th>
+                                    <th>{t.common.table.order}</th><th className="n">{t.common.table.totalPrice}</th><th>{t.common.table.price}</th>
+                                    <th className="n">{t.common.table.leadTime}</th><th className="n">{t.common.table.quotedAt}</th><th>{t.common.table.status}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {quotes.map((q) => (
                                     <tr className="clk" key={q.id} onClick={() => navigate(`/customer/quotes/${q.orderId}`)}>
-                                        <td className="t1">{q.orderTitle || '未命名订单'}</td>
+                                        <td className="t1">{q.orderTitle || t.common.untitledOrder}</td>
                                         <td className="n"><b>{fmtMoney(q.total, q.currency)}</b></td>
                                         <td className="t2">
                                             {q.priceLocked
-                                                ? `已锁定（汇率日期 ${q.rateDate ?? X}）`
+                                                ? t.customer.quotes.locked(q.rateDate ?? X)
                                                 : q.rateDate
-                                                    ? `按 ${q.rateDate} 汇率，确认前会变`
-                                                    : '暂时取不到汇率，价格稍后显示'}
+                                                    ? t.customer.quotes.floating(q.rateDate)
+                                                    : t.customer.quotes.noRate}
                                         </td>
-                                        <td className="n">确认后 {q.leadDays} 天</td>
+                                        <td className="n">{t.customer.quotes.afterConfirm(q.leadDays)}</td>
                                         <td className="n">{fmtDateTime(new Date(q.sentAt))}</td>
-                                        <td>{pill(QUOTE_ST[q.status])}</td>
+                                        <td>{pill(quoteSt(t)[q.status])}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -71,7 +71,7 @@ export function QuoteListPage() {
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text="暂无报价" sub="订单提交后，平台报价会出现在这里" />
+                        <Empty text={t.customer.quotes.empty} sub={t.customer.quotes.emptySub} />
                     </CardBody>
                 )}
             </Card>

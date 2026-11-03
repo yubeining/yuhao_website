@@ -19,7 +19,7 @@ import { fmtDateTime, fmtMoney, X } from '../../mock/format'
 import {
     ApiError, confirmQuote, getOrderQuote, rejectQuote, type CustomerQuoteView,
 } from '../../services'
-import { QUOTE_ST } from './status'
+import { quoteSt } from './status'
 
 export function QuoteDetailPage() {
     const { t } = useMock()
@@ -44,15 +44,15 @@ export function QuoteDetailPage() {
 
     useEffect(() => { void load() }, [load])
 
-    const back = <Link className="btn sm qui" to="/customer/quotes" style={{ margin: '0 0 6px -9px' }}>← 我的报价</Link>
+    const back = <Link className="btn sm qui" to="/customer/quotes" style={{ margin: '0 0 6px -9px' }}>← {t.customer.quotes.title}</Link>
 
     if (missing) {
         return (
             <Page>
-                <Hello back={back} title="报价" />
+                <Hello back={back} title={t.customer.quotes.detailTitle} />
                 <Card><CardBody>
-                    <Empty text="暂无报价" sub="这张订单目前没有待确认或已确认的报价"
-                        action={<Link className="btn" to={`/customer/orders/${id}`}>查看订单</Link>} />
+                    <Empty text={t.customer.quotes.noQuote} sub={t.customer.quotes.noQuoteSub}
+                        action={<Link className="btn" to={`/customer/orders/${id}`}>{t.customer.quotes.viewOrder}</Link>} />
                 </CardBody></Card>
             </Page>
         )
@@ -61,8 +61,8 @@ export function QuoteDetailPage() {
         return (
             <Page><Card><CardBody>
                 {loadErr
-                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load()}>重试</button>} />
-                    : <Empty text="加载中…" />}
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                    : <Empty text={t.common.loading} />}
             </CardBody></Card></Page>
         )
     }
@@ -90,7 +90,7 @@ export function QuoteDetailPage() {
     }
 
     const reject = () => {
-        if (!window.confirm('拒绝这份报价？订单会退回，等平台重新报价。')) return
+        if (!window.confirm(t.customer.quotes.rejectConfirm)) return
         void act(() => rejectQuote(quote.orderId, quote.id))
     }
 
@@ -98,11 +98,11 @@ export function QuoteDetailPage() {
         <Page>
             <Hello
                 back={back}
-                title="报价"
+                title={t.customer.quotes.detailTitle}
                 right={
                     <>
-                        {pill(QUOTE_ST[quote.status])}
-                        <Link className="btn" to={`/customer/orders/${quote.orderId}`}>查看订单</Link>
+                        {pill(quoteSt(t)[quote.status])}
+                        <Link className="btn" to={`/customer/orders/${quote.orderId}`}>{t.customer.quotes.viewOrder}</Link>
                     </>
                 }
             />
@@ -110,41 +110,41 @@ export function QuoteDetailPage() {
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {open && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>
-                    价格按 <b>{quote.rateDate ?? X}</b> 的汇率计算，<b>确认前会随汇率变动</b>；点「确认价格」时按当时显示的价格锁定。
+                    {t.customer.quotes.rateNote(quote.rateDate ?? X)}
                 </Banner>
             )}
             {rejected && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    你已拒绝这份报价，订单已退回，等平台重新报价。新报价出来后会显示在这里。
+                    {t.customer.quotes.rejected}
                 </Banner>
             )}
             {quote.status === 'CONFIRMED' && (
                 <Banner tone="ok" style={{ marginBottom: 14 }}>
-                    已于 {quote.confirmedAt ? fmtDateTime(new Date(quote.confirmedAt)) : X} 确认，价格已锁定（汇率日期 {quote.rateDate ?? X}）。
+                    {t.customer.quotes.confirmedAt(quote.confirmedAt ? fmtDateTime(new Date(quote.confirmedAt)) : X, quote.rateDate ?? X)}
                 </Banner>
             )}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="报价信息" />
+                <CardHead title={t.customer.quotes.infoTitle} />
                 <CardBody>
                     <Fields>
-                        <Fld k="币种" v={quote.currency} mono />
-                        <Fld k="交期" v={`确认后 ${quote.leadDays} 天`} />
-                        <Fld k="报价时间" v={fmtDateTime(new Date(quote.sentAt))} mono />
-                        {!rejected && <Fld k="汇率日期" v={quote.rateDate ?? X} mono />}
+                        <Fld k={t.customer.quotes.fldCurrency} v={quote.currency} mono />
+                        <Fld k={t.customer.quotes.fldLeadTime} v={t.customer.quotes.afterConfirm(quote.leadDays)} />
+                        <Fld k={t.customer.quotes.fldQuotedAt} v={fmtDateTime(new Date(quote.sentAt))} mono />
+                        {!rejected && <Fld k={t.customer.quotes.fldRateDate} v={quote.rateDate ?? X} mono />}
                     </Fields>
                 </CardBody>
             </Card>
 
             <Card>
-                <CardHead title={`零件 ${quote.lines.length} 个`} />
+                <CardHead title={t.customer.quotes.partsHeader(quote.lines.length)} />
                 <CardBody flush>
                     <TableWrap>
                         <thead>
                             <tr>
-                                <th className="n">#</th><th>图号</th><th>名称</th>
-                                <th className="n">数量</th>
-                                {!rejected && <><th className="n">单价</th><th className="n">小计</th></>}
+                                <th className="n">#</th><th>{t.customer.quotes.colCode}</th><th>{t.common.table.name}</th>
+                                <th className="n">{t.customer.quotes.colQty}</th>
+                                {!rejected && <><th className="n">{t.customer.quotes.colUnit}</th><th className="n">{t.customer.quotes.colSubtotal}</th></>}
                             </tr>
                         </thead>
                         <tbody>
@@ -162,7 +162,7 @@ export function QuoteDetailPage() {
                             ))}
                             {!rejected && (
                                 <tr>
-                                    <td colSpan={5} className="n"><b>总计</b></td>
+                                    <td colSpan={5} className="n"><b>{t.customer.quotes.total}</b></td>
                                     <td className="n"><b>{fmtMoney(quote.total, quote.currency)}</b></td>
                                 </tr>
                             )}
@@ -171,10 +171,10 @@ export function QuoteDetailPage() {
                 </CardBody>
                 {open && (
                     <CardFoot
-                        left={<button className="btn" type="button" onClick={reject} disabled={busy}>拒绝报价</button>}
+                        left={<button className="btn" type="button" onClick={reject} disabled={busy}>{t.customer.quotes.reject}</button>}
                         right={
                             <button className="btn pri" type="button" onClick={confirm} disabled={busy || !quote.rateDate}>
-                                确认价格（{fmtMoney(quote.total, quote.currency)}）
+                                {t.customer.quotes.confirmPrice(fmtMoney(quote.total, quote.currency))}
                             </button>
                         }
                     />

@@ -2,7 +2,7 @@
  * 设置。三端共用同一个页面，挂在各自的路由下。
  *
  * ★ 主题切换用的是两张配色缩略图而不是一个开关：
- *   「浅色 / 深色」四个字说不清左边那条深色导航栏在两套主题下都是深的。
+ *   「{t.misc.light} / {t.misc.dark}」四个字说不清左边那条{t.misc.dark}导航栏在两套主题下都是深的。
  */
 
 import { useNavigate } from 'react-router-dom'
@@ -13,10 +13,18 @@ import { clearSession } from '../auth/session'
 import { useSession } from '../auth/useSession'
 import { logout as apiLogout } from '../services/auth'
 
-const PARTY_LABEL = { CUSTOMER: '客户', SUPPLIER: '供应商', OPERATOR: '内部 · 运营' } as const
+/**
+ * 身份标签。文案复用 t.nav.* —— 顶栏和设置页显示同一件事，
+ * 各自写一份早晚会出现两种说法。
+ */
+const PARTY_BY_TYPE = (t: ReturnType<typeof useMock>['t']) => ({
+    CUSTOMER: t.roles.customer,
+    SUPPLIER: t.roles.supplier,
+    OPERATOR: t.nav.ops.internalOps,
+}) as const
 
 export function SettingsPage() {
-    const { act, theme, setTheme } = useMock()
+    const { act, theme, setTheme, t } = useMock()
     const navigate = useNavigate()
     const session = useSession()
 
@@ -33,38 +41,38 @@ export function SettingsPage() {
 
     return (
         <Page>
-            <Hello title="设置" />
+            <Hello title={t.misc.settings} />
 
             <Card style={{ maxWidth: 640 }}>
-                <CardHead title="外观" />
+                <CardHead title={t.misc.appearance} />
                 <CardBody>
                     <div className="optrow">
                         <button className={`opt ${theme === 'light' ? 'on' : ''}`} type="button"
                             onClick={() => setTheme('light')}>
                             <span className="sw"><i className="l" /><i className="r" /></span>
-                            <span className="on1"><span className="rd" />浅色</span>
+                            <span className="on1"><span className="rd" />{t.misc.light}</span>
                         </button>
                         <button className={`opt ${theme === 'dark' ? 'on' : ''}`} type="button"
                             onClick={() => setTheme('dark')}>
                             <span className="sw dk"><i className="l" /><i className="r" /></span>
-                            <span className="on1"><span className="rd" />深色</span>
+                            <span className="on1"><span className="rd" />{t.misc.dark}</span>
                         </button>
                     </div>
                 </CardBody>
             </Card>
 
             <Card style={{ maxWidth: 640, marginTop: 18 }}>
-                <CardHead title="账号" />
+                <CardHead title={t.misc.account} />
                 <CardBody>
                     {/* 只显示登录态里真有的字段；邮箱、企业名登录态里没有，不显示 */}
                     <Kv>
-                        <KvRow k="姓名" v={session?.displayName} sans />
-                        <KvRow k="身份" v={session ? PARTY_LABEL[session.partyType] : undefined} sans />
+                        <KvRow k={t.misc.name} v={session?.displayName} sans />
+                        <KvRow k={t.misc.role} v={session ? PARTY_BY_TYPE(t)[session.partyType] : undefined} sans />
                     </Kv>
                 </CardBody>
                 <CardFoot right={
                     <button className="btn" type="button" onClick={signOut}>
-                        退出登录
+                        {t.nav.signOut}
                     </button>
                 } />
             </Card>

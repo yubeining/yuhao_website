@@ -137,7 +137,7 @@ export function PartFormPage() {
                             ? { ...x, pct: Math.round((loaded / Math.max(1, total)) * 100) } : x))))
                     setUploads((u) => u.filter((x) => x.key !== key))
                 } catch (e) {
-                    setUploads((u) => u.map((x) => (x.key === key ? { ...x, error: errorText(t, e, '上传失败') } : x)))
+                    setUploads((u) => u.map((x) => (x.key === key ? { ...x, error: errorText(t, e, t.customer.partForm.uploadFailed) } : x)))
                 }
             }
         } catch (e) {
@@ -165,7 +165,7 @@ export function PartFormPage() {
     const save = async () => {
         const qty = Number(f.qty)
         if (!f.code.trim() || !f.name.trim() || !Number.isInteger(qty) || qty < 1) {
-            setErr('图号、名称、数量为必填项，数量至少为 1')
+            setErr(t.customer.partForm.errRequired)
             return
         }
         const body = {
@@ -214,7 +214,7 @@ export function PartFormPage() {
         return (
             <Page>
                 <Card><CardBody>
-                    <Empty text="零件不存在" action={<Link className="btn" to={`/customer/orders/${id}`}>← 返回订单</Link>} />
+                    <Empty text={t.customer.partForm.notFound} action={<Link className="btn" to={`/customer/orders/${id}`}>← {t.customer.partForm.backToOrder}</Link>} />
                 </CardBody></Card>
             </Page>
         )
@@ -223,8 +223,8 @@ export function PartFormPage() {
         return (
             <Page><Card><CardBody>
                 {loadErr
-                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load(true)}>重试</button>} />
-                    : <Empty text="加载中…" />}
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load(true)}>{t.common.retry}</button>} />
+                    : <Empty text={t.common.loading} />}
             </CardBody></Card></Page>
         )
     }
@@ -237,71 +237,71 @@ export function PartFormPage() {
         <Page>
             <Hello
                 back={<Link className="btn sm qui" to={`/customer/orders/${order.id}`}
-                    style={{ margin: '0 0 6px -9px' }}>← {order.title || '未命名订单'}</Link>}
-                title={isNew ? '添加零件' : draft ? '编辑零件' : (line?.partName ?? '零件')}
-                sub={line ? `${line.code} · 第 ${line.revision.revNo} 版` : undefined}
+                    style={{ margin: '0 0 6px -9px' }}>← {order.title || t.common.untitledOrder}</Link>}
+                title={isNew ? t.customer.partForm.titleNew : draft ? t.customer.partForm.titleEdit : (line?.partName ?? t.customer.partForm.titlePart)}
+                sub={line ? t.customer.partForm.versionLine(line.code, line.revision.revNo) : undefined}
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
-            {isNew && !draft && <Banner tone="wa" style={{ marginBottom: 14 }}>订单已提交或已取消，不能再添加零件。</Banner>}
+            {isNew && !draft && <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.partForm.lockedBanner}</Banner>}
             {isNew && existing && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>
                     {reused
-                        ? `已有零件「${existing.name}」：加进订单后沿用上次提交的第 ${reused.revNo} 版图纸（${reused.files.length} 个文件）。`
-                            + (queued.length ? '你选了新文件，会为这张订单开一个新版本。' : '')
-                        : `已有零件「${existing.name}」，会为这张订单开一个新的图纸版本。`}
+                        ? t.customer.partForm.reuseExisting(existing.name, reused.revNo, reused.files.length)
+                            + (queued.length ? t.customer.partForm.reuseNewVersionQueued : '')
+                        : t.customer.partForm.reuseNewVersion(existing.name)}
                 </Banner>
             )}
 
             <Card>
-                <CardHead title="零件信息" />
+                <CardHead title={t.customer.partForm.infoTitle} />
                 <CardBody>
                     <input ref={picker} type="file" multiple hidden onChange={(e) => pick(e.target.files)} />
 
                     {draft ? (
                         <>
                             <FieldRow cols={3}>
-                                <Field label="图号 *">
+                                <Field label={t.customer.partForm.fldCode}>
                                     {isNew
                                         ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)}
-                                            placeholder="可从文件名自动识别" />
+                                            placeholder={t.customer.partForm.codePlaceholder} />
                                         // 图号决定挂哪个零件，加进订单后不能改：只显示，不放一个打字没反应的输入框
                                         : <div className="m" style={{ padding: '9px 0' }}>{f.code}</div>}
                                 </Field>
-                                <Field label="名称 *"><Input value={f.name} onChange={set('name')} /></Field>
-                                <Field label="数量 *"><Stepper value={f.qty} onChange={set('qty')} /></Field>
+                                <Field label={t.common.table.name}><Input value={f.name} onChange={set('name')} /></Field>
+                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} /></Field>
                             </FieldRow>
                             <FieldRow>
-                                <Field label="材料"><Input value={f.mat} onChange={set('mat')} placeholder="可不填" /></Field>
-                                <Field label="表面处理"><Input value={f.surf} onChange={set('surf')} placeholder="可不填" /></Field>
+                                <Field label={t.customer.partForm.fldMaterial}><Input value={f.mat} onChange={set('mat')} placeholder={t.customer.partForm.optionalPlaceholder} /></Field>
+                                <Field label={t.customer.partForm.fldSurface}><Input value={f.surf} onChange={set('surf')} placeholder={t.customer.partForm.optionalPlaceholder} /></Field>
                             </FieldRow>
                         </>
                     ) : line && (
                         <Fields>
-                            <Fld k="图号" v={line.code} mono />
-                            <Fld k="名称" v={line.partName} />
-                            <Fld k="数量" v={line.quantity} mono />
-                            <Fld k="版本" v={`v${line.revision.revNo}${line.revision.customerRev ? ` · ${line.revision.customerRev}` : ''}`} mono />
-                            <Fld k="材料" v={line.material || X} />
-                            <Fld k="表面处理" v={line.surfaceTreatment || X} />
+                            <Fld k={t.customer.partForm.fldCode.replace(' *', '')} v={line.code} mono />
+                            <Fld k={t.common.table.name} v={line.partName} />
+                            <Fld k={t.customer.quotes.colQty} v={line.quantity} mono />
+                            <Fld k={t.customer.orderDetail.colRevision} v={`v${line.revision.revNo}${line.revision.customerRev ? ` · ${line.revision.customerRev}` : ''}`} mono />
+                            <Fld k={t.customer.partForm.fldMaterial} v={line.material || X} />
+                            <Fld k={t.customer.partForm.fldSurface} v={line.surfaceTreatment || X} />
                         </Fields>
                     )}
 
                     <div className="attach">
                         <div className="attach-hd">
-                            <span className="attach-k">图纸</span>
-                            {line && locked && <Pill tone="ne" dot={false}>第 {line.revision.revNo} 版 · 已锁定</Pill>}
+                            <span className="attach-k">{t.customer.partForm.drawingTitle}</span>
+                            {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill(line.revision.revNo)}</Pill>}
                             <span className="attach-hint">
                                 {isNew
-                                    ? '选好的文件会在加进订单后上传'
+                                    ? t.customer.partForm.hintNew
                                     : locked
-                                        ? '这一版已随订单提交锁定；换图纸会开新版本，之前的订单不受影响'
-                                        : '每个零件至少要有一份图纸，订单才能提交'}
+                                        ? t.customer.partForm.hintLocked
+                                        : t.customer.partForm.hintRequired}
                             </span>
                             <span className="sp" />
                             {draft && (
                                 <button className="btn sm" type="button" disabled={busy} onClick={() => picker.current?.click()}>
-                                    {!isNew && locked ? '换图纸（开新版本）' : '＋ 选择图纸'}
+                                    {!isNew && locked ? t.customer.partForm.replaceDrawing : t.customer.partForm.chooseDrawing}
                                 </button>
                             )}
                         </div>
@@ -312,7 +312,7 @@ export function PartFormPage() {
                                     <span className="fchip lg" key={x.name} title={x.name}>
                                         <span className="fx">{ext(x.name)}</span>
                                         <b>{x.name}</b><i>{humanSize(x.size)}</i>
-                                        <button type="button" className="fdel" title="移除"
+                                        <button type="button" className="fdel" title={t.customer.partForm.removeTitle}
                                             onClick={() => setQueued((prev) => prev.filter((y) => y.name !== x.name))}>×</button>
                                     </span>
                                 ))}
@@ -326,9 +326,9 @@ export function PartFormPage() {
                                         <span className="fx">{ext(x.originalFilename)}</span>
                                         <b>{x.originalFilename}</b>
                                         <i>{x.sizeBytes != null ? humanSize(x.sizeBytes) : X}</i>
-                                        <button type="button" className="btn qui sm" onClick={() => void view(x)}>下载</button>
+                                        <button type="button" className="btn qui sm" onClick={() => void view(x)}>{t.customer.partForm.download}</button>
                                         {draft && !locked && (
-                                            <button type="button" className="fdel" title="删除" onClick={() => void remove(x)}>×</button>
+                                            <button type="button" className="fdel" title={t.customer.partForm.removeTitle} onClick={() => void remove(x)}>×</button>
                                         )}
                                     </span>
                                 ))}
@@ -336,7 +336,7 @@ export function PartFormPage() {
                         )}
 
                         {line && line.revision.files.length === 0 && uploads.length === 0 && (
-                            <div className="attach-hint" style={{ marginTop: 9 }}>还没有图纸</div>
+                            <div className="attach-hint" style={{ marginTop: 9 }}>{t.customer.partForm.noDrawing}</div>
                         )}
 
                         {uploads.map((u) => (
@@ -349,9 +349,9 @@ export function PartFormPage() {
                 </CardBody>
                 {draft && (
                     <CardFoot
-                        left={<Link className="btn" to={`/customer/orders/${order.id}`}>{isNew ? '取消' : '返回订单'}</Link>}
+                        left={<Link className="btn" to={`/customer/orders/${order.id}`}>{isNew ? t.customer.partForm.cancel : t.customer.partForm.backToOrder}</Link>}
                         right={<button className="btn pri" type="button" onClick={save} disabled={busy}>
-                            {isNew ? '加进订单' : '保存'}
+                            {isNew ? t.customer.partForm.addToOrder : t.customer.partForm.save}
                         </button>}
                     />
                 )}

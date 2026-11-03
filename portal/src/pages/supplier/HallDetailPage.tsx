@@ -41,24 +41,24 @@ export function HallDetailPage() {
 
     useEffect(() => { void load() }, [load])
 
-    const back = <Link className="btn sm qui" to="/supplier/hall" style={{ margin: '0 0 6px -9px' }}>← 订单市场</Link>
+    const back = <Link className="btn sm qui" to="/supplier/hall" style={{ margin: '0 0 6px -9px' }}>{t.supplier.hallDetail.back}</Link>
 
     if (missing) {
         return (
-            <Page><Hello back={back} title="单子详情" /><Card><CardBody>
-                <Empty text="这张单已经不在了" sub="可能已被别人接走，或平台已经收回" />
+            <Page><Hello back={back} title={t.supplier.hallDetail.title} /><Card><CardBody>
+                <Empty text={t.supplier.hallDetail.gone} sub={t.supplier.hallDetail.goneSub} />
             </CardBody></Card></Page>
         )
     }
     if (!offer) {
-        return <Page><Card><CardBody><Empty text={err ?? '加载中…'} /></CardBody></Card></Page>
+        return <Page><Card><CardBody><Empty text={err ?? t.common.loading} /></CardBody></Card></Page>
     }
 
     const priceOf = (lineId: string) => price?.lines.find((l) => l.lineId === lineId)
     const targeted = offer.dispatchMode === 'TARGETED'
 
     const accept = () => {
-        if (!window.confirm(`按 ¥ ${price ? M(price.total) : X}、交期 ${offer.supplierDueDate} 接下这张单？`)) return
+        if (!window.confirm(t.supplier.hallDetail.acceptConfirm(price ? M(price.total) : X, offer.supplierDueDate))) return
         setBusy(true)
         acceptSupplierOffer(offer.id)
             .then(() => navigate('/supplier/orders', { replace: true }))
@@ -67,7 +67,7 @@ export function HallDetailPage() {
     }
 
     const decline = () => {
-        if (!window.confirm('不接这张单？它会从你的列表里消失。')) return
+        if (!window.confirm(t.supplier.hallDetail.declineConfirm)) return
         setBusy(true)
         declineSupplierOffer(offer.id)
             .then(() => navigate('/supplier/hall', { replace: true }))
@@ -83,27 +83,27 @@ export function HallDetailPage() {
 
     return (
         <Page>
-            <Hello back={back} title="单子详情" right={targeted ? pill(['in', '定向派给你']) : pill(['ne', '全市场'])} />
+            <Hello back={back} title={t.supplier.hallDetail.title} right={targeted ? pill(['in', t.supplier.hall.targeted]) : pill(['ne', t.supplier.hall.openMarket])} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="概况" />
+                <CardHead title={t.supplier.hallDetail.summaryTitle} />
                 <CardBody>
                     <Fields>
-                        <Fld k="交期" v={offer.supplierDueDate} mono />
-                        <Fld k="对供合计" v={price ? `¥ ${M(price.total)}` : X} mono />
-                        <Fld k="派出时间" v={fmtDateTime(new Date(offer.dispatchedAt))} mono />
+                        <Fld k={t.supplier.hallDetail.fldDue} v={offer.supplierDueDate} mono />
+                        <Fld k={t.supplier.hallDetail.fldTotal} v={price ? `¥ ${M(price.total)}` : X} mono />
+                        <Fld k={t.supplier.hallDetail.fldDispatched} v={fmtDateTime(new Date(offer.dispatchedAt))} mono />
                     </Fields>
-                    <div className="t2" style={{ marginTop: 8 }}>先到先得，谁先接给谁。价格是人民币，接单时锁定。</div>
+                    <div className="t2" style={{ marginTop: 8 }}>{t.supplier.hallDetail.note}</div>
                 </CardBody>
             </Card>
             <Card>
-                <CardHead title={`零件 ${offer.lines.length} 行`} />
+                <CardHead title={t.supplier.hallDetail.partsTitle(offer.lines.length)} />
                 <CardBody flush>
                     <TableWrap>
                         <thead>
                             <tr>
-                                <th>图号</th><th>名称</th><th>材料 / 表面处理</th><th className="n">数量</th>
-                                <th className="n">单价 ¥</th><th className="n">小计 ¥</th><th>图纸</th>
+                                <th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.supplier.hallDetail.colMaterialSurface}</th><th className="n">{t.customer.quotes.colQty}</th>
+                                <th className="n">{t.supplier.hallDetail.colUnitPrice}</th><th className="n">{t.supplier.hallDetail.colSubtotal}</th><th>{t.supplier.hallDetail.colDrawing}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -128,8 +128,8 @@ export function HallDetailPage() {
                     </TableWrap>
                 </CardBody>
                 <CardFoot
-                    left={targeted ? <button className="btn" type="button" disabled={busy} onClick={decline}>不接</button> : undefined}
-                    right={<button className="btn pri" type="button" disabled={busy} onClick={accept}>接单</button>}
+                    left={targeted ? <button className="btn" type="button" disabled={busy} onClick={decline}>{t.supplier.hallDetail.decline}</button> : undefined}
+                    right={<button className="btn pri" type="button" disabled={busy} onClick={accept}>{t.supplier.hallDetail.accept}</button>}
                 />
             </Card>
         </Page>

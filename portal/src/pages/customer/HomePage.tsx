@@ -12,7 +12,7 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
 import { listOrders, type OrderSummaryView } from '../../services'
-import { ORDER_ST } from './status'
+import { orderSt } from './status'
 
 export function CustomerHomePage() {
     const { t } = useMock()
@@ -32,32 +32,32 @@ export function CustomerHomePage() {
     return (
         <Page>
             <Hello
-                title={`你好，${session?.displayName ?? ''}`}
-                right={<Link className="btn pri" to="/customer/orders">＋ 新建订单</Link>}
+                title={t.customer.home.greeting(session?.displayName ?? '')}
+                right={<Link className="btn pri" to="/customer/orders">{t.customer.home.newOrder}</Link>}
             />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {toConfirm > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    有 {toConfirm} 单报价等你确认。<Link to="/customer/quotes" style={{ marginLeft: 6 }}>我的报价 →</Link>
+                    {t.customer.home.quotesPending(toConfirm)}<Link to="/customer/quotes" style={{ marginLeft: 6 }}>{t.customer.home.viewQuotes}</Link>
                 </Banner>
             )}
             <Card>
-                <CardHead title="我的订单" right={orders ? <Pill tone="ne" dot={false}>{orders.length} 单</Pill> : undefined} />
+                <CardHead title={t.customer.home.myOrders} right={orders ? <Pill tone="ne" dot={false}>{t.customer.home.orderCount(orders.length)}</Pill> : undefined} />
                 {orders === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
-                                <tr><th>名称</th><th className="n">零件</th><th className="n">建单</th><th>状态</th></tr>
+                                <tr><th>{t.common.table.name}</th><th className="n">{t.common.table.parts}</th><th className="n">{t.common.table.created}</th><th>{t.common.table.status}</th></tr>
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/customer/orders/${o.id}`)}>
-                                        <td className="t1">{o.title || '未命名订单'}</td>
+                                        <td className="t1">{o.title || t.common.untitledOrder}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{fmtDate(new Date(o.createdAt))}</td>
-                                        <td>{pill(ORDER_ST[o.status])}</td>
+                                        <td>{pill(orderSt(t)[o.status])}</td>
                                     </tr>
                                 ))}
                             </tbody>
@@ -65,7 +65,7 @@ export function CustomerHomePage() {
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text="还没有订单" action={<Link className="btn pri" to="/customer/orders">建第一个订单</Link>} />
+                        <Empty text={t.customer.home.empty} action={<Link className="btn pri" to="/customer/orders">{t.customer.home.createFirst}</Link>} />
                     </CardBody>
                 )}
             </Card>

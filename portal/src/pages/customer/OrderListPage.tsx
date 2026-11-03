@@ -14,7 +14,7 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
 import { cancelOrder, createOrder, listOrders, type OrderSummaryView } from '../../services'
-import { ORDER_ST } from './status'
+import { orderSt } from './status'
 
 export function OrderListPage() {
     const { t } = useMock()
@@ -59,12 +59,12 @@ export function OrderListPage() {
     return (
         <Page>
             <Hello
-                title="我的订单"
-                sub="录入零件、传好图纸后提交"
+                title={t.customer.orders.title}
+                sub={t.customer.orders.sub}
                 right={
                     <>
-                        {orders && <Pill tone="ne" dot={false}>共 {orders.length} 单</Pill>}
-                        <button className="btn pri" type="button" onClick={() => setAdding(true)}>＋ 新建订单</button>
+                        {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(orders.length)}</Pill>}
+                        <button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>
                     </>
                 }
             />
@@ -73,45 +73,45 @@ export function OrderListPage() {
 
             {adding && (
                 <Card style={{ marginBottom: 16 }}>
-                    <CardHead title="新建订单" />
+                    <CardHead title={t.customer.orders.newTitle} />
                     <CardBody>
-                        <Input value={title} placeholder="订单名称（可选）" onChange={setTitle} />
+                        <Input value={title} placeholder={t.customer.orders.titlePlaceholder} onChange={setTitle} />
                     </CardBody>
                     <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setAdding(false)}>取消</button>}
-                        right={<button className="btn pri" type="button" onClick={create} disabled={busy}>创建</button>}
+                        left={<button className="btn" type="button" onClick={() => setAdding(false)}>{t.common.cancel}</button>}
+                        right={<button className="btn pri" type="button" onClick={create} disabled={busy}>{t.common.create}</button>}
                     />
                 </Card>
             )}
 
             <Card>
                 {orders === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>名称</th><th className="n">零件</th><th className="n">总件数</th>
-                                    <th className="n">建单</th><th>状态</th><th />
+                                    <th>{t.common.table.name}</th><th className="n">{t.common.table.parts}</th><th className="n">{t.common.table.quantity}</th>
+                                    <th className="n">{t.common.table.created}</th><th>{t.common.table.status}</th><th />
                                 </tr>
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/customer/orders/${o.id}`)}>
-                                        <td className="t1">{o.title || '未命名订单'}</td>
+                                        <td className="t1">{o.title || t.common.untitledOrder}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
                                         <td className="n">{fmtDate(new Date(o.createdAt))}</td>
-                                        <td>{pill(ORDER_ST[o.status])}</td>
+                                        <td>{pill(orderSt(t)[o.status])}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {o.status === 'DRAFT' && (
                                                 <button className="btn qui sm" type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
                                                         // 取消没有撤销，点错就回不来
-                                                        if (window.confirm('取消后不能恢复。确定取消这张订单吗？')) void cancel(o.id)
-                                                    }}>取消订单</button>
+                                                        if (window.confirm(t.customer.orders.cancelConfirm)) void cancel(o.id)
+                                                    }}>{t.customer.orders.cancelOrder}</button>
                                             )}
                                         </td>
                                     </tr>
@@ -122,9 +122,9 @@ export function OrderListPage() {
                 ) : (
                     <CardBody>
                         <Empty
-                            text="暂无订单"
-                            sub="新建订单后录入零件"
-                            action={<button className="btn pri" type="button" onClick={() => setAdding(true)}>＋ 新建订单</button>}
+                            text={t.customer.orders.empty}
+                            sub={t.customer.orders.emptySub}
+                            action={<button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>}
                         />
                     </CardBody>
                 )}

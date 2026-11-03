@@ -12,8 +12,11 @@ import { opsLogin } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { HOME_BY_TYPE, setSession } from '../../auth/session'
 import { useNavigate } from 'react-router-dom'
+import { useI18n } from '../../i18n/I18nProvider'
+import { errorText } from '../../i18n/errorText'
 
 export function OpsSignInPage() {
+    const { t } = useI18n()
     const navigate = useNavigate()
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
@@ -35,8 +38,8 @@ export function OpsSignInPage() {
             })
             navigate(HOME_BY_TYPE.OPERATOR, { replace: true })
         } catch (e) {
-            setErr(e instanceof ApiError && e.code === 401 ? '账号或密码错误'
-                : e instanceof ApiError ? e.messageCode : '登录失败,请重试')
+            setErr(e instanceof ApiError && e.code === 401 ? t.opsLogin.badCredentials
+                : errorText(t, e, t.opsLogin.failed))
         } finally {
             setBusy(false)
         }
@@ -47,24 +50,24 @@ export function OpsSignInPage() {
             <div className="formside">
                 <div className="formwrap">
                     <div style={{ fontSize: 12, letterSpacing: 2, color: 'var(--faint)', marginBottom: 8 }}>
-                        融一智造 · 内部后台
+                        {t.opsLogin.brand}
                     </div>
-                    <h1 className="fh">运营登录</h1>
+                    <h1 className="fh">{t.opsLogin.h}</h1>
                     <div className="fsub" style={{ color: 'var(--faint)' }}>
-                        仅限内部员工。账号由管理员开通,不支持自助注册。
+                        {t.opsLogin.sub}
                     </div>
 
-                    <Field label="企业邮箱">
+                    <Field label={t.opsLogin.email}>
                         <Input id="em" type="email" autoComplete="username" placeholder="you@company.com"
                             value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                     </Field>
-                    <Field label="密码">
+                    <Field label={t.opsLogin.pw}>
                         <Input id="pw" type="password" autoComplete="current-password" placeholder="••••••••"
                             value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
                     </Field>
                     <ErrMsg>{err}</ErrMsg>
 
-                    <BigButton onClick={submit}>{busy ? '…' : '登录'}</BigButton>
+                    <BigButton onClick={submit}>{busy ? '…' : t.opsLogin.submit}</BigButton>
                 </div>
             </div>
         </div>

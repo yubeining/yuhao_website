@@ -16,6 +16,8 @@ import { clearSession } from '../auth/session'
 import { logout as apiLogout } from '../services/auth'
 import { getMyOrganization } from '../services/customer/organization'
 import { getMySupplierOrganization } from '../services/supplier/organization'
+import { useI18n } from '../i18n/I18nProvider'
+import type { Strings } from '../i18n/strings'
 
 export interface NavItem {
     /** 分组标题。给了 sec 就只渲染标题，其余字段忽略。 */
@@ -69,7 +71,9 @@ function GlobalNav({ badge, areas, currentPath, sub }: Pick<Props, 'badge' | 'ar
             <div className="gin">
                 <div className="gbrand">
                     <div className="gl"><Logo /></div>
+                    {/* i18n-exempt-start: 品牌名不译 */}
                     <span className="gnm">融一智造</span>
+                    {/* i18n-exempt-end */}
                 </div>
                 {areas ? (
                     <div className="gareas">
@@ -101,11 +105,12 @@ function GlobalNav({ badge, areas, currentPath, sub }: Pick<Props, 'badge' | 'ar
  *   本来也恒为假 —— 留着只是让人以为这里有功能。
  */
 function UserMenu({ sub }: { sub: string }) {
+    const { t } = useI18n()
     const session = useSession()
     const navigate = useNavigate()
     const [open, setOpen] = useState(false)
 
-    const displayName = session?.displayName ?? '用户'
+    const displayName = session?.displayName ?? t.nav.defaultUser
     if (!session) return null
 
     const signOut = () => {
@@ -129,7 +134,7 @@ function UserMenu({ sub }: { sub: string }) {
             {open && (
                 <div className="idmenu down">
                     <button className="out" type="button" onClick={signOut}>
-                        退出登录
+                        {t.nav.signOut}
                     </button>
                 </div>
             )}
@@ -138,6 +143,7 @@ function UserMenu({ sub }: { sub: string }) {
 }
 
 function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string }) {
+    const { t } = useI18n()
     return (
         <nav className="appnav">
             {items.map((it, i) =>
@@ -154,7 +160,7 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
             {settingsTo && (
                 <div className="navfoot">
                     <NavLink to={settingsTo} className="it">
-                        <span className="ic">⚙</span>设置
+                        <span className="ic">⚙</span>{t.nav.settings}
                     </NavLink>
                 </div>
             )}
@@ -164,39 +170,40 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
 
 /* ── 三端各自的壳 ─────────────────────────────────────────────────── */
 
-const CUST_NAV: NavItem[] = [
-    { sec: '交易' },
-    { to: '/customer', ic: '◫', n: '概览' },
+const customerNav = (t: Strings): NavItem[] => [
+    { sec: t.nav.customer.trade },
+    { to: '/customer', ic: '◫', n: t.nav.customer.overview },
     // ★ 订单是整条链的主干：建订单 → 加零件 → 提交 → 确认价格 →（平台安排生产）
-    { to: '/customer/orders', ic: '▣', n: '我的订单' },
-    { to: '/customer/quotes', ic: '€', n: '我的报价' },
+    { to: '/customer/orders', ic: '▣', n: t.nav.customer.orders },
+    { to: '/customer/quotes', ic: '€', n: t.nav.customer.quotes },
 ]
 
 export function CustomerShell({ children }: { children: ReactNode }) {
+    const { t } = useI18n()
     // ★ 公司名读后端：真实登录不会写假数据里的「当前公司」，读假数据只会是空
     const [sub, setSub] = useState('')
     useEffect(() => {
         getMyOrganization().then((o) => setSub(o.name)).catch(() => setSub(''))
     }, [])
     return (
-        <AppShell nav={CUST_NAV} settingsTo="/customer/settings" badge="CUSTOMER" sub={sub}>
+        <AppShell nav={customerNav(t)} settingsTo="/customer/settings" badge="CUSTOMER" sub={sub}>
             {children}
         </AppShell>
     )
 }
 
-const SUP_NAV: NavItem[] = [
-    { sec: '接单' },
-    { to: '/supplier/orders', ic: '▣', n: '我的订单' },
-    { sec: '结算' },
-    { to: '/supplier/bill', ic: '¥', n: '对账与开票' },
-    { sec: '企业' },
-    { to: '/supplier/profile', ic: '⌂', n: '企业资料' },
+const supplierNav = (t: Strings): NavItem[] => [
+    { sec: t.nav.supplier.accept },
+    { to: '/supplier/orders', ic: '▣', n: t.nav.supplier.orders },
+    { sec: t.nav.supplier.settlement },
+    { to: '/supplier/bill', ic: '¥', n: t.nav.supplier.bill },
+    { sec: t.nav.supplier.company },
+    { to: '/supplier/profile', ic: '⌂', n: t.nav.supplier.profile },
 ]
 
-const SUP_AREAS: AreaTab[] = [
-    { to: '/supplier/hall', label: '订单市场', match: (p) => p.startsWith('/supplier/hall') },
-    { to: '/supplier/orders', label: '我的工作台', match: (p) => !p.startsWith('/supplier/hall') },
+const supplierAreas = (t: Strings): AreaTab[] => [
+    { to: '/supplier/hall', label: t.nav.supplier.hall, match: (p) => p.startsWith('/supplier/hall') },
+    { to: '/supplier/orders', label: t.nav.supplier.workspace, match: (p) => !p.startsWith('/supplier/hall') },
 ]
 
 /** 供应商端。订单市场是通栏（full），工作台带侧栏。 */
@@ -207,36 +214,38 @@ export function SupplierShell({ children, full, path }: {
 }) {
     // ★ 公司名读后端，和 CustomerShell 一致；读不到就退回角色名「供应商」，
     //   不编一个公司名出来。
-    const [sub, setSub] = useState('供应商')
+    const { t } = useI18n()
+    const [sub, setSub] = useState(t.nav.supplierFallback)
     useEffect(() => {
-        getMySupplierOrganization().then((o) => setSub(o.name)).catch(() => setSub('供应商'))
-    }, [])
+        getMySupplierOrganization().then((o) => setSub(o.name)).catch(() => setSub(t.nav.supplierFallback))
+    }, [t.nav.supplierFallback])
     return (
-        <AppShell nav={full ? undefined : SUP_NAV} settingsTo="/supplier/settings"
-            areas={SUP_AREAS} currentPath={path} sub={sub}>
+        <AppShell nav={full ? undefined : supplierNav(t)} settingsTo="/supplier/settings"
+            areas={supplierAreas(t)} currentPath={path} sub={sub}>
             {children}
         </AppShell>
     )
 }
 
-const OPS_NAV: NavItem[] = [
-    { sec: '总览' },
-    { to: '/ops/dashboard', ic: '◫', n: '工作台' },
-    { sec: '询价与报价' },
-    { to: '/ops/quotes', ic: '€', n: '报价' },
-    { to: '/ops/dispatch', ic: '⇉', n: '派单管理' },
-    { sec: '执行' },
-    { to: '/ops/production', ic: '⚙', n: '生产与质检' },
-    { to: '/ops/orders', ic: '▣', n: '订单' },
-    { sec: '入驻' },
-    { to: '/ops/onboarding', ic: '⊕', n: '供应商入驻' },
-    { sec: '主数据' },
-    { to: '/ops/parties', ic: '⌂', n: '交易方' },
+const opsNav = (t: Strings): NavItem[] => [
+    { sec: t.nav.ops.overview },
+    { to: '/ops/dashboard', ic: '◫', n: t.nav.ops.dashboard },
+    { sec: t.nav.ops.quoting },
+    { to: '/ops/quotes', ic: '€', n: t.nav.ops.quotes },
+    { to: '/ops/dispatch', ic: '⇉', n: t.nav.ops.dispatch },
+    { sec: t.nav.ops.execution },
+    { to: '/ops/production', ic: '⚙', n: t.nav.ops.production },
+    { to: '/ops/orders', ic: '▣', n: t.nav.ops.orders },
+    { sec: t.nav.ops.onboarding },
+    { to: '/ops/onboarding', ic: '⊕', n: t.nav.ops.supplierOnboarding },
+    { sec: t.nav.ops.masterData },
+    { to: '/ops/parties', ic: '⌂', n: t.nav.ops.parties },
 ]
 
 export function OpsShell({ children }: { children: ReactNode }) {
+    const { t } = useI18n()
     return (
-        <AppShell nav={OPS_NAV} settingsTo="/ops/settings" badge="OPERATIONS" sub="内部 · 运营">
+        <AppShell nav={opsNav(t)} settingsTo="/ops/settings" badge="OPERATIONS" sub={t.nav.ops.internalOps}>
             {children}
         </AppShell>
     )

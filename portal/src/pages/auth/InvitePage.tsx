@@ -56,9 +56,9 @@ export function InvitePage() {
 
     const submit = async () => {
         if (busy) return
-        if (!orgName.trim() || !name.trim() || !pw) return setErr('请填写公司名称、联系人和密码')
-        if (pw.length < 8) return setErr('密码至少 8 位')
-        if (pw !== pw2) return setErr('两次输入的密码不一致')
+        if (!orgName.trim() || !name.trim() || !pw) return setErr(t.invite.errRequired)
+        if (pw.length < 8) return setErr(t.invite.errPwShort)
+        if (pw !== pw2) return setErr(t.invite.errPwMismatch)
         setErr(null)
         setBusy(true)
         try {
@@ -66,27 +66,25 @@ export function InvitePage() {
             setPhase('done')
         } catch (e) {
             if (e instanceof ApiError && e.code === 410) setPhase('invalid')
-            else setErr(errorText(t, e, '注册失败，请重试'))
+            else setErr(errorText(t, e, t.invite.errFailed))
         } finally {
             setBusy(false)
         }
     }
 
-    const back = <Link className="btn sm qui" to="/auth/signin">返回登录</Link>
+    const back = <Link className="btn sm qui" to="/auth/signin">{t.invite.backToSignin}</Link>
 
     if (phase === 'loading') {
-        return <OnboardShell slim right={back}><div className="t2" style={{ textAlign: 'center' }}>加载中…</div></OnboardShell>
+        return <OnboardShell slim right={back}><div className="t2" style={{ textAlign: 'center' }}>{t.invite.loading}</div></OnboardShell>
     }
     if (phase === 'invalid') {
         return (
             <OnboardShell slim right={back}>
                 <NoticeCard
                     mark="!" tone="wa"
-                    title={token ? '邀请链接无效' : '没有有效的邀请'}
-                    sub={err ?? (token
-                        ? '链接可能已过期（7 天有效）、已被使用或已被作废。请联系融一智造运营重新发一条。'
-                        : '平台供应商为邀请制。请用融一智造运营发给你的邀请链接打开这个页面。')}
-                    action={<Link className="btn" to="/auth/signin">返回登录</Link>}
+                    title={token ? t.invite.invalidTitle : t.invite.noInvite}
+                    sub={err ?? (token ? t.invite.invalidExpired : t.invite.invalidNone)}
+                    action={<Link className="btn" to="/auth/signin">{t.invite.backToSignin}</Link>}
                 />
             </OnboardShell>
         )
@@ -96,10 +94,9 @@ export function InvitePage() {
             <OnboardShell slim>
                 <NoticeCard
                     mark="✓" tone="ok"
-                    title="注册成功"
-                    sub={<>用 <strong>{invite?.email}</strong> 和刚设的密码登录供应商端。<br />
-                        平台运营为你设置好合作条件后，才会有订单派给你。</>}
-                    action={<Link className="btn pri" to="/auth/signin" style={{ padding: '11px 26px' }}>去登录</Link>}
+                    title={t.invite.successTitle}
+                    sub={t.invite.successBody(invite?.email ?? '')}
+                    action={<Link className="btn pri" to="/auth/signin" style={{ padding: '11px 26px' }}>{t.invite.goSignin}</Link>}
                 />
             </OnboardShell>
         )
@@ -109,20 +106,20 @@ export function InvitePage() {
         <OnboardShell slim right={back}>
             <div className="card">
                 <div className="cbody" style={{ padding: '28px 26px' }}>
-                    <h2 style={{ margin: '0 0 6px' }}>供应商入驻</h2>
+                    <h2 style={{ margin: '0 0 6px' }}>{t.invite.h}</h2>
                     <div className="t2" style={{ marginBottom: 18 }}>
-                        融一智造邀请 <strong>{invite?.orgName}</strong> 成为平台供应商。本链接一次性使用。
+                        {t.invite.intro(invite?.orgName ?? '')}
                     </div>
-                    <Field label="登录邮箱">
+                    <Field label={t.invite.emailLabel}>
                         <div className="m" style={{ padding: '8px 0' }}>{invite?.email}</div>
-                        <div className="t2">邮箱由邀请指定，不能修改</div>
+                        <div className="t2">{t.invite.emailLocked}</div>
                     </Field>
-                    <Field label="公司名称"><Input value={orgName} onChange={setOrgName} /></Field>
-                    <Field label="联系人姓名"><Input value={name} onChange={setName} placeholder="姓名" /></Field>
-                    <Field label="设置密码"><Input type="password" value={pw} onChange={setPw} placeholder="至少 8 位" /></Field>
-                    <Field label="再输一次密码"><Input type="password" value={pw2} onChange={setPw2} /></Field>
+                    <Field label={t.invite.orgLabel}><Input value={orgName} onChange={setOrgName} /></Field>
+                    <Field label={t.invite.nameLabel}><Input value={name} onChange={setName} placeholder={t.invite.nameP} /></Field>
+                    <Field label={t.invite.pwLabel}><Input type="password" value={pw} onChange={setPw} placeholder={t.invite.pwP} /></Field>
+                    <Field label={t.invite.pw2Label}><Input type="password" value={pw2} onChange={setPw2} /></Field>
                     {err && <ErrMsg>{err}</ErrMsg>}
-                    <BigButton onClick={() => void submit()}>{busy ? '提交中…' : '创建供应商账号'}</BigButton>
+                    <BigButton onClick={() => void submit()}>{busy ? t.invite.submitting : t.invite.submit}</BigButton>
                 </div>
             </div>
         </OnboardShell>

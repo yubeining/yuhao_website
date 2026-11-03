@@ -20,7 +20,9 @@ export function OnboardShell({ children, right, slim }: {
             <div className={`onb${slim ? ' slim' : ''}`}>
                 <div className="onbhd">
                     <div className="gl"><Logo /></div>
+                    {/* i18n-exempt-start: 品牌名不译 */}
                     <div className="nm">融一智造</div>
+                    {/* i18n-exempt-end */}
                     <span className="sp" />
                     {right}
                 </div>

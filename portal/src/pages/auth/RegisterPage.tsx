@@ -10,16 +10,19 @@ import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { register } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
+import { errorText } from '../../i18n/errorText'
 
-const COUNTRIES = ['Germany', 'Austria', 'Switzerland', 'Netherlands', '其他']
+/** 国家列表。最后一项是"其他"，文案随语言变，所以在这里拼。 */
+const COUNTRIES = ['Germany', 'Austria', 'Switzerland', 'Netherlands']
 
 export function RegisterPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const c = t.reg
+    const countries = [...COUNTRIES, c.otherCountry]
 
     const [company, setCompany] = useState('')
-    const [country, setCountry] = useState(COUNTRIES[0])
+    const [country, setCountry] = useState(countries[0])
     const [name, setName] = useState('')
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
@@ -29,9 +32,9 @@ export function RegisterPage() {
 
     const submit = async () => {
         if (busy) return
-        if (!company || !mail || !pw) return setErr('请填写公司名称、邮箱和密码')
-        if (pw.length < 8) return setErr('密码至少 8 位')
-        if (!agree) return setErr('请先同意服务条款与隐私政策')
+        if (!company || !mail || !pw) return setErr(c.errRequired)
+        if (pw.length < 8) return setErr(c.errPwShort)
+        if (!agree) return setErr(c.errAgree)
         setErr(null)
         setBusy(true)
         try {
@@ -39,7 +42,7 @@ export function RegisterPage() {
             await register({
                 portalType: 'CUSTOMER',
                 orgName: company,
-                country: country === '其他' ? undefined : country,
+                country: country === c.otherCountry ? undefined : country,
                 email: mail.trim(),
                 password: pw,
                 displayName: name || mail.trim(),
@@ -47,8 +50,8 @@ export function RegisterPage() {
             // 注册与登录解耦:建号成功后回登录页
             navigate('/auth/signin?registered=1', { replace: true })
         } catch (e) {
-            setErr(e instanceof ApiError && e.code === 409 ? '这个邮箱已经注册过了'
-                : e instanceof ApiError ? e.messageCode : '注册失败,请重试')
+            setErr(e instanceof ApiError && e.code === 409 ? c.errTaken
+                : errorText(t, e, c.errFailed))
         } finally {
             setBusy(false)
         }
@@ -68,7 +71,7 @@ export function RegisterPage() {
                             <Input value={company} onChange={(v) => { setCompany(v); setErr(null) }} placeholder={c.coP} />
                         </Field>
                         <Field label={c.country}>
-                            <Select value={country} onChange={setCountry} options={COUNTRIES} />
+                            <Select value={country} onChange={setCountry} options={countries} />
                         </Field>
                     </FieldRow>
                     <FieldRow>

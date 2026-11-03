@@ -23,7 +23,7 @@ import { M, X, sum } from '../../mock/format'
 import { myProds } from '../../mock/selectors'
 
 export function BillPage() {
-    const { state, act } = useMock()
+    const { state, act, t } = useMock()
     const [invNos, setInvNos] = useState<Record<string, string>>({})
 
     const done = myProds(state).filter((d) => d.status === 'done')
@@ -37,11 +37,11 @@ export function BillPage() {
     return (
         <Page>
             <PrototypeBanner />
-            <Hello title="对账与开票" />
+            <Hello title={t.supplier.bill.title} />
             <Kpis>
-                <Kpi k="已完工金额" v={M(sum(done, (d) => d.total), 0)} d={`元 · ${done.length} 单`} />
-                <Kpi k="待客户回款" v={M(waiting, 0)} d="元 · 背靠背顺延" alert />
-                <Kpi k="待开票" v={done.filter((d) => !d.invoice).length} d="单" />
+                <Kpi k={t.supplier.bill.kpiCompleted} v={M(sum(done, (d) => d.total), 0)} d={t.supplier.bill.kpiCompletedSub(done.length)} />
+                <Kpi k={t.supplier.bill.kpiPending} v={M(waiting, 0)} d={t.supplier.bill.kpiPendingSub} alert />
+                <Kpi k={t.supplier.bill.kpiToInvoice} v={done.filter((d) => !d.invoice).length} d={t.supplier.bill.kpiToInvoiceSub} />
             </Kpis>
 
             {done.length ? done.map((d) => {
@@ -50,17 +50,17 @@ export function BillPage() {
                     <Card key={d.id} style={{ marginBottom: 16 }}>
                         <CardHead
                             title={d.id}
-                            rid={`${d.lines.length} 行 · ¥ ${M(d.total)}`}
+                            rid={t.supplier.bill.cardSub(d.lines.length, M(d.total))}
                             right={d.invoice
-                                ? <Pill tone="in">已上传待核验</Pill>
-                                : <Pill tone="wa">待开票</Pill>}
+                                ? <Pill tone="in">{t.supplier.bill.uploaded}</Pill>
+                                : <Pill tone="wa">{t.supplier.bill.toInvoice}</Pill>}
                         />
                         <CardBody flush>
                             <TableWrap>
                                 <thead>
                                     <tr>
-                                        <th>零件</th><th className="n">数量</th><th className="n">金额</th>
-                                        <th>客户回款</th><th>应付日</th><th>发货</th>
+                                        <th>{t.common.table.parts}</th><th className="n">{t.customer.quotes.colQty}</th><th className="n">{t.supplier.bill.colAmount}</th>
+                                        <th>{t.supplier.bill.colPaid}</th><th>{t.supplier.bill.colDue}</th><th>{t.supplier.bill.colShipped}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -76,15 +76,15 @@ export function BillPage() {
                                                 <td>
                                                     {paid
                                                         ? <Pill tone="ok">{paid.slice(0, 10)}</Pill>
-                                                        : <Pill tone="wa">待回款</Pill>}
+                                                        : <Pill tone="wa">{t.supplier.bill.pendingPayment}</Pill>}
                                                 </td>
                                                 <td>
                                                     {paid
                                                         ? <b>{dueDate(state, o)}</b>
                                                         : <span style={{ color: 'var(--muted)' }}>
                                                             {state.params.payDays != null
-                                                                ? `客户回款后 T+${state.params.payDays} 天`
-                                                                : '客户回款后支付'}
+                                                                ? t.supplier.bill.dueAfter(state.params.payDays)
+                                                                : t.supplier.bill.dueAfterPayment}
                                                         </span>}
                                                 </td>
                                                 <td>{l.delivered ? l.delivered.slice(0, 10) : X}</td>
@@ -96,15 +96,15 @@ export function BillPage() {
                         </CardBody>
                         {!d.invoice && (
                             <CardFoot
-                                left={<span className="t2">整单开一张票，金额 ¥ {M(d.total)}</span>}
+                                left={<span className="t2">{t.supplier.bill.invoiceNote(M(d.total))}</span>}
                                 right={
                                     <div style={{ display: 'flex', gap: 6 }}>
-                                        <Input value={no} placeholder="发票号"
+                                        <Input value={no} placeholder={t.supplier.bill.invoiceNoPlaceholder}
                                             style={{ width: 140, padding: '5px 8px' }}
                                             onChange={(v) => setInvNos((x) => ({ ...x, [d.id]: v }))} />
                                         <button className="btn sm pri" type="button"
                                             onClick={() => act((s) => uploadInvoice(s, d.id, no))}>
-                                            上传
+                                            {t.supplier.bill.upload}
                                         </button>
                                     </div>
                                 }
@@ -113,7 +113,7 @@ export function BillPage() {
                     </Card>
                 )
             }) : (
-                <Card><CardBody><Empty text="还没有完工待结算的订单" /></CardBody></Card>
+                <Card><CardBody><Empty text={t.supplier.bill.empty} /></CardBody></Card>
             )}
         </Page>
     )

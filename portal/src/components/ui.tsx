@@ -9,6 +9,7 @@
  */
 
 import type { CSSProperties, ReactNode } from 'react'
+import { useI18n } from '../i18n/I18nProvider'
 
 /* ── 状态药丸 ─────────────────────────────────────────────────────── */
 
@@ -150,9 +151,10 @@ export function Banner({ tone, icon, children, style }: {
  * 页面上看到的空列表、「未设置」不代表线上真的没有 —— 只是这一页还没接真实数据。
  */
 export function PrototypeBanner() {
+    const { t } = useI18n()
     return (
         <Banner tone="wa" style={{ marginBottom: 14 }}>
-            <b>原型页，还没接真实数据。</b>这里显示的列表、数字、设置都不是线上数据，不要据此做决定。
+            <b>{t.common.prototypeTitle}</b>{t.common.prototypeBody}
         </Banner>
     )
 }

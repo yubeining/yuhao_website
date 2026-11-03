@@ -19,7 +19,7 @@ import {
     supplierOrderFileUrl, supplierOrderPrices, withdrawSupplierOrder,
     type OrderPrice, type SupplierOrderView,
 } from '../../services'
-import { CANCEL_REASON, LINE_ST, shortId, SUPPLIER_ORDER_ST } from '../ops/dispatchStatus'
+import { cancelReason, lineSt, shortId, supplierOrderSt } from '../ops/dispatchStatus'
 
 /** 签完字之后才谈得上生产；取消的单什么都不做。 */
 const IN_PRODUCTION_FLOW = ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED']
@@ -45,7 +45,7 @@ export function SupplierOrdersPage() {
     useEffect(() => { void load() }, [load])
 
     const sign = (o: SupplierOrderView) => {
-        if (!window.confirm(`签字确认这张单？合计 ¥ ${M(prices[o.id]?.total ?? 0)}、交期 ${o.supplierDueDate}。签完不能退单、不能改。`)) return
+        if (!window.confirm(t.supplier.orders.waitingSignConfirm(M(prices[o.id]?.total ?? 0), o.supplierDueDate))) return
         setBusy(true)
         signSupplierOrder(o.id)
             .then(() => load())
@@ -54,7 +54,7 @@ export function SupplierOrdersPage() {
     }
 
     const withdraw = (o: SupplierOrderView) => {
-        if (!window.confirm('退掉这张单？退单后平台会重新派给别人。')) return
+        if (!window.confirm(t.supplier.orders.withdrawConfirm)) return
         setBusy(true)
         withdrawSupplierOrder(o.id)
             .then(() => load())
@@ -72,7 +72,7 @@ export function SupplierOrdersPage() {
     }
 
     const ship = (o: SupplierOrderView) => {
-        if (!window.confirm('把这一批发给平台？平台收到后开始质检。')) return
+        if (!window.confirm(t.supplier.orders.shipConfirm)) return
         act(() => shipSupplierOrder(o.id))
     }
 
@@ -84,12 +84,12 @@ export function SupplierOrdersPage() {
 
     return (
         <Page>
-            <Hello title="我的订单" />
+            <Hello title={t.supplier.orders.title} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {orders === null ? (
-                <Card><CardBody><Empty text="加载中…" /></CardBody></Card>
+                <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
             ) : orders.length === 0 ? (
-                <Card><CardBody><Empty text="还没有接过单" sub="在「订单市场」接单后会出现在这里" /></CardBody></Card>
+                <Card><CardBody><Empty text={t.supplier.orders.empty} sub={t.supplier.orders.emptySub} /></CardBody></Card>
             ) : orders.map((o) => {
                 const p = prices[o.id]
                 const lp = (lineId: string) => p?.lines.find((l) => l.lineId === lineId)
@@ -98,27 +98,27 @@ export function SupplierOrdersPage() {
                 const readyToShip = o.lines.filter((l) => l.status === 'PRODUCED').length
                 return (
                     <Card key={o.id} style={{ marginBottom: 16 }}>
-                        <CardHead title={`订单 ${shortId(o.id)}`} right={pill(SUPPLIER_ORDER_ST[o.status])} />
+                        <CardHead title={t.supplier.orders.cardTitle(shortId(o.id))} right={pill(supplierOrderSt(t)[o.status])} />
                         <CardBody>
                             <Fields>
-                                <Fld k="交期" v={o.supplierDueDate} mono />
-                                <Fld k="合计" v={p ? `¥ ${M(p.total)}` : X} mono />
-                                <Fld k="接单时间" v={fmtDateTime(new Date(o.acceptedAt))} mono />
+                                <Fld k={t.supplier.orders.fldDue} v={o.supplierDueDate} mono />
+                                <Fld k={t.supplier.orders.fldTotal} v={p ? `¥ ${M(p.total)}` : X} mono />
+                                <Fld k={t.supplier.orders.fldAccepted} v={fmtDateTime(new Date(o.acceptedAt))} mono />
                                 {o.status !== 'CANCELLED' && (
-                                    <Fld k={o.status === 'CONTRACTED' ? '签字时间' : '签字期限'}
+                                    <Fld k={o.status === 'CONTRACTED' ? t.supplier.orders.fldSigned : t.supplier.orders.fldSignDeadline}
                                         v={o.status === 'CONTRACTED'
                                             ? fmtDateTime(new Date(o.signedAt!))
-                                            : `${fmtDateTime(new Date(o.signByDeadline))}（接单起 7 天）`} mono />
+                                            : t.supplier.orders.signDeadlineNote(fmtDateTime(new Date(o.signByDeadline)))} mono />
                                 )}
                                 {o.status === 'CANCELLED' && (
-                                    <Fld k="取消" v={`${o.cancelReason ? CANCEL_REASON[o.cancelReason] : X} · ${o.cancelledAt ? fmtDateTime(new Date(o.cancelledAt)) : X}`} />
+                                    <Fld k={t.supplier.orders.fldCancel} v={`${o.cancelReason ? cancelReason(t)[o.cancelReason] : X} · ${o.cancelledAt ? fmtDateTime(new Date(o.cancelledAt)) : X}`} />
                                 )}
                             </Fields>
                         </CardBody>
                         <CardBody flush>
                             <TableWrap>
                                 <thead>
-                                    <tr><th>图号</th><th>名称</th><th>材料 / 表面处理</th><th className="n">数量</th><th className="n">单价 ¥</th><th className="n">小计 ¥</th><th>图纸</th><th>进度</th></tr>
+                                    <tr><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.supplier.hallDetail.colMaterialSurface}</th><th className="n">{t.customer.quotes.colQty}</th><th className="n">{t.supplier.hallDetail.colUnitPrice}</th><th className="n">{t.supplier.hallDetail.colSubtotal}</th><th>{t.supplier.hallDetail.colDrawing}</th><th>{t.customer.orderDetail.colProgress}</th></tr>
                                 </thead>
                                 <tbody>
                                     {o.lines.map((l) => (
@@ -139,15 +139,15 @@ export function SupplierOrdersPage() {
                                             </td>
                                             <td>
                                                 {/* 返工 / 重做拆出来的行没有价格 —— 成本供应商自担，合计不变 */}
-                                                {l.status ? pill(LINE_ST[l.status]) : X}
-                                                {l.replacesPartId && <div className="t2">返工 / 重做件</div>}
+                                                {l.status ? pill(lineSt(t)[l.status]) : X}
+                                                {l.replacesPartId && <div className="t2">{t.supplier.orders.reworkLine}</div>}
                                                 {inFlow && l.status === 'PENDING' && (
                                                     <div><button className="btn qui sm" type="button" disabled={busy}
-                                                        onClick={() => act(() => startSupplierLine(o.id, l.id))}>开工</button></div>
+                                                        onClick={() => act(() => startSupplierLine(o.id, l.id))}>{t.supplier.orders.start}</button></div>
                                                 )}
                                                 {inFlow && l.status === 'IN_PRODUCTION' && (
                                                     <div><button className="btn qui sm" type="button" disabled={busy}
-                                                        onClick={() => act(() => producedSupplierLine(o.id, l.id))}>完工</button></div>
+                                                        onClick={() => act(() => producedSupplierLine(o.id, l.id))}>{t.supplier.orders.produced}</button></div>
                                                 )}
                                             </td>
                                         </tr>
@@ -157,17 +157,17 @@ export function SupplierOrdersPage() {
                         </CardBody>
                         {o.status === 'ACCEPTED' && (
                             <CardFoot
-                                left={<span className="t2">等平台把合同建出来。到期还没签字，这张单会自动取消、退回平台重派。</span>}
-                                right={<button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>退单</button>}
+                                left={<span className="t2">{t.supplier.orders.awaitingContract}</span>}
+                                right={<button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>{t.supplier.orders.withdraw}</button>}
                             />
                         )}
                         {o.status === 'CONTRACT_PENDING' && (
                             <CardFoot
-                                left={<span className="t2">签字即确认这张单的零件、价格和交期，签完不能退、不能改。</span>}
+                                left={<span className="t2">{t.supplier.orders.signNote}</span>}
                                 right={
                                     <>
-                                        <button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>退单</button>
-                                        <button className="btn pri" type="button" disabled={busy} onClick={() => sign(o)}>签字确认</button>
+                                        <button className="btn" type="button" disabled={busy} onClick={() => withdraw(o)}>{t.supplier.orders.withdraw}</button>
+                                        <button className="btn pri" type="button" disabled={busy} onClick={() => sign(o)}>{t.supplier.orders.signConfirm}</button>
                                     </>
                                 }
                             />
@@ -176,18 +176,18 @@ export function SupplierOrdersPage() {
                             <CardFoot
                                 left={<span className="t2">
                                     {unfinished > 0
-                                        ? `还有 ${unfinished} 行没完工 —— 整单全部完工才能发给平台。`
+                                        ? t.supplier.orders.unfinished(unfinished)
                                         : readyToShip > 0
-                                            ? `${readyToShip} 行已完工，可以发给平台。`
-                                            : '已发到平台，等质检结果。'}
+                                            ? t.supplier.orders.readyToShip(readyToShip)
+                                            : t.supplier.orders.shipped}
                                 </span>}
                                 right={readyToShip > 0 && unfinished === 0
-                                    ? <button className="btn pri" type="button" disabled={busy} onClick={() => ship(o)}>发给平台</button>
+                                    ? <button className="btn pri" type="button" disabled={busy} onClick={() => ship(o)}>{t.supplier.orders.ship}</button>
                                     : undefined}
                             />
                         )}
                         {o.status === 'FULFILLED' && (
-                            <CardFoot left={<span className="t2">这张单的零件已全部质检合格。结算功能还没上线。</span>} />
+                            <CardFoot left={<span className="t2">{t.supplier.orders.allFulfilled}</span>} />
                         )}
                     </Card>
                 )

@@ -1,3 +1,5 @@
+import { useI18n } from '../i18n/I18nProvider'
+
 /**
  * 品牌资产与图形。全部内联 SVG，逐字移植自原型。
  *
@@ -50,6 +52,7 @@ const SHEET = (
  * files 为空时明说「暂无图纸」，不用图形填空。
  */
 export function DrawingSlot({ files }: { files: DrawingRef[] }) {
+    const { t } = useI18n()
     const total = files.reduce((s, f) => s + f.count, 0)
     return (
         <div className="dslot">
@@ -57,10 +60,10 @@ export function DrawingSlot({ files }: { files: DrawingRef[] }) {
             {total ? (
                 <>
                     <div className="dslot-t">{files.map((f) => `${f.kind} ×${f.count}`).join(' · ')}</div>
-                    <div className="dslot-s">共 {total} 个文件</div>
+                    <div className="dslot-s">{t.common.fileCount(total)}</div>
                 </>
             ) : (
-                <div className="dslot-s">暂无图纸</div>
+                <div className="dslot-s">{t.common.noDrawings}</div>
             )}
         </div>
     )
@@ -71,6 +74,7 @@ export function DrawingSlot({ files }: { files: DrawingRef[] }) {
  * mark 是脱敏水印文字，只在对外可见的地方传。
  */
 export function DrawingPanel({ files, mark }: { files: DrawingRef[]; mark?: string }) {
+    const { t } = useI18n()
     const total = files.reduce((s, f) => s + f.count, 0)
     return (
         <div className="dw">
@@ -79,10 +83,10 @@ export function DrawingPanel({ files, mark }: { files: DrawingRef[]; mark?: stri
                 {total ? (
                     <>
                         <div className="dslot-t">{files.map((f) => `${f.kind} ×${f.count}`).join(' · ')}</div>
-                        <div className="dslot-s">下载后用本地 CAD 软件打开</div>
+                        <div className="dslot-s">{t.common.openInCad}</div>
                     </>
                 ) : (
-                    <div className="dslot-s">暂无图纸</div>
+                    <div className="dslot-s">{t.common.noDrawings}</div>
                 )}
             </div>
             {mark && <div className="wmk">{mark}</div>}
@@ -117,7 +121,9 @@ export function BrandSide({ flow }: { flow: string[] }) {
             <div className="bmark">
                 <div className="gl"><Logo /></div>
                 <div>
+                    {/* i18n-exempt-start: 品牌名不译，中英文界面都显示中文原名 */}
                     <div className="nm">融一智造</div>
+                    {/* i18n-exempt-end */}
                     <div className="sb">CROSS-BORDER MANUFACTURING</div>
                 </div>
             </div>

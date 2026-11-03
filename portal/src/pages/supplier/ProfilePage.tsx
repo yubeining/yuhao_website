@@ -10,14 +10,14 @@ import { currentCompany } from '../../mock/actions'
 import { X } from '../../mock/format'
 
 export function SupplierProfilePage() {
-    const { state } = useMock()
+    const { state, t } = useMock()
     const c = currentCompany(state)
     if (!c) {
         return (
             <Page>
                 <PrototypeBanner />
-                <Hello title="企业资料" />
-                <Card><CardBody><Empty text="还没接真实数据" /></CardBody></Card>
+                <Hello title={t.supplier.profile.title} />
+                <Card><CardBody><Empty text={t.supplier.profile.noData} /></CardBody></Card>
             </Page>
         )
     }
@@ -26,7 +26,7 @@ export function SupplierProfilePage() {
         <Page>
             <PrototypeBanner />
             <Hello
-                title="企业资料"
+                title={t.supplier.profile.title}
                 right={
                     c.status === 'active' ? (
                         <>
@@ -35,23 +35,23 @@ export function SupplierProfilePage() {
                                 canGrab 只看 status。用绿色 ok 底色显示会读成"市场已按这个范围向我开放"，
                                 实际上全都能抢。降成中性底色，并注明尚未生效。 */}
                             <Pill tone="ne">{c.scope}</Pill>
-                            <span className="fnote">（记录用，暂未参与派单过滤）</span>
+                            <span className="fnote">{t.supplier.profile.note}</span>
                         </>
                     ) : (
-                        <Pill tone="wa">资质考察中</Pill>
+                        <Pill tone="wa">{t.supplier.profile.inspecting}</Pill>
                     )
                 }
             />
             <Cols>
                 <Stack>
                     <Card>
-                        <CardHead title="设备清单" />
+                        <CardHead title={t.supplier.profile.equipmentTitle} />
                         <CardBody flush>
                             <TableWrap>
                                 <thead>
                                     <tr>
-                                        <th>设备类型</th><th className="n">数量</th>
-                                        <th>最大加工尺寸</th><th>加工精度</th>
+                                        <th>{t.supplier.profile.colEquipType}</th><th className="n">{t.customer.quotes.colQty}</th>
+                                        <th>{t.supplier.profile.colMaxSize}</th><th>{t.supplier.profile.colPrecision}</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -71,14 +71,14 @@ export function SupplierProfilePage() {
 
                 <Stack>
                     <Card>
-                        <CardHead title="企业信息" />
+                        <CardHead title={t.supplier.profile.infoTitle} />
                         <CardBody>
                             <Kv>
-                                <KvRow k="企业名称" v={c.name} sans />
-                                <KvRow k="统一社会信用代码" v={c.code || X} />
-                                <KvRow k="联系人 / 手机" v={`${c.contact || X} · ${c.phone || X}`} />
-                                <KvRow k="开票抬头" v={c.invTitle || X} sans />
-                                <KvRow k="收款账户" v={c.acct || X} />
+                                <KvRow k={t.supplier.profile.orgName} v={c.name} sans />
+                                <KvRow k={t.supplier.profile.uscc} v={c.code || X} />
+                                <KvRow k={t.supplier.profile.contactPhone} v={`${c.contact || X} · ${c.phone || X}`} />
+                                <KvRow k={t.supplier.profile.invoiceTitle} v={c.invTitle || X} sans />
+                                <KvRow k={t.supplier.profile.bankAccount} v={c.acct || X} />
                             </Kv>
                         </CardBody>
                     </Card>
