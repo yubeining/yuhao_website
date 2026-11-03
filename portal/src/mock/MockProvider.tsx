@@ -15,7 +15,8 @@ import {
 import { clone, loadState, resetState, saveState, type MockState } from './store'
 import { autoQuotable, finishPricing, runAi } from './actions'
 import { pricingBlockers } from './params'
-import { STRINGS, type Lang, type Strings } from '../i18n/strings'
+import type { Lang, Strings } from '../i18n/strings'
+import { useI18n } from '../i18n/I18nProvider'
 
 export type Theme = 'light' | 'dark'
 
@@ -53,14 +54,13 @@ const PRICING_MS = 5000
 /** 估价轮询间隔。没有待估价的单子时这一跳什么都不做，也不写 state。 */
 const TICK_MS = 1000
 
-const LANG_KEY = 'mfg.prototype.lang'
 const THEME_KEY = 'mfg.prototype.theme'
 
 export function MockProvider({ children }: { children: ReactNode }) {
     const [state, setState] = useState<MockState>(loadState)
-    const [lang, setLangState] = useState<Lang>(
-        () => (localStorage.getItem(LANG_KEY) as Lang) || 'zh',
-    )
+    // ★ 语言不再存在这里 —— 它由 I18nProvider 统一管（按人判定、跟账号走）。
+    //   这个 Provider 只借用一下，页面里的 useMock().t / .lang 用法保持不变。
+    const { lang, t, setLang } = useI18n()
     const [theme, setThemeState] = useState<Theme>(
         () => (localStorage.getItem(THEME_KEY) as Theme) || 'light',
     )
@@ -76,11 +76,6 @@ export function MockProvider({ children }: { children: ReactNode }) {
         document.documentElement.setAttribute('data-theme', theme)
         localStorage.setItem(THEME_KEY, theme)
     }, [theme])
-
-    useEffect(() => {
-        document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
-        localStorage.setItem(LANG_KEY, lang)
-    }, [lang])
 
     const actWith = useCallback(<T,>(fn: (s: MockState) => T): T => {
         const next = clone(latest.current)
@@ -159,10 +154,10 @@ export function MockProvider({ children }: { children: ReactNode }) {
     const value = useMemo<MockContextValue>(
         () => ({
             state, act, actWith, reset,
-            lang, setLang: setLangState, t: STRINGS[lang],
+            lang, setLang, t,
             theme, setTheme: setThemeState,
         }),
-        [state, act, actWith, reset, lang, theme],
+        [state, act, actWith, reset, lang, setLang, t, theme],
     )
 
     return <MockContext.Provider value={value}>{children}</MockContext.Provider>

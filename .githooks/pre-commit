@@ -84,6 +84,13 @@ gate_api_prefix() {
     run_gate "硬编码 API 前缀" python3 scripts/check-hardcoded-api-prefix.py
 }
 
+# --- 8. 前端写死中文（docs/i18n/README.md §5）---
+# 棘轮：只拦新增，存量在 scripts/i18n-allowlist.txt 里。白名单只减不增。
+gate_i18n_literals() {
+    git diff --cached --name-only | grep -q '^portal/src/.*\.tsx\?$' || return 0
+    run_gate "前端写死中文" python3 scripts/check-i18n-literals.py
+}
+
 gate_migration_filename
 gate_secrets
 gate_conflict_markers
@@ -91,6 +98,7 @@ gate_non_ascii
 gate_no_foreign_keys
 gate_schema_sync
 gate_api_prefix
+gate_i18n_literals
 
 if [ "$FAILED" -ne 0 ]; then
     echo "" >&2
