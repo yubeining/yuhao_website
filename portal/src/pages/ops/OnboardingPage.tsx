@@ -21,12 +21,13 @@ import {
     type SupplierInviteStatus, type SupplierInviteView,
 } from '../../services'
 
-const INVITE_ST: Record<SupplierInviteStatus, PillSpec> = {
-    PENDING: ['wa', '待注册'],
-    USED: ['ok', '已注册'],
-    EXPIRED: ['ne', '已过期'],
-    REVOKED: ['ba', '已作废'],
-}
+/** 邀请状态。文案随语言变，所以是函数。 */
+const inviteSt = (t: ReturnType<typeof useMock>['t']): Record<SupplierInviteStatus, PillSpec> => ({
+    PENDING: ['wa', t.ops.onboarding.stPending],
+    USED: ['ok', t.ops.onboarding.stUsed],
+    EXPIRED: ['ne', t.ops.onboarding.stExpired],
+    REVOKED: ['ba', t.ops.onboarding.stRevoked],
+})
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
@@ -50,7 +51,7 @@ export function OpsOnboardingPage() {
     useEffect(() => { void load() }, [load])
 
     const create = async () => {
-        if (!orgName.trim() || !EMAIL_RE.test(email.trim())) return setErr('请填写企业名称和正确的邮箱')
+        if (!orgName.trim() || !EMAIL_RE.test(email.trim())) return setErr(t.ops.onboarding.errRequired)
         setBusy(true)
         try {
             const created = await createSupplierInvite(orgName.trim(), email.trim())
@@ -67,7 +68,7 @@ export function OpsOnboardingPage() {
     }
 
     const revoke = async (id: string) => {
-        if (!window.confirm('作废这条邀请？对方将无法再用这个链接注册。')) return
+        if (!window.confirm(t.ops.onboarding.revokeConfirm)) return
         try {
             await revokeSupplierInvite(id)
             await load()
@@ -86,43 +87,43 @@ export function OpsOnboardingPage() {
 
     return (
         <Page>
-            <Hello title="供应商入驻" />
+            <Hello title={t.ops.onboarding.title} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="发邀请" />
+                <CardHead title={t.ops.onboarding.inviteTitle} />
                 <CardBody>
                     <div className="fcell" style={{ gap: 10, flexWrap: 'wrap' }}>
-                        <Input value={orgName} onChange={setOrgName} placeholder="企业名称" style={{ width: 220 }} />
-                        <Input value={email} onChange={setEmail} placeholder="对方登录邮箱" style={{ width: 240 }} />
+                        <Input value={orgName} onChange={setOrgName} placeholder={t.ops.onboarding.orgPlaceholder} style={{ width: 220 }} />
+                        <Input value={email} onChange={setEmail} placeholder={t.ops.onboarding.emailPlaceholder} style={{ width: 240 }} />
                         <button className="btn pri" type="button" disabled={busy} onClick={() => void create()}>
-                            生成邀请链接
+                            {t.ops.onboarding.generate}
                         </button>
                     </div>
                     <div className="t2" style={{ marginTop: 8, lineHeight: 1.6 }}>
-                        链接 7 天有效，用一次就失效。对方只能用这个邮箱注册。邮件发送还没接，生成后请自己复制发给对方。
+                        {t.ops.onboarding.hint}
                     </div>
                     {link && (
                         <Banner tone="ok" style={{ marginTop: 12 }}>
-                            给 <b>{link.email}</b> 的邀请链接（<b>只显示这一次</b>，离开页面就看不到了）：
+                            {t.ops.onboarding.linkFor(link.email)}
                             <div className="m" style={{ wordBreak: 'break-all', margin: '6px 0' }}>{link.url}</div>
-                            <button className="btn sm" type="button" onClick={() => void copy(link.url)}>复制链接</button>
+                            <button className="btn sm" type="button" onClick={() => void copy(link.url)}>{t.ops.onboarding.copy}</button>
                         </Banner>
                     )}
                 </CardBody>
             </Card>
 
             <Card>
-                <CardHead title="邀请记录" rid={invites ? `${invites.length} 条` : undefined} />
+                <CardHead title={t.ops.onboarding.historyTitle} rid={invites ? t.ops.onboarding.historyCount(invites.length) : undefined} />
                 {invites === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : invites.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>企业名称</th><th>邮箱</th><th>状态</th>
-                                    <th className="n">生成时间</th><th className="n">到期</th><th />
+                                    <th>{t.ops.onboarding.colOrg}</th><th>{t.ops.onboarding.colEmail}</th><th>{t.common.table.status}</th>
+                                    <th className="n">{t.ops.onboarding.colCreatedAt}</th><th className="n">{t.ops.onboarding.colExpires}</th><th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -130,12 +131,12 @@ export function OpsOnboardingPage() {
                                     <tr key={i.id}>
                                         <td className="t1">{i.orgName}</td>
                                         <td className="m">{i.email}</td>
-                                        <td>{pill(INVITE_ST[i.status])}</td>
+                                        <td>{pill(inviteSt(t)[i.status])}</td>
                                         <td className="n">{fmtDateTime(new Date(i.createdAt))}</td>
                                         <td className="n">{i.status === 'PENDING' ? fmtDateTime(new Date(i.expiresAt)) : X}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {i.status === 'PENDING' && (
-                                                <button className="btn qui sm" type="button" onClick={() => void revoke(i.id)}>作废</button>
+                                                <button className="btn qui sm" type="button" onClick={() => void revoke(i.id)}>{t.ops.onboarding.revoke}</button>
                                             )}
                                         </td>
                                     </tr>
@@ -144,9 +145,9 @@ export function OpsOnboardingPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有发过邀请" /></CardBody>
+                    <CardBody><Empty text={t.ops.onboarding.empty} /></CardBody>
                 )}
-                <CardFoot left={<span className="t2">对方注册后，到「交易方」录折率，录好就能派单。</span>} />
+                <CardFoot left={<span className="t2">{t.ops.onboarding.afterRegister}</span>} />
             </Card>
         </Page>
     )

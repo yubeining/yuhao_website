@@ -65,7 +65,7 @@ export function OpsPartiesPage() {
     const save = async () => {
         if (!current || !draft) return
         const raw = draft.discount.trim()
-        if (raw && (!RATE_RE.test(raw) || Number(raw) <= 0)) return setErr('折率请填大于 0、最多 4 位小数的数字，如 0.8')
+        if (raw && (!RATE_RE.test(raw) || Number(raw) <= 0)) return setErr(t.ops.parties.errDiscount)
         setBusy(true)
         try {
             if (raw && Number(raw) !== current.discountRate) {
@@ -82,7 +82,7 @@ export function OpsPartiesPage() {
                 await setSupplierCapability(current.orgId, cap)
             }
             await load()
-            setOk(`「${current.name}」已保存`)
+            setOk(t.ops.parties.saved(current.name))
             setErr(null)
             setEditing(null)
         } catch (e) {
@@ -96,36 +96,36 @@ export function OpsPartiesPage() {
 
     return (
         <Page>
-            <Hello title="交易方" />
+            <Hello title={t.ops.parties.title} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="供应商" rid={suppliers ? `${suppliers.length} 家` : undefined} />
+                <CardHead title={t.ops.parties.suppliers} rid={suppliers ? t.ops.parties.supplierCount(suppliers.length) : undefined} />
                 {suppliers === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : suppliers.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>企业</th><th className="n">折率</th><th>工艺</th><th>材料</th>
-                                    <th>尺寸范围</th><th>精度等级</th><th>可派单</th><th className="n">入驻</th><th />
+                                    <th>{t.ops.parties.colCompany}</th><th className="n">{t.ops.parties.colDiscount}</th><th>{t.ops.parties.colProcess}</th><th>{t.ops.parties.colMaterial}</th>
+                                    <th>{t.ops.parties.colSize}</th><th>{t.ops.parties.colPrecision}</th><th>{t.ops.parties.colDispatchable}</th><th className="n">{t.ops.parties.colOnboarded}</th><th />
                                 </tr>
                             </thead>
                             <tbody>
                                 {suppliers.map((s) => (
                                     <tr key={s.orgId}>
-                                        <td className="t1">{s.name}{s.status === 'DISABLED' && <div className="t2">已停用</div>}</td>
-                                        <td className="n">{s.discountRate != null ? `× ${s.discountRate}` : '未设置'}</td>
+                                        <td className="t1">{s.name}{s.status === 'DISABLED' && <div className="t2">{t.ops.parties.disabled}</div>}</td>
+                                        <td className="n">{s.discountRate != null ? `× ${s.discountRate}` : t.ops.parties.notSet}</td>
                                         <td>{s.processes || X}</td>
                                         <td>{s.materials || X}</td>
                                         <td>{s.sizeRange || X}</td>
                                         <td>{s.precisionGrade || X}</td>
-                                        <td>{s.dispatchable ? pill(['ok', '可派单']) : pill(['wa', s.status === 'DISABLED' ? '已停用' : '缺折率'])}</td>
+                                        <td>{s.dispatchable ? pill(['ok', t.ops.parties.canDispatch]) : pill(['wa', s.status === 'DISABLED' ? t.ops.parties.disabled : t.ops.parties.missingDiscount])}</td>
                                         <td className="n">{fmtDate(new Date(s.createdAt))}</td>
                                         <td style={{ textAlign: 'right' }}>
-                                            <button className="btn qui sm" type="button" onClick={() => open(s)}>编辑</button>
+                                            <button className="btn qui sm" type="button" onClick={() => open(s)}>{t.ops.parties.edit}</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -133,30 +133,30 @@ export function OpsPartiesPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有供应商" sub="在「供应商入驻」发邀请，对方注册后会出现在这里" /></CardBody>
+                    <CardBody><Empty text={t.ops.parties.empty} sub={t.ops.parties.emptySub} /></CardBody>
                 )}
             </Card>
 
             {current && draft && (
                 <Card>
-                    <CardHead title={`编辑：${current.name}`} />
+                    <CardHead title={t.ops.parties.editTitle(current.name)} />
                     <CardBody>
                         <FieldRow cols={2}>
-                            <Field label="折率（对供价 = 原价 × 折率，0.8 = 八折）">
-                                <Input value={draft.discount} onChange={set('discount')} placeholder="如 0.8" />
+                            <Field label={t.ops.parties.fldDiscount}>
+                                <Input value={draft.discount} onChange={set('discount')} placeholder={t.ops.parties.discountPlaceholder} />
                             </Field>
-                            <Field label="工艺"><Input value={draft.processes} onChange={set('processes')} placeholder="自由填写" /></Field>
+                            <Field label={t.ops.parties.fldProcess}><Input value={draft.processes} onChange={set('processes')} placeholder={t.ops.parties.freeText} /></Field>
                         </FieldRow>
                         <FieldRow cols={3}>
-                            <Field label="材料"><Input value={draft.materials} onChange={set('materials')} /></Field>
-                            <Field label="尺寸范围"><Input value={draft.sizeRange} onChange={set('sizeRange')} /></Field>
-                            <Field label="精度等级"><Input value={draft.precisionGrade} onChange={set('precisionGrade')} /></Field>
+                            <Field label={t.ops.parties.fldMaterial}><Input value={draft.materials} onChange={set('materials')} /></Field>
+                            <Field label={t.ops.parties.fldSize}><Input value={draft.sizeRange} onChange={set('sizeRange')} /></Field>
+                            <Field label={t.ops.parties.fldPrecision}><Input value={draft.precisionGrade} onChange={set('precisionGrade')} /></Field>
                         </FieldRow>
-                        <div className="t2" style={{ marginTop: 6 }}>折率录好这家就能被派单；能力可以以后补，只给派单时参考。</div>
+                        <div className="t2" style={{ marginTop: 6 }}>{t.ops.parties.discountHint}</div>
                     </CardBody>
                     <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setEditing(null)}>取消</button>}
-                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>保存</button>}
+                        left={<button className="btn" type="button" onClick={() => setEditing(null)}>{t.common.cancel}</button>}
+                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{t.ops.parties.save}</button>}
                     />
                 </Card>
             )}

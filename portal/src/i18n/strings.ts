@@ -256,6 +256,77 @@ export interface Strings {
             masterData: string; parties: string; internalOps: string
         }
     }
+    /** 运营后台 */
+    ops: {
+        dashboard: {
+            title: string; failedTitle: string; failedBody: string
+            kpiPending: string; kpiPendingSub: string
+            kpiAssembling: string; kpiAssemblingSub: string
+            kpiOffered: string; kpiOfferedSub: string
+            missingTitle: string; missingText: string; missingSub: string
+        }
+        orders: {
+            title: string; colCustomer: string; colCreated: string; colProd: string
+            colProgress: string; colPaid: string; unscheduled: string
+            paid: string; unpaid: string; markDelivered: string; registerPayment: string
+            empty: string
+        }
+        quotes: {
+            title: string; tabSubmitted: string; tabQuoted: string; tabConfirmed: string
+            orderCount: (n: number) => string
+            colQty: string; colLead: string; colSubmitted: string; colQuote: string
+            leadDays: (n: number) => string; version: (n: number) => string; never: string; empty: string
+        }
+        production: {
+            title: string; sub: string; empty: string; emptySub: string
+            cardTitle: (id: string) => string
+            fldSupplier: string; fldOpsOrder: string; fldDue: string; fldSignedAt: string
+            colCustomer: string; colQc: string; reworkLine: string
+            phPass: string; phRework: string; phScrap: string; submit: string
+            remade: string; remake: string
+            sumMismatch: (qty: number, sum: number) => string
+            confirmQc: (pass: number, rework: number, scrap: number) => string
+        }
+        parties: {
+            title: string; suppliers: string; supplierCount: (n: number) => string
+            colCompany: string; colDiscount: string; colProcess: string; colMaterial: string
+            colSize: string; colPrecision: string; colDispatchable: string; colOnboarded: string
+            disabled: string; notSet: string; canDispatch: string; missingDiscount: string
+            edit: string; empty: string; emptySub: string
+            editTitle: (name: string) => string
+            fldDiscount: string; discountPlaceholder: string
+            fldProcess: string; fldMaterial: string; fldSize: string; fldPrecision: string
+            freeText: string; discountHint: string; saved: (name: string) => string
+            errDiscount: string; save: string
+        }
+        dispatchPage: {
+            title: string; newOpsOrder: string; created: (id: string) => string
+            poolTitle: string; poolCount: (n: number) => string
+            colCustomerOrder: string; colMaterialSurface: string; colSubmitted: string
+            allocate: string; poolEmpty: string; poolEmptySub: string
+            pickTitle: (code: string, name: string, qty: number) => string
+            colOpsOrder: string; colExistingLines: string; colSplitQty: string
+            unitPieces: string; noAssembling: string; noAssemblingSub: string
+            splitNote: (qty: number, sum: number) => string
+            cancel: string; confirmAllocate: string
+            ordersTitle: string; orderCount: (n: number) => string
+            colNo: string; colMode: string; colLines: string; colPieces: string
+            colCustomers: string; colSupplierDue: string; colAcceptedBy: string; colBuilt: string
+            ordersEmpty: string
+            errInteger: string; errSplitMismatch: (qty: number, sum: number) => string
+            allocated: (code: string, orders: number) => string
+        }
+        onboarding: {
+            title: string; inviteTitle: string; orgPlaceholder: string; emailPlaceholder: string
+            generate: string; hint: string
+            linkFor: (email: string) => string; copy: string
+            historyTitle: string; historyCount: (n: number) => string
+            colOrg: string; colEmail: string; colCreatedAt: string; colExpires: string
+            revoke: string; revokeConfirm: string
+            empty: string; emptySub: string; afterRegister: string; errRequired: string
+            stPending: string; stUsed: string; stExpired: string; stRevoked: string
+        }
+    }
     /** 后端返回的 i18n code → 文案。后端只返 code（CLAUDE.md §6），翻译全在这里。 */
     errors: Record<string, string>
 }
@@ -537,6 +608,94 @@ export const STRINGS: Record<Lang, Strings> = {
                 dispatch: '派单管理', execution: '执行', production: '生产与质检', orders: '订单',
                 onboarding: '入驻', supplierOnboarding: '供应商入驻',
                 masterData: '主数据', parties: '交易方', internalOps: '内部 · 运营',
+            },
+        },
+        ops: {
+            dashboard: {
+                title: '工作台',
+                failedTitle: '工作台数据没取到。', failedBody: '下面的数字是占位符，不要据此安排生产。',
+                kpiPending: '待安排生产', kpiPendingSub: '已确认价格，等运营组包',
+                kpiAssembling: '组包中', kpiAssemblingSub: '草稿，还没挂出去',
+                kpiOffered: '在挂生产订单', kpiOfferedSub: '等供应商接单',
+                missingTitle: '还没放上来的两个指标',
+                missingText: '「已安排生产（产能没锁满）」和「待考察供应商（已提交材料）」在后端没有对应字段或状态。',
+                missingSub: '口径定下来再放上来 —— 现在硬凑一个映射，数字看着像真的，但没人能解释它怎么算出来的。',
+            },
+            orders: {
+                title: '订单', colCustomer: '客户', colCreated: '下单', colProd: '生产订单',
+                colProgress: '进度', colPaid: '客户回款', unscheduled: '未安排',
+                paid: '已回款', unpaid: '未回款',
+                markDelivered: '标记已交付', registerPayment: '登记回款', empty: '还没有订单',
+            },
+            quotes: {
+                title: '报价', tabSubmitted: '待报价', tabQuoted: '待客户确认', tabConfirmed: '已确认',
+                orderCount: (n) => `${n} 单`,
+                colQty: '总件数', colLead: '客户期望交期', colSubmitted: '提交时间', colQuote: '报价',
+                leadDays: (n) => `${n} 天（仅参考）`, version: (n) => `第 ${n} 版`, never: '未报过',
+                empty: '暂无订单',
+            },
+            production: {
+                title: '生产与质检',
+                sub: '签完字的单在这里跟进度；货到之后按件数判合格 / 返工 / 报废',
+                empty: '还没有已签字的单', emptySub: '供应商签完合同后会出现在这里',
+                cardTitle: (id) => `供应商订单 ${id}`,
+                fldSupplier: '供应商', fldOpsOrder: '生产订单', fldDue: '对供交期', fldSignedAt: '签字时间',
+                colCustomer: '客户', colQc: '质检 / 补料', reworkLine: '返工 / 重做件',
+                phPass: '合格', phRework: '返工', phScrap: '报废', submit: '提交',
+                remade: '已补料', remake: '原厂重做',
+                sumMismatch: (qty, sum) => `三个数之和要等于 ${qty} 件（现在是 ${sum}）`,
+                confirmQc: (pass, rework, scrap) => `判定：合格 ${pass} / 返工 ${rework} / 报废 ${scrap}。返工件和报废件会从这一行拆出去。`,
+            },
+            parties: {
+                title: '交易方', suppliers: '供应商', supplierCount: (n) => `${n} 家`,
+                colCompany: '企业', colDiscount: '折率', colProcess: '工艺', colMaterial: '材料',
+                colSize: '尺寸范围', colPrecision: '精度等级', colDispatchable: '可派单', colOnboarded: '入驻',
+                disabled: '已停用', notSet: '未设置', canDispatch: '可派单', missingDiscount: '缺折率',
+                edit: '编辑', empty: '还没有供应商',
+                emptySub: '在「供应商入驻」发邀请，对方注册后会出现在这里',
+                editTitle: (name) => `编辑：${name}`,
+                fldDiscount: '折率（对供价 = 原价 × 折率，0.8 = 八折）', discountPlaceholder: '如 0.8',
+                fldProcess: '工艺', fldMaterial: '材料', fldSize: '尺寸范围', fldPrecision: '精度等级',
+                freeText: '自由填写',
+                discountHint: '折率录好这家就能被派单；能力可以以后补，只给派单时参考。',
+                saved: (name) => `「${name}」已保存`,
+                errDiscount: '折率请填大于 0、最多 4 位小数的数字，如 0.8', save: '保存',
+            },
+            dispatchPage: {
+                title: '派单管理', newOpsOrder: '＋ 新建生产订单',
+                created: (id) => `已新建生产订单 ${id}`,
+                poolTitle: '待派的零件', poolCount: (n) => `${n} 行`,
+                colCustomerOrder: '客户 / 订单', colMaterialSurface: '材料 / 表面处理', colSubmitted: '客户提交',
+                allocate: '分配', poolEmpty: '没有待派的零件',
+                poolEmptySub: '客户确认报价后，零件会出现在这里',
+                pickTitle: (code, name, qty) => `分配：${code} · ${name} · ${qty} 件`,
+                colOpsOrder: '生产订单（组装中）', colExistingLines: '已有零件行', colSplitQty: '这一行分几件',
+                unitPieces: '件', noAssembling: '没有组装中的生产订单',
+                noAssemblingSub: '先点右上角「新建生产订单」',
+                splitNote: (qty, sum) => `一次拆完：各份加起来必须等于 ${qty} 件（现在 ${sum} 件）。只分给一张就在那一张填 ${qty}。`,
+                cancel: '取消', confirmAllocate: '确认分配',
+                ordersTitle: '生产订单', orderCount: (n) => `${n} 张`,
+                colNo: '编号', colMode: '派法', colLines: '零件行', colPieces: '件数',
+                colCustomers: '客户数', colSupplierDue: '对供交期', colAcceptedBy: '接单方', colBuilt: '建立',
+                ordersEmpty: '还没有生产订单',
+                errInteger: '请在生产订单里填整数件数',
+                errSplitMismatch: (qty, sum) => `各份加起来要等于 ${qty} 件，现在是 ${sum} 件`,
+                allocated: (code, orders) => `「${code}」已分配到 ${orders} 张生产订单`,
+            },
+            onboarding: {
+                title: '供应商入驻', inviteTitle: '发邀请',
+                orgPlaceholder: '企业名称', emailPlaceholder: '对方登录邮箱',
+                generate: '生成邀请链接',
+                hint: '链接 7 天有效，用一次就失效。对方只能用这个邮箱注册。邮件发送还没接，生成后请自己复制发给对方。',
+                linkFor: (email) => `给 ${email} 的邀请链接（只显示这一次，离开页面就看不到了）：`,
+                copy: '复制链接',
+                historyTitle: '邀请记录', historyCount: (n) => `${n} 条`,
+                colOrg: '企业名称', colEmail: '邮箱', colCreatedAt: '生成时间', colExpires: '到期',
+                revoke: '作废', revokeConfirm: '作废这条邀请？对方将无法再用这个链接注册。',
+                empty: '还没有发过邀请', emptySub: '',
+                afterRegister: '对方注册后，到「交易方」录折率，录好就能派单。',
+                errRequired: '请填写企业名称和正确的邮箱',
+                stPending: '待注册', stUsed: '已注册', stExpired: '已过期', stRevoked: '已作废',
             },
         },
         errors: {
@@ -899,6 +1058,94 @@ export const STRINGS: Record<Lang, Strings> = {
                 dispatch: 'Dispatch', execution: 'Execution', production: 'Production & QC', orders: 'Orders',
                 onboarding: 'Onboarding', supplierOnboarding: 'Supplier onboarding',
                 masterData: 'Master data', parties: 'Parties', internalOps: 'Internal · Operations',
+            },
+        },
+        ops: {
+            dashboard: {
+                title: 'Dashboard',
+                failedTitle: 'Could not load dashboard data.', failedBody: 'The numbers below are placeholders — do not schedule production based on them.',
+                kpiPending: 'To schedule', kpiPendingSub: 'Price confirmed, waiting for us to assemble',
+                kpiAssembling: 'Assembling', kpiAssemblingSub: 'Draft, not offered yet',
+                kpiOffered: 'Open production orders', kpiOfferedSub: 'Waiting for a supplier',
+                missingTitle: 'Two metrics not shown yet',
+                missingText: '“Scheduled production (capacity not filled)” and “Suppliers under review” have no matching field or status in the backend.',
+                missingSub: 'They come back once the definition is agreed — forcing a mapping now produces numbers that look real but cannot be explained.',
+            },
+            orders: {
+                title: 'Orders', colCustomer: 'Customer', colCreated: 'Created', colProd: 'Production order',
+                colProgress: 'Progress', colPaid: 'Customer payment', unscheduled: 'Not scheduled',
+                paid: 'Paid', unpaid: 'Unpaid',
+                markDelivered: 'Mark delivered', registerPayment: 'Record payment', empty: 'No orders yet',
+            },
+            quotes: {
+                title: 'Quotes', tabSubmitted: 'To quote', tabQuoted: 'Awaiting customer', tabConfirmed: 'Confirmed',
+                orderCount: (n) => `${n} order${n === 1 ? '' : 's'}`,
+                colQty: 'Total qty', colLead: 'Requested lead time', colSubmitted: 'Submitted', colQuote: 'Quote',
+                leadDays: (n) => `${n} days (reference)`, version: (n) => `v${n}`, never: 'Never quoted',
+                empty: 'No orders yet',
+            },
+            production: {
+                title: 'Production & QC',
+                sub: 'Track signed orders here; when goods arrive, mark each piece as passed / rework / scrap',
+                empty: 'No signed orders yet', emptySub: 'Orders appear here after the supplier signs the contract',
+                cardTitle: (id) => `Supplier order ${id}`,
+                fldSupplier: 'Supplier', fldOpsOrder: 'Production order', fldDue: 'Supplier due date', fldSignedAt: 'Signed at',
+                colCustomer: 'Customer', colQc: 'QC / remake', reworkLine: 'Rework / remake',
+                phPass: 'Pass', phRework: 'Rework', phScrap: 'Scrap', submit: 'Submit',
+                remade: 'Remade', remake: 'Remake in-house',
+                sumMismatch: (qty, sum) => `The three numbers must add up to ${qty} (currently ${sum})`,
+                confirmQc: (pass, rework, scrap) => `Result: passed ${pass} / rework ${rework} / scrap ${scrap}. Rework and scrap pieces are split off this line.`,
+            },
+            parties: {
+                title: 'Parties', suppliers: 'Suppliers', supplierCount: (n) => `${n}`,
+                colCompany: 'Company', colDiscount: 'Discount', colProcess: 'Processes', colMaterial: 'Materials',
+                colSize: 'Size range', colPrecision: 'Precision', colDispatchable: 'Dispatchable', colOnboarded: 'Joined',
+                disabled: 'Disabled', notSet: 'Not set', canDispatch: 'Dispatchable', missingDiscount: 'No discount rate',
+                edit: 'Edit', empty: 'No suppliers yet',
+                emptySub: 'Invite one under “Supplier onboarding”; they appear here after signing up',
+                editTitle: (name) => `Edit: ${name}`,
+                fldDiscount: 'Discount rate (supplier price = base price × rate; 0.8 = 20% off)', discountPlaceholder: 'e.g. 0.8',
+                fldProcess: 'Processes', fldMaterial: 'Materials', fldSize: 'Size range', fldPrecision: 'Precision grade',
+                freeText: 'Free text',
+                discountHint: 'A supplier can be dispatched once a discount rate is set; capabilities are optional and only used as a reference.',
+                saved: (name) => `${name} saved`,
+                errDiscount: 'Enter a discount rate greater than 0 with at most 4 decimals, e.g. 0.8', save: 'Save',
+            },
+            dispatchPage: {
+                title: 'Dispatch', newOpsOrder: '+ New production order',
+                created: (id) => `Production order ${id} created`,
+                poolTitle: 'Parts to dispatch', poolCount: (n) => `${n} line${n === 1 ? '' : 's'}`,
+                colCustomerOrder: 'Customer / order', colMaterialSurface: 'Material / finishing', colSubmitted: 'Submitted',
+                allocate: 'Allocate', poolEmpty: 'No parts to dispatch',
+                poolEmptySub: 'Parts appear here once the customer confirms a quote',
+                pickTitle: (code, name, qty) => `Allocate: ${code} · ${name} · ${qty} pcs`,
+                colOpsOrder: 'Production order (assembling)', colExistingLines: 'Existing lines', colSplitQty: 'Pieces in this line',
+                unitPieces: 'pcs', noAssembling: 'No production order in assembling',
+                noAssemblingSub: 'Create one with “+ New production order” first',
+                splitNote: (qty, sum) => `Allocate in one go: the shares must add up to ${qty} pcs (currently ${sum}). To allocate to a single order, put ${qty} there.`,
+                cancel: 'Cancel', confirmAllocate: 'Confirm allocation',
+                ordersTitle: 'Production orders', orderCount: (n) => `${n}`,
+                colNo: 'No.', colMode: 'Mode', colLines: 'Lines', colPieces: 'Pieces',
+                colCustomers: 'Customers', colSupplierDue: 'Supplier due', colAcceptedBy: 'Supplier', colBuilt: 'Created',
+                ordersEmpty: 'No production orders yet',
+                errInteger: 'Enter a whole number of pieces for each production order',
+                errSplitMismatch: (qty, sum) => `The shares must add up to ${qty} pcs; currently ${sum}`,
+                allocated: (code, orders) => `${code} allocated to ${orders} production order${orders === 1 ? '' : 's'}`,
+            },
+            onboarding: {
+                title: 'Supplier onboarding', inviteTitle: 'Send an invitation',
+                orgPlaceholder: 'Company name', emailPlaceholder: 'Their sign-in email',
+                generate: 'Generate invite link',
+                hint: 'The link is valid for 7 days and can be used once. They can only register with this email. Email sending is not connected yet — copy the link and send it yourself.',
+                linkFor: (email) => `Invite link for ${email} (shown only once — it disappears when you leave this page):`,
+                copy: 'Copy link',
+                historyTitle: 'Invitations', historyCount: (n) => `${n}`,
+                colOrg: 'Company', colEmail: 'Email', colCreatedAt: 'Created', colExpires: 'Expires',
+                revoke: 'Revoke', revokeConfirm: 'Revoke this invitation? The link will stop working.',
+                empty: 'No invitations sent yet', emptySub: '',
+                afterRegister: 'Once they register, set their discount rate under “Parties” — a supplier can be dispatched after that.',
+                errRequired: 'Enter a company name and a valid email',
+                stPending: 'Pending', stUsed: 'Registered', stExpired: 'Expired', stRevoked: 'Revoked',
             },
         },
         errors: {

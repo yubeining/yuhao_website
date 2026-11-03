@@ -14,12 +14,13 @@ import { fmtDateTime, X } from '../../mock/format'
 import {
     listOpsOrders, listQuoteSummaries, type OpsOrderSummaryView, type OpsQuoteSummaryView, type OrderStatus,
 } from '../../services'
-import { ORDER_ST, QUOTE_ST } from '../customer/status'
+import { orderSt, quoteSt } from '../customer/status'
 
-const TABS: [OrderStatus, string][] = [
-    ['SUBMITTED', '待报价'],
-    ['QUOTED', '待客户确认'],
-    ['CONFIRMED', '已确认'],
+/** 三个分页标签。文案随语言变，所以是函数不是常量。 */
+const tabs = (t: ReturnType<typeof useMock>['t']): [OrderStatus, string][] => [
+    ['SUBMITTED', t.ops.quotes.tabSubmitted],
+    ['QUOTED', t.ops.quotes.tabQuoted],
+    ['CONFIRMED', t.ops.quotes.tabConfirmed],
 ]
 
 export function OpsQuotesPage() {
@@ -51,10 +52,10 @@ export function OpsQuotesPage() {
     return (
         <Page>
             <Hello
-                title="报价"
+                title={t.ops.quotes.title}
                 right={
                     <>
-                        {TABS.map(([st, label]) => (
+                        {tabs(t).map(([st, label]) => (
                             <button key={st} type="button" className={`btn${tab === st ? ' pri' : ''}`}
                                 onClick={() => setTab(st)}>{label}</button>
                         ))}
@@ -62,36 +63,36 @@ export function OpsQuotesPage() {
                 }
             />
             <Card>
-                <CardHead title={TABS.find(([st]) => st === tab)?.[1] ?? ''} rid={orders ? `${total} 单` : undefined} />
+                <CardHead title={tabs(t).find(([st]) => st === tab)?.[1] ?? ''} rid={orders ? t.ops.quotes.orderCount(total) : undefined} />
                 {orders === null ? (
                     <CardBody>
                         {err
-                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>重试</button>} />
-                            : <Empty text="加载中…" />}
+                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                            : <Empty text={t.common.loading} />}
                     </CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>订单</th><th>客户</th><th className="n">零件</th><th className="n">总件数</th>
-                                    <th className="n">客户期望交期</th><th className="n">提交时间</th><th>状态</th><th>报价</th>
+                                    <th>{t.common.table.order}</th><th>{t.ops.orders.colCustomer}</th><th className="n">{t.common.table.parts}</th><th className="n">{t.ops.quotes.colQty}</th>
+                                    <th className="n">{t.ops.quotes.colLead}</th><th className="n">{t.ops.quotes.colSubmitted}</th><th>{t.common.table.status}</th><th>{t.ops.quotes.colQuote}</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/ops/quotes/${o.id}`)}>
-                                        <td className="t1">{o.title || '未命名订单'}</td>
+                                        <td className="t1">{o.title || t.common.untitledOrder}</td>
                                         <td>{o.customerName ?? X}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
-                                        <td className="n">{o.wantedLeadDays ? `${o.wantedLeadDays} 天（仅参考）` : X}</td>
+                                        <td className="n">{o.wantedLeadDays ? t.ops.quotes.leadDays(o.wantedLeadDays) : X}</td>
                                         <td className="n">{o.submittedAt ? fmtDateTime(new Date(o.submittedAt)) : X}</td>
-                                        <td>{pill(ORDER_ST[o.status])}</td>
+                                        <td>{pill(orderSt(t)[o.status])}</td>
                                         <td>
                                             {latest[o.id]
-                                                ? <>{pill(QUOTE_ST[latest[o.id].latestStatus])} <span className="t2">第 {latest[o.id].latestVersionNo} 版</span></>
-                                                : <span className="t2">未报过</span>}
+                                                ? <>{pill(quoteSt(t)[latest[o.id].latestStatus])} <span className="t2">{t.ops.quotes.version(latest[o.id].latestVersionNo)}</span></>
+                                                : <span className="t2">{t.ops.quotes.never}</span>}
                                         </td>
                                     </tr>
                                 ))}
@@ -99,7 +100,7 @@ export function OpsQuotesPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="暂无订单" /></CardBody>
+                    <CardBody><Empty text={t.ops.quotes.empty} /></CardBody>
                 )}
             </Card>
         </Page>

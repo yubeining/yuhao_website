@@ -13,7 +13,7 @@ import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, X } from '../../mock/format'
 import { listProduction, qcLine, remakeLine, type OpsLine, type OpsProductionOrder } from '../../services'
-import { LINE_ST, shortId, SUPPLIER_ORDER_ST } from './dispatchStatus'
+import { lineSt, shortId, supplierOrderSt } from './dispatchStatus'
 
 /** 一行待质检的三个数，按行 id 存着。 */
 type Counts = { pass: string; rework: string; scrap: string }
@@ -51,11 +51,11 @@ export function OpsProductionPage() {
         const c = counts[line.id] ?? EMPTY
         const [pass, rework, scrap] = [num(c.pass), num(c.rework), num(c.scrap)]
         if (pass + rework + scrap !== line.quantity) {
-            setErr(`三个数之和要等于 ${line.quantity} 件（现在是 ${pass + rework + scrap}）`)
+            setErr(t.ops.production.sumMismatch(line.quantity, pass + rework + scrap))
             return
         }
         if (rework + scrap > 0
-            && !window.confirm(`判定：合格 ${pass} / 返工 ${rework} / 报废 ${scrap}。返工件和报废件会从这一行拆出去。`)) {
+            && !window.confirm(t.ops.production.confirmQc(pass, rework, scrap))) {
             return
         }
         act(() => qcLine(orderId, line.id, { pass, rework, scrap })
@@ -67,27 +67,27 @@ export function OpsProductionPage() {
 
     return (
         <Page>
-            <Hello title="生产与质检" sub="签完字的单在这里跟进度；货到之后按件数判合格 / 返工 / 报废" />
+            <Hello title={t.ops.production.title} sub={t.ops.production.sub} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {orders === null ? (
-                <Card><CardBody><Empty text="加载中…" /></CardBody></Card>
+                <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
             ) : orders.length === 0 ? (
-                <Card><CardBody><Empty text="还没有已签字的单" sub="供应商签完合同后会出现在这里" /></CardBody></Card>
+                <Card><CardBody><Empty text={t.ops.production.empty} sub={t.ops.production.emptySub} /></CardBody></Card>
             ) : orders.map((o) => (
                 <Card key={o.id} style={{ marginBottom: 16 }}>
-                    <CardHead title={`供应商订单 ${shortId(o.id)}`} right={pill(SUPPLIER_ORDER_ST[o.status])} />
+                    <CardHead title={t.ops.production.cardTitle(shortId(o.id))} right={pill(supplierOrderSt(t)[o.status])} />
                     <CardBody>
                         <Fields>
-                            <Fld k="供应商" v={o.supplierName || X} />
-                            <Fld k="生产订单" v={shortId(o.opsOrderId)} mono />
-                            <Fld k="对供交期" v={o.supplierDueDate} mono />
-                            <Fld k="签字时间" v={o.signedAt ? fmtDateTime(new Date(o.signedAt)) : X} mono />
+                            <Fld k={t.ops.production.fldSupplier} v={o.supplierName || X} />
+                            <Fld k={t.ops.production.fldOpsOrder} v={shortId(o.opsOrderId)} mono />
+                            <Fld k={t.ops.production.fldDue} v={o.supplierDueDate} mono />
+                            <Fld k={t.ops.production.fldSignedAt} v={o.signedAt ? fmtDateTime(new Date(o.signedAt)) : X} mono />
                         </Fields>
                     </CardBody>
                     <CardBody flush>
                         <TableWrap>
                             <thead>
-                                <tr><th>图号</th><th>名称</th><th>客户</th><th className="n">数量</th><th>进度</th><th>质检 / 补料</th></tr>
+                                <tr><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.ops.production.colCustomer}</th><th className="n">{t.customer.quotes.colQty}</th><th>{t.customer.orderDetail.colProgress}</th><th>{t.ops.production.colQc}</th></tr>
                             </thead>
                             <tbody>
                                 {o.lines.map((l) => {
@@ -96,28 +96,28 @@ export function OpsProductionPage() {
                                         <tr key={l.id}>
                                             <td className="m">{l.code}</td>
                                             <td className="t1">{l.partName}
-                                                {l.replacesPartId && <div className="t2">返工 / 重做件</div>}
+                                                {l.replacesPartId && <div className="t2">{t.ops.production.reworkLine}</div>}
                                             </td>
                                             <td>{l.customerName || X}<div className="t2">{l.orderTitle || X}</div></td>
                                             <td className="n">{l.quantity}</td>
-                                            <td>{l.status ? pill(LINE_ST[l.status]) : X}</td>
+                                            <td>{l.status ? pill(lineSt(t)[l.status]) : X}</td>
                                             <td>
                                                 {l.status === 'QC_PENDING' && (
                                                     <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }}>
-                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder="合格"
+                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder={t.ops.production.phPass}
                                                             value={c.pass} onChange={(e) => set(l.id, 'pass', e.target.value)} />
-                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder="返工"
+                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder={t.ops.production.phRework}
                                                             value={c.rework} onChange={(e) => set(l.id, 'rework', e.target.value)} />
-                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder="报废"
+                                                        <input className="inp" style={{ width: 62 }} type="number" min={0} placeholder={t.ops.production.phScrap}
                                                             value={c.scrap} onChange={(e) => set(l.id, 'scrap', e.target.value)} />
                                                         <button className="btn pri sm" type="button" disabled={busy}
-                                                            onClick={() => submitQc(o.id, l)}>提交</button>
+                                                            onClick={() => submitQc(o.id, l)}>{t.ops.production.submit}</button>
                                                     </div>
                                                 )}
                                                 {l.status === 'SCRAPPED' && (l.supersededBy
-                                                    ? <span className="t2">已补料</span>
+                                                    ? <span className="t2">{t.ops.production.remade}</span>
                                                     : <button className="btn sm" type="button" disabled={busy}
-                                                        onClick={() => act(() => remakeLine(o.id, l.id))}>原厂重做</button>)}
+                                                        onClick={() => act(() => remakeLine(o.id, l.id))}>{t.ops.production.remake}</button>)}
                                             </td>
                                         </tr>
                                     )

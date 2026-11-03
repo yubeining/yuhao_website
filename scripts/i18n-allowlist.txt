@@ -2,12 +2,5 @@
 # 由 scripts/check-i18n-literals.py --init 生成。
 
 components/PortalProbe.tsx
-pages/ops/DashboardPage.tsx
-pages/ops/DispatchPage.tsx
-pages/ops/OnboardingPage.tsx
-pages/ops/OrdersPage.tsx
-pages/ops/PartiesPage.tsx
 pages/ops/ProdPage.tsx
-pages/ops/ProductionPage.tsx
 pages/ops/QuoteWorkPage.tsx
-pages/ops/QuotesPage.tsx

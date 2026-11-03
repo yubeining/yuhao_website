@@ -20,22 +20,22 @@ import { orderTotal, progress, prodsOf } from '../../mock/selectors'
 import { ORD_ST } from '../customer/status'
 
 export function OpsOrdersPage() {
-    const { state, act } = useMock()
+    const { state, act, t } = useMock()
     const orders = state.db.orders
 
     return (
         <Page>
             <PrototypeBanner />
-            <Hello title="订单" />
+            <Hello title={t.ops.orders.title} />
             <Card>
                 {orders.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>订单</th><th>客户</th><th className="n">零件</th><th className="n">金额</th>
-                                    <th className="n">下单</th><th>生产订单</th><th>进度</th>
-                                    <th>客户回款</th><th>状态</th><th /><th />
+                                    <th>{t.common.table.order}</th><th>{t.ops.orders.colCustomer}</th><th className="n">{t.common.table.parts}</th><th className="n">{t.supplier.bill.colAmount}</th>
+                                    <th className="n">{t.ops.orders.colCreated}</th><th>{t.ops.orders.colProd}</th><th>{t.ops.orders.colProgress}</th>
+                                    <th>{t.ops.orders.colPaid}</th><th>{t.common.table.status}</th><th /><th />
                                 </tr>
                             </thead>
                             <tbody>
@@ -53,18 +53,18 @@ export function OpsOrdersPage() {
                                                     <Link key={d.id} className="m" style={{ marginRight: 8 }}
                                                         to={`/ops/dispatch/${d.id}`}>{d.id}</Link>
                                                 ))
-                                                : <span className="t2">未安排</span>}
+                                                : <span className="t2">{t.ops.orders.unscheduled}</span>}
                                         </td>
                                         <td style={{ minWidth: 100 }}><Bar pct={progress(o)} /></td>
                                         <td>
-                                            {o.paidAt ? <Pill tone="ok">已回款</Pill> : <Pill tone="wa">未回款</Pill>}
+                                            {o.paidAt ? <Pill tone="ok">{t.ops.orders.paid}</Pill> : <Pill tone="wa">{t.ops.orders.unpaid}</Pill>}
                                         </td>
                                         <td>{pill(ORD_ST[o.status])}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {o.status === 'produced' && (
                                                 <button className="btn sm" type="button"
                                                     onClick={() => act((s) => deliver(s, o.id))}>
-                                                    标记已交付
+                                                    {t.ops.orders.markDelivered}
                                                 </button>
                                             )}
                                         </td>
@@ -72,7 +72,7 @@ export function OpsOrdersPage() {
                                             {o.status === 'shipping' && !o.paidAt && (
                                                 <button className="btn sm" type="button"
                                                     onClick={() => act((s) => custPaid(s, o.id))}>
-                                                    登记回款
+                                                    {t.ops.orders.registerPayment}
                                                 </button>
                                             )}
                                         </td>
@@ -82,7 +82,7 @@ export function OpsOrdersPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有订单" /></CardBody>
+                    <CardBody><Empty text={t.ops.orders.empty} /></CardBody>
                 )}
             </Card>
         </Page>

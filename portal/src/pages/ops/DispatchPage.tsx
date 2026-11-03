@@ -62,7 +62,7 @@ export function OpsDispatchPage() {
     const create = () => run(async () => {
         const o = await createOpsDispatchOrder()
         await load()
-        setOk(`已新建生产订单 ${shortId(o.id)}`)
+        setOk(t.ops.dispatchPage.created(shortId(o.id)))
     })
 
     const startPick = (l: PoolLine) => {
@@ -79,11 +79,11 @@ export function OpsDispatchPage() {
 
     const allocate = () => {
         if (!picking) return
-        if (badInput || !parts.length) return setErr('请在生产订单里填整数件数')
-        if (sum !== picking.quantity) return setErr(`各份加起来要等于 ${picking.quantity} 件，现在是 ${sum} 件`)
+        if (badInput || !parts.length) return setErr(t.ops.dispatchPage.errInteger)
+        if (sum !== picking.quantity) return setErr(t.ops.dispatchPage.errSplitMismatch(picking.quantity, sum))
         void run(async () => {
             await allocateLine(picking.customerOrderPartId, parts)
-            setOk(`「${picking.code}」已分配到 ${parts.length} 张生产订单`)
+            setOk(t.ops.dispatchPage.allocated(picking.code, parts.length))
             setPicking(null)
             await load()
         })
@@ -91,34 +91,34 @@ export function OpsDispatchPage() {
 
     return (
         <Page>
-            <Hello title="派单管理" right={<button className="btn pri" type="button" disabled={busy} onClick={() => void create()}>＋ 新建生产订单</button>} />
+            <Hello title={t.ops.dispatchPage.title} right={<button className="btn pri" type="button" disabled={busy} onClick={() => void create()}>{t.ops.dispatchPage.newOpsOrder}</button>} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="待派的零件" rid={pool ? `${pool.length} 行` : undefined} />
+                <CardHead title={t.ops.dispatchPage.poolTitle} rid={pool ? t.ops.dispatchPage.poolCount(pool.length) : undefined} />
                 {pool === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : pool.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>客户 / 订单</th><th>图号</th><th>名称</th><th>材料 / 表面处理</th>
-                                    <th className="n">数量</th><th className="n">客户提交</th><th />
+                                    <th>{t.ops.dispatchPage.colCustomerOrder}</th><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.ops.dispatchPage.colMaterialSurface}</th>
+                                    <th className="n">{t.customer.quotes.colQty}</th><th className="n">{t.ops.dispatchPage.colSubmitted}</th><th />
                                 </tr>
                             </thead>
                             <tbody>
                                 {pool.map((l) => (
                                     <tr key={l.customerOrderPartId}>
-                                        <td className="t1">{l.customerName ?? X}<div className="t2">{l.orderTitle || '未命名订单'}</div></td>
+                                        <td className="t1">{l.customerName ?? X}<div className="t2">{l.orderTitle || t.common.untitledOrder}</div></td>
                                         <td className="m">{l.code}</td>
                                         <td>{l.partName}</td>
                                         <td>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
                                         <td className="n">{l.quantity}</td>
                                         <td className="n">{l.submittedAt ? fmtDate(new Date(l.submittedAt)) : X}</td>
                                         <td style={{ textAlign: 'right' }}>
-                                            <button className="btn sm" type="button" onClick={() => startPick(l)}>分配</button>
+                                            <button className="btn sm" type="button" onClick={() => startPick(l)}>{t.ops.dispatchPage.allocate}</button>
                                         </td>
                                     </tr>
                                 ))}
@@ -126,24 +126,24 @@ export function OpsDispatchPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="没有待派的零件" sub="客户确认报价后，零件会出现在这里" /></CardBody>
+                    <CardBody><Empty text={t.ops.dispatchPage.poolEmpty} sub={t.ops.dispatchPage.poolEmptySub} /></CardBody>
                 )}
             </Card>
 
             {picking && (
                 <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={`分配：${picking.code} · ${picking.partName} · ${picking.quantity} 件`} />
+                    <CardHead title={t.ops.dispatchPage.pickTitle(picking.code, picking.partName, picking.quantity)} />
                     <CardBody>
                         {assembling.length ? (
                             <TableWrap>
-                                <thead><tr><th>生产订单（组装中）</th><th className="n">已有零件行</th><th>这一行分几件</th></tr></thead>
+                                <thead><tr><th>{t.ops.dispatchPage.colOpsOrder}</th><th className="n">{t.ops.dispatchPage.colExistingLines}</th><th>{t.ops.dispatchPage.colSplitQty}</th></tr></thead>
                                 <tbody>
                                     {assembling.map((o) => (
                                         <tr key={o.id}>
                                             <td className="m">{shortId(o.id)}</td>
                                             <td className="n">{o.lineCount}</td>
                                             <td>
-                                                <Input value={split[o.id] ?? ''} placeholder="件" style={{ width: 90 }}
+                                                <Input value={split[o.id] ?? ''} placeholder={t.ops.dispatchPage.unitPieces} style={{ width: 90 }}
                                                     onChange={(v) => setSplit((s) => ({ ...s, [o.id]: v }))} />
                                             </td>
                                         </tr>
@@ -151,30 +151,30 @@ export function OpsDispatchPage() {
                                 </tbody>
                             </TableWrap>
                         ) : (
-                            <Empty text="没有组装中的生产订单" sub="先点右上角「新建生产订单」" />
+                            <Empty text={t.ops.dispatchPage.noAssembling} sub={t.ops.dispatchPage.noAssemblingSub} />
                         )}
                         <div className="t2" style={{ marginTop: 8 }}>
-                            一次拆完：各份加起来必须等于 {picking.quantity} 件（现在 {sum} 件）。只分给一张就在那一张填 {picking.quantity}。
+                            {t.ops.dispatchPage.splitNote(picking.quantity, sum)}
                         </div>
                     </CardBody>
                     <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setPicking(null)}>取消</button>}
-                        right={<button className="btn pri" type="button" disabled={busy || !assembling.length} onClick={allocate}>确认分配</button>}
+                        left={<button className="btn" type="button" onClick={() => setPicking(null)}>{t.ops.dispatchPage.cancel}</button>}
+                        right={<button className="btn pri" type="button" disabled={busy || !assembling.length} onClick={allocate}>{t.ops.dispatchPage.confirmAllocate}</button>}
                     />
                 </Card>
             )}
 
             <Card>
-                <CardHead title="生产订单" rid={orders ? `${orders.length} 张` : undefined} />
+                <CardHead title={t.ops.dispatchPage.ordersTitle} rid={orders ? t.ops.dispatchPage.orderCount(orders.length) : undefined} />
                 {orders === null ? (
-                    <CardBody><Empty text="加载中…" /></CardBody>
+                    <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>编号</th><th>状态</th><th>派法</th><th className="n">零件行</th><th className="n">件数</th>
-                                    <th className="n">客户数</th><th className="n">对供交期</th><th>接单方</th><th className="n">建立</th>
+                                    <th>{t.ops.dispatchPage.colNo}</th><th>{t.common.table.status}</th><th>{t.ops.dispatchPage.colMode}</th><th className="n">{t.ops.dispatchPage.colLines}</th><th className="n">{t.ops.dispatchPage.colPieces}</th>
+                                    <th className="n">{t.ops.dispatchPage.colCustomers}</th><th className="n">{t.ops.dispatchPage.colSupplierDue}</th><th>{t.ops.dispatchPage.colAcceptedBy}</th><th className="n">{t.ops.dispatchPage.colBuilt}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -195,7 +195,7 @@ export function OpsDispatchPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有生产订单" /></CardBody>
+                    <CardBody><Empty text={t.ops.dispatchPage.ordersEmpty} /></CardBody>
                 )}
             </Card>
         </Page>

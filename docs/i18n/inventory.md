@@ -16,7 +16,7 @@
 | 1 | `pages/auth` + `components` | 123 | 11 | ✅ 完成（PortalProbe 是开发探针，不译） |
 | 2 | `pages/customer` | 135 | 6 | ✅ 完成 |
 | 3 | `pages/supplier` | 89 | 6 | ✅ 完成 |
-| 4 | `pages/ops` | 225 | 9 | 未开始 |
+| 4 | `pages/ops` | 225 | 9 | 进行中（7/9） |
 | — | `SettingsPage` / `NotFoundPage` / `OnboardShell` | 14 | 3 | ✅ 完成 |
 
 > 顺序理由：auth + components 是所有页面共用的壳（按钮、空态、错误提示），

@@ -12,11 +12,13 @@ import {
     Banner, Card, CardBody, CardHead, Empty, Hello, Kpi, Kpis, Page,
 } from '../../components/ui'
 import { getOpsDashboard, type OpsDashboardView } from '../../services'
+import { useI18n } from '../../i18n/I18nProvider'
 
 /** 占位符。原来从 mock/format 借 X —— 这页不再依赖 mock 层，自己定义。 */
 const PENDING = '——'
 
 export function OpsDashboardPage() {
+    const { t } = useI18n()
     const [data, setData] = useState<OpsDashboardView | null>(null)
     const [failed, setFailed] = useState(false)
 
@@ -33,24 +35,24 @@ export function OpsDashboardPage() {
 
     return (
         <Page>
-            <Hello title="工作台" />
+            <Hello title={t.ops.dashboard.title} />
             {failed && (
                 <Banner tone="wa">
-                    <b>工作台数据没取到。</b>下面的数字是占位符，不要据此安排生产。
+                    <b>{t.ops.dashboard.failedTitle}</b>{t.ops.dashboard.failedBody}
                 </Banner>
             )}
             <Kpis>
-                <Kpi k="待安排生产" v={n(data?.pendingAssembly)} d="已确认价格，等运营组包" alert />
-                <Kpi k="组包中" v={n(data?.assembling)} d="草稿，还没挂出去" />
-                <Kpi k="在挂生产订单" v={n(data?.offered)} d="等供应商接单" />
+                <Kpi k={t.ops.dashboard.kpiPending} v={n(data?.pendingAssembly)} d={t.ops.dashboard.kpiPendingSub} alert />
+                <Kpi k={t.ops.dashboard.kpiAssembling} v={n(data?.assembling)} d={t.ops.dashboard.kpiAssemblingSub} />
+                <Kpi k={t.ops.dashboard.kpiOffered} v={n(data?.offered)} d={t.ops.dashboard.kpiOfferedSub} />
             </Kpis>
 
             <Card>
-                <CardHead title="还没放上来的两个指标" />
+                <CardHead title={t.ops.dashboard.missingTitle} />
                 <CardBody>
                     <Empty
-                        text="「已安排生产（产能没锁满）」和「待考察供应商（已提交材料）」在后端没有对应字段或状态。"
-                        sub="口径定下来再放上来 —— 现在硬凑一个映射，数字看着像真的，但没人能解释它怎么算出来的。"
+                        text={t.ops.dashboard.missingText}
+                        sub={t.ops.dashboard.missingSub}
                     />
                 </CardBody>
             </Card>
