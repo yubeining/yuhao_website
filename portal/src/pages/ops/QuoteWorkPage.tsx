@@ -72,13 +72,13 @@ export function OpsQuoteWorkPage() {
 
     useEffect(() => { void load(true) }, [load])
 
-    const back = <Link className="btn sm qui" to="/ops/quotes" style={{ margin: '0 0 6px -9px' }}>← 报价</Link>
+    const back = <Link className="btn sm qui" to="/ops/quotes" style={{ margin: '0 0 6px -9px' }}>{t.quoteWork.back}</Link>
 
     if (missing) {
         return (
             <Page>
-                <Hello back={back} title="报价工作台" />
-                <Card><CardBody><Empty text="订单不存在" sub="草稿订单对运营不可见" /></CardBody></Card>
+                <Hello back={back} title={t.quoteWork.title} />
+                <Card><CardBody><Empty text={t.quoteWork.notFound} sub={t.quoteWork.notFoundSub} /></CardBody></Card>
             </Page>
         )
     }
@@ -86,8 +86,8 @@ export function OpsQuoteWorkPage() {
         return (
             <Page><Card><CardBody>
                 {loadErr
-                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load(true)}>重试</button>} />
-                    : <Empty text="加载中…" />}
+                    ? <Empty text={loadErr} action={<button className="btn" type="button" onClick={() => void load(true)}>{t.common.retry}</button>} />
+                    : <Empty text={t.common.loading} />}
             </CardBody></Card></Page>
         )
     }
@@ -98,13 +98,13 @@ export function OpsQuoteWorkPage() {
 
     /** 输入齐了且格式对才返回请求体，否则返回缺什么。 */
     const buildInput = (): SendQuoteInput | string => {
-        if (!currency) return '请选择币种'
+        if (!currency) return t.quoteWork.errCurrency
         const days = Number(lead.trim())
-        if (!lead.trim() || !Number.isInteger(days) || days <= 0) return '交期请填正整数天数'
+        if (!lead.trim() || !Number.isInteger(days) || days <= 0) return t.quoteWork.errLead
         const lines: SendQuoteInput['lines'] = []
         for (const l of order.lines) {
             const raw = (prices[l.id] ?? '').trim()
-            if (!PRICE_RE.test(raw) || Number(raw) <= 0) return `「${l.code}」的原价请填大于 0、最多两位小数的数字`
+            if (!PRICE_RE.test(raw) || Number(raw) <= 0) return t.quoteWork.errPrice(l.code)
             lines.push({ lineId: l.id, unitPriceCny: Number(raw) })
         }
         return { currency, leadDays: days, lines }
@@ -137,7 +137,7 @@ export function OpsQuoteWorkPage() {
         void run(async () => {
             setMarkup(await setCustomerMarkup(order.customerOrgId, Number(markupInput.trim())))
             setPreview(null)
-            setOk('加成率已保存，只影响之后发出的报价')
+            setOk(t.quoteWork.savedMarkup)
         })
     }
 
@@ -150,13 +150,13 @@ export function OpsQuoteWorkPage() {
         if (typeof input === 'string') return
         const replacing = order.status === 'QUOTED'
         const msg = replacing
-            ? '重新发出报价？客户手上待确认的那一版会作废。'
-            : '发出报价？客户会看到按最新汇率计算的价格，确认前随汇率变动。'
+            ? t.quoteWork.confirmResend
+            : t.quoteWork.confirmSend
         if (!window.confirm(msg)) return
         void run(async () => {
             const q = await sendQuote(order.id, input)
             setPreview(null)
-            setOk(`第 ${q.versionNo} 版报价已发出`)
+            setOk(t.quoteWork.sentVersion(q.versionNo))
             await load(false)
         })
     }
@@ -170,7 +170,7 @@ export function OpsQuoteWorkPage() {
         <Page>
             <Hello
                 back={back}
-                title={order.title || '未命名订单'}
+                title={order.title || t.common.untitledOrder}
                 sub={order.customerName ?? X}
                 right={pill(ORDER_ST[order.status])}
             />
@@ -178,54 +178,54 @@ export function OpsQuoteWorkPage() {
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
             {order.status === 'CONFIRMED' && (
-                <Banner tone="ok" style={{ marginBottom: 14 }}>客户已确认报价，价格和汇率已锁定，这一页只读。</Banner>
+                <Banner tone="ok" style={{ marginBottom: 14 }}>{t.quoteWork.lockedBanner}</Banner>
             )}
             {order.status === 'CANCELLED' && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>订单已取消，不能报价。</Banner>
+                <Banner tone="wa" style={{ marginBottom: 14 }}>{t.quoteWork.cancelledBanner}</Banner>
             )}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="订单信息" />
+                <CardHead title={t.quoteWork.orderInfoTitle} />
                 <CardBody>
                     <Fields>
-                        <Fld k="客户" v={order.customerName ?? X} />
-                        <Fld k="零件数" v={order.lines.length} mono />
-                        <Fld k="总件数" v={totalQty} mono />
-                        <Fld k="客户期望交期" v={order.wantedLeadDays ? `${order.wantedLeadDays} 天（仅参考）` : X} />
-                        <Fld k="提交时间" v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
+                        <Fld k={t.quoteWork.fldCustomer} v={order.customerName ?? X} />
+                        <Fld k={t.quoteWork.fldParts} v={order.lines.length} mono />
+                        <Fld k={t.quoteWork.fldTotalQty} v={totalQty} mono />
+                        <Fld k={t.quoteWork.fldLead} v={order.wantedLeadDays ? t.quoteWork.leadDays(order.wantedLeadDays) : X} />
+                        <Fld k={t.quoteWork.fldSubmitted} v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
                     </Fields>
                 </CardBody>
             </Card>
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title="客户加成率" />
+                <CardHead title={t.quoteWork.markupTitle} />
                 <CardBody>
                     <Fields>
-                        <Fld k="当前" v={markup?.markupRate != null ? `× ${markup.markupRate}` : '未设置'} mono />
-                        <Fld k="最后修改" v={markup?.updatedAt ? fmtDateTime(new Date(markup.updatedAt)) : X} mono />
+                        <Fld k={t.quoteWork.fldCurrent} v={markup?.markupRate != null ? t.quoteWork.markupTimes(markup.markupRate) : t.quoteWork.notSet} mono />
+                        <Fld k={t.quoteWork.fldUpdated} v={markup?.updatedAt ? fmtDateTime(new Date(markup.updatedAt)) : X} mono />
                     </Fields>
                     <div className="fcell" style={{ marginTop: 10 }}>
                         <Input value={markupInput} onChange={(v) => { setMarkupInput(v); setOk(null) }}
-                            placeholder="如 1.2" bad={markupBad} style={{ width: 120 }} />
+                            placeholder={t.quoteWork.markupPlaceholder} bad={markupBad} style={{ width: 120 }} />
                         <button className="btn" type="button" disabled={busy || markupBad || !markupInput.trim()}
-                            onClick={saveMarkup}>保存</button>
+                            onClick={saveMarkup}>{t.quoteWork.save}</button>
                     </div>
                     <div className="t2" style={{ marginTop: 8, lineHeight: 1.6 }}>
-                        对客价 = 原价 × 汇率 × 加成率。填 1.2 = 加价 20%，填 0.9 = 九折；大于 0，最多 4 位小数。
-                        这是这个客户的值，改了只影响之后发出的报价。
+                        {t.quoteWork.markupNote}
+                        {t.quoteWork.markupScope}
                     </div>
                 </CardBody>
             </Card>
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={editable ? (order.status === 'QUOTED' ? '重新报价' : '填报价') : '零件'} />
+                <CardHead title={editable ? (order.status === 'QUOTED' ? t.quoteWork.requoteTitle : t.quoteWork.fillQuote) : t.quoteWork.quoteTitle} />
                 <CardBody flush>
                     <TableWrap>
                         <thead>
                             <tr>
-                                <th className="n">#</th><th>零件</th><th>材料 / 表面处理</th><th className="n">数量</th>
-                                <th>图纸</th><th>原价 ¥/件</th>
-                                <th className="n">对客单价</th><th className="n">对客小计</th>
+                                <th className="n">#</th><th>{t.quoteWork.colPart}</th><th>{t.quoteWork.colMaterialSurface}</th><th className="n">{t.customer.quotes.colQty}</th>
+                                <th>{t.customer.orderDetail.colDrawing}</th><th>{t.quoteWork.colBasePrice}</th>
+                                <th className="n">{t.quoteWork.colUnit}</th><th className="n">{t.quoteWork.colSubtotal}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -239,7 +239,7 @@ export function OpsQuoteWorkPage() {
                                         <td className="t1">
                                             {l.partName}
                                             <div className="t2 m">{l.code} · v{l.revision.revNo}
-                                                {l.revision.customerRev ? ` · 客户标记 ${l.revision.customerRev}` : ''}</div>
+                                                {l.revision.customerRev ? t.quoteWork.customerRev(l.revision.customerRev) : ''}</div>
                                         </td>
                                         <td>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
                                         <td className="n">{l.quantity}</td>
@@ -253,7 +253,7 @@ export function OpsQuoteWorkPage() {
                                         </td>
                                         <td>
                                             {editable
-                                                ? <Input value={raw} bad={bad} placeholder="¥ / 件" style={{ width: 110 }}
+                                                ? <Input value={raw} bad={bad} placeholder={t.quoteWork.pricePlaceholder} style={{ width: 110 }}
                                                     onChange={(v) => edit(() => setPrices((s) => ({ ...s, [l.id]: v })))} />
                                                 : X}
                                         </td>
@@ -268,39 +268,44 @@ export function OpsQuoteWorkPage() {
                 {editable && (
                     <CardBody>
                         <Fields>
-                            <Fld k="对客币种" v={
+                            <Fld k={t.quoteWork.fldQuoteCurrency} v={
                                 <Select value={currency} options={['', ...QUOTE_CURRENCIES]} style={{ width: 120 }}
                                     onChange={(v) => edit(() => setCurrency(v as QuoteCurrency | ''))} />
                             } />
-                            <Fld k="交期（客户确认后）" v={
+                            <Fld k={t.quoteWork.fldLeadAfterConfirm} v={
                                 <div className="fcell">
-                                    <Input value={lead} placeholder="天" style={{ width: 90 }}
+                                    <Input value={lead} placeholder={t.quoteWork.dayPlaceholder} style={{ width: 90 }}
                                         onChange={(v) => edit(() => setLead(v))} />
-                                    <span className="t2">天</span>
+                                    <span className="t2">{t.quoteWork.dayUnit}</span>
                                 </div>
                             } />
                         </Fields>
                         {preview && (
                             <div className="t2" style={{ marginTop: 10, lineHeight: 1.6 }}>
-                                试算：ECB {preview.rateDate} 汇率 1 EUR = {M(preview.fxEurCny, 4)} CNY
-                                {preview.currency !== 'EUR' && preview.currency !== 'CNY'
-                                    ? ` = ${M(preview.fxEurQuote, 4)} ${preview.currency}` : ''}，
-                                加成率 × {preview.markupRate}，合计 <b>{fmtMoney(preview.total, preview.currency)}</b>。
-                                客户确认前，价格会随之后的汇率变动。
+                                {t.quoteWork.preview(
+                                    preview.rateDate,
+                                    M(preview.fxEurCny, 4),
+                                    preview.currency !== 'EUR' && preview.currency !== 'CNY'
+                                        ? M(preview.fxEurQuote, 4) : '',
+                                    preview.currency,
+                                    String(preview.markupRate),
+                                    fmtMoney(preview.total, preview.currency),
+                                )}
+                                {' '}{t.quoteWork.previewHint}
                             </div>
                         )}
                     </CardBody>
                 )}
                 {editable && (
                     <CardFoot
-                        left={<span className="t2">{inputProblem ?? (markup?.markupRate == null ? '这个客户还没设加成率' : '可以试算或发出')}</span>}
+                        left={<span className="t2">{inputProblem ?? (markup?.markupRate == null ? t.quoteWork.needMarkup : t.quoteWork.canProceed)}</span>}
                         right={
                             <>
                                 <button className="btn" type="button" onClick={doPreview}
-                                    disabled={busy || !!inputProblem}>按当前汇率试算</button>
+                                    disabled={busy || !!inputProblem}>{t.quoteWork.previewBtn}</button>
                                 <button className="btn pri" type="button" onClick={doSend}
                                     disabled={busy || !!inputProblem || markup?.markupRate == null}>
-                                    {order.status === 'QUOTED' ? '重新发出' : '发出报价'}
+                                    {order.status === 'QUOTED' ? t.quoteWork.resendBtn : t.quoteWork.sendBtn}
                                 </button>
                             </>
                         }
@@ -309,15 +314,15 @@ export function OpsQuoteWorkPage() {
             </Card>
 
             <Card>
-                <CardHead title="报价记录" rid={`${quotes.length} 版`} />
+                <CardHead title={t.quoteWork.historyTitle} rid={t.quoteWork.versionCount(quotes.length)} />
                 {quotes.length ? (
                     <CardBody flush>
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th className="n">版本</th><th>状态</th><th>币种</th><th className="n">交期</th>
-                                    <th className="n">加成率</th><th className="n">对客总计</th>
-                                    <th>汇率</th><th className="n">发出时间</th>
+                                    <th className="n">{t.quoteWork.colVersion}</th><th>{t.common.table.status}</th><th>{t.quoteWork.colCurrency}</th><th className="n">{t.quoteWork.colLead}</th>
+                                    <th className="n">{t.quoteWork.colMarkup}</th><th className="n">{t.quoteWork.colTotal}</th>
+                                    <th>{t.quoteWork.colRate}</th><th className="n">{t.quoteWork.colSentAt}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -326,12 +331,12 @@ export function OpsQuoteWorkPage() {
                                         <td className="n">v{q.versionNo}</td>
                                         <td>{pill(QUOTE_ST[q.status])}</td>
                                         <td className="m">{q.currency}</td>
-                                        <td className="n">{q.leadDays} 天</td>
-                                        <td className="n">× {q.markupRate}</td>
+                                        <td className="n">{t.quoteWork.leadDays(q.leadDays)}</td>
+                                        <td className="n">{t.quoteWork.markupTimes(q.markupRate)}</td>
                                         <td className="n">{fmtMoney(q.total, q.currency)}</td>
                                         <td className="t2">
                                             {q.rateDate
-                                                ? `${q.rateDate}${q.priceLocked ? '（确认时锁定）' : '（最新，未锁定）'}`
+                                                ? `${q.rateDate}${q.priceLocked ? t.quoteWork.rateLocked : t.quoteWork.rateUnlocked}`
                                                 : X}
                                         </td>
                                         <td className="n">{fmtDateTime(new Date(q.sentAt))}</td>
@@ -341,7 +346,7 @@ export function OpsQuoteWorkPage() {
                         </TableWrap>
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text="还没有报价" /></CardBody>
+                    <CardBody><Empty text={t.quoteWork.empty} /></CardBody>
                 )}
             </Card>
         </Page>

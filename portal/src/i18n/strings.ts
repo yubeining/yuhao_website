@@ -327,6 +327,61 @@ export interface Strings {
             stPending: string; stUsed: string; stExpired: string; stRevoked: string
         }
     }
+        quoteWork: {
+            back: string; title: string; notFound: string; notFoundSub: string
+            errCurrency: string; errLead: string; errPrice: (code: string) => string
+            savedMarkup: string; confirmResend: string; confirmSend: string
+            sentVersion: (n: number) => string
+            lockedBanner: string; cancelledBanner: string
+            orderInfoTitle: string; fldCustomer: string; fldParts: string; fldTotalQty: string
+            fldLead: string; fldSubmitted: string; leadDays: (n: number) => string
+            markupTitle: string; fldCurrent: string; fldUpdated: string; notSet: string
+            markupPlaceholder: string; save: string
+            markupNote: string; markupScope: string
+            quoteTitle: string; requoteTitle: string; fillQuote: string; partsTitle: string
+            colPart: string; colMaterialSurface: string; colBasePrice: string
+            colUnit: string; colSubtotal: string
+            customerRev: (v: string) => string; pricePlaceholder: string
+            fldQuoteCurrency: string; fldLeadAfterConfirm: string; dayUnit: string; dayPlaceholder: string
+            preview: (rateDate: string, eurCny: string, eurQuote: string, currency: string, markup: string, total: string) => string
+            previewHint: string
+            needMarkup: string; canProceed: string
+            previewBtn: string; resendBtn: string; sendBtn: string
+            historyTitle: string; versionCount: (n: number) => string
+            colVersion: string; colCurrency: string; colLead: string; colMarkup: string
+            colTotal: string; colRate: string; colSentAt: string
+            markupTimes: (v: number) => string
+            rateLocked: string; rateUnlocked: string; empty: string
+        }
+    /** 派单详情（生产订单） */
+    prodDetail: {
+        back: string; title: string; notFound: string
+        dueProblem: string; errNoSupplier: string
+        confirmOffer: (n: number) => string; offered: string
+        confirmPublish: string; published: string
+        confirmRecall: string; recalled: string
+        contractCreated: string; confirmCancelContract: string; contractCancelled: string
+        confirmRevokeSupplier: (name: string) => string; revokedSupplier: string
+        confirmUnallocate: (code: string) => string; unallocated: (code: string) => string
+        summaryTitle: string; fldLines: string; fldTotalQty: string; fldMode: string
+        fldDue: string; fldDispatched: string; fldSupplier: string
+        partsTitle: string; colCustomerOrder: string; colMaterialSurface: string; colPieces: string
+        unallocate: string
+        emptyParts: string; emptyPartsSub: string; deleteEmpty: string
+        priceTitle: string; colSupplier: string; colDiscount: string; colSupplierTotal: string
+        noSupplierAvailable: string; noSupplierAvailableSub: string
+        offerDueLabel: string
+        publishBtn: string; offerSelected: (n: number) => string
+        offersOpen: string; offersAccepted: string
+        colOfferedTo: string; marketNote: string
+        acceptedNote: (name: string, when: string, due: string) => string
+        awaitingContract: (deadline: string) => string
+        awaitingSignature: (created: string, deadline: string) => string
+        signedNote: (when: string) => string
+        createContract: string; dropContract: string; recall: string
+        revokeSupplier: string; ship: string; cancelHistory: string
+        colReason: string; colAcceptedAt: string; colCancelledAt: string
+    }
     /** 后端返回的 i18n code → 文案。后端只返 code（CLAUDE.md §6），翻译全在这里。 */
     errors: Record<string, string>
 }
@@ -698,6 +753,76 @@ export const STRINGS: Record<Lang, Strings> = {
                 stPending: '待注册', stUsed: '已注册', stExpired: '已过期', stRevoked: '已作废',
             },
         },
+        quoteWork: {
+            back: '← 报价', title: '报价工作台',
+            notFound: '订单不存在', notFoundSub: '草稿订单对运营不可见',
+            errCurrency: '请选择币种', errLead: '交期请填正整数天数',
+            errPrice: (code) => `「${code}」的原价请填大于 0、最多两位小数的数字`,
+            savedMarkup: '加成率已保存，只影响之后发出的报价',
+            confirmResend: '重新发出报价？客户手上待确认的那一版会作废。',
+            confirmSend: '发出报价？客户会看到按最新汇率计算的价格，确认前随汇率变动。',
+            sentVersion: (n) => `第 ${n} 版报价已发出`,
+            lockedBanner: '客户已确认报价，价格和汇率已锁定，这一页只读。',
+            cancelledBanner: '订单已取消，不能报价。',
+            orderInfoTitle: '订单信息', fldCustomer: '客户', fldParts: '零件数',
+            fldTotalQty: '总件数', fldLead: '客户期望交期', fldSubmitted: '提交时间',
+            leadDays: (n) => `${n} 天（仅参考）`,
+            markupTitle: '客户加成率', fldCurrent: '当前', fldUpdated: '最后修改', notSet: '未设置',
+            markupPlaceholder: '如 1.2', save: '保存',
+            markupNote: '对客价 = 原价 × 汇率 × 加成率。填 1.2 = 加价 20%，填 0.9 = 九折；大于 0，最多 4 位小数。',
+            markupScope: '这是这个客户的值，改了只影响之后发出的报价。',
+            quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价', partsTitle: '零件',
+            colPart: '零件', colMaterialSurface: '材料 / 表面处理', colBasePrice: '原价 ¥/件',
+            colUnit: '对客单价', colSubtotal: '对客小计',
+            customerRev: (v) => ` · 客户标记 ${v}`, pricePlaceholder: '¥ / 件',
+            fldQuoteCurrency: '对客币种', fldLeadAfterConfirm: '交期（客户确认后）',
+            dayUnit: '天', dayPlaceholder: '天',
+            preview: (rateDate, eurCny, eurQuote, currency, markup, total) =>
+                `试算：ECB ${rateDate} 汇率 1 EUR = ${eurCny} CNY${eurQuote ? ` = ${eurQuote} ${currency}` : ''}，加成率 × ${markup}，合计 ${total}。`,
+            previewHint: '客户确认前，价格会随之后的汇率变动。',
+            needMarkup: '这个客户还没设加成率', canProceed: '可以试算或发出',
+            previewBtn: '按当前汇率试算', resendBtn: '重新发出', sendBtn: '发出报价',
+            historyTitle: '报价记录', versionCount: (n) => `${n} 版`,
+            colVersion: '版本', colCurrency: '币种', colLead: '交期', colMarkup: '加成率',
+            colTotal: '对客总计', colRate: '汇率', colSentAt: '发出时间',
+            markupTimes: (v) => `× ${v}`,
+            rateLocked: '（确认时锁定）', rateUnlocked: '（最新，未锁定）', empty: '还没有报价',
+        },
+    prodDetail: {
+        back: '← 派单管理', title: '生产订单', notFound: '生产订单不存在',
+        dueProblem: '请填对供交期（如 2026-10-20）', errNoSupplier: '请勾选要派的供应商',
+        confirmOffer: (n) => `定向派给 ${n} 家？先到先得，谁先接给谁。`, offered: '已定向派出',
+        confirmPublish: '挂到全市场？所有可派单的供应商都看得到，先到先得。', published: '已挂全市场',
+        confirmRecall: '收回？还没人接，收回后回到组装中。', recalled: '已收回',
+        contractCreated: '合同已建，等供应商签字',
+        confirmCancelContract: '作废这份合同？回到「已接单、等合同」，可以重新建。',
+        contractCancelled: '合同已作废',
+        confirmRevokeSupplier: (name) => `收回「${name}」接的单？对方的单会取消，这张回到组装中重派。`,
+        revokedSupplier: '已收回供应商',
+        confirmUnallocate: (code) => `撤回「${code}」的分配？这一行拆出去的所有份会一起撤回待派。`,
+        unallocated: (code) => `「${code}」已撤回`,
+        summaryTitle: '概况', fldLines: '零件行', fldTotalQty: '总件数', fldMode: '派法',
+        fldDue: '对供交期', fldDispatched: '派出时间', fldSupplier: '接单方',
+        partsTitle: '零件', colCustomerOrder: '客户 / 订单', colMaterialSurface: '材料 / 表面处理',
+        colPieces: '件数', unallocate: '撤回分配',
+        emptyParts: '还没有零件', emptyPartsSub: '到「派单管理」把待派的零件分配进来',
+        deleteEmpty: '删除这张空单',
+        priceTitle: '各家对供价（按当前折率，接单时锁定）',
+        colSupplier: '供应商', colDiscount: '折率', colSupplierTotal: '对供合计 ¥',
+        noSupplierAvailable: '还没有可派单的供应商', noSupplierAvailableSub: '到「交易方」给供应商录折率',
+        offerDueLabel: '对供交期',
+        publishBtn: '挂全市场', offerSelected: (n) => `定向派给选中的 ${n} 家`,
+        offersOpen: '派单中', offersAccepted: '已被接下',
+        colOfferedTo: '这一轮派给',
+        marketNote: '挂在全市场，所有可派单的供应商都看得到，谁先接给谁。',
+        acceptedNote: (name, when, due) => `「${name}」于 ${when} 接单，对供交期 ${due}。`,
+        awaitingContract: (deadline) => `还没建合同。签字期限 ${deadline}（接单起 7 天），到点还没签字，系统会自动取消这张单、退回待派。`,
+        awaitingSignature: (created, deadline) => `合同已建（${created}），等供应商签字。签字期限 ${deadline}，到点没签自动取消退回待派。`,
+        signedNote: (when) => `供应商已于 ${when} 签字，单据锁定：收不回、改不了。生产、质检、发货还没做。`,
+        createContract: '建合同', dropContract: '作废合同', recall: '收回',
+        revokeSupplier: '收回供应商', ship: '发货', cancelHistory: '取消记录',
+        colReason: '原因', colAcceptedAt: '接单', colCancelledAt: '取消',
+    },
         errors: {
             'auth.bad_credentials': '账号或密码错误',
             'auth.otp_rate_limited': '发送太频繁，请稍后再试',
@@ -1148,6 +1273,76 @@ export const STRINGS: Record<Lang, Strings> = {
                 stPending: 'Pending', stUsed: 'Registered', stExpired: 'Expired', stRevoked: 'Revoked',
             },
         },
+        quoteWork: {
+            back: '← Quotes', title: 'Quote workbench',
+            notFound: 'Order not found', notFoundSub: 'Draft orders are not visible to operations',
+            errCurrency: 'Please choose a currency', errLead: 'Lead time must be a whole number of days',
+            errPrice: (code) => `Enter a base price above 0 with at most 2 decimals for ${code}`,
+            savedMarkup: 'Markup rate saved. It only affects quotes sent from now on.',
+            confirmResend: 'Send the quote again? The version awaiting the customer will be superseded.',
+            confirmSend: 'Send this quote? The customer sees prices at the latest FX rate; they may change until confirmed.',
+            sentVersion: (n) => `Quote v${n} sent`,
+            lockedBanner: 'The customer confirmed this quote. Prices and FX are locked; this page is read-only.',
+            cancelledBanner: 'The order was cancelled and cannot be quoted.',
+            orderInfoTitle: 'Order details', fldCustomer: 'Customer', fldParts: 'Parts',
+            fldTotalQty: 'Total quantity', fldLead: 'Requested lead time', fldSubmitted: 'Submitted',
+            leadDays: (n) => `${n} days (reference)`,
+            markupTitle: 'Customer markup', fldCurrent: 'Current', fldUpdated: 'Last changed', notSet: 'Not set',
+            markupPlaceholder: 'e.g. 1.2', save: 'Save',
+            markupNote: 'Customer price = base price × FX rate × markup. 1.2 = +20%; 0.9 = 10% off. Must be > 0, up to 4 decimals.',
+            markupScope: 'This value belongs to this customer and only affects quotes sent from now on.',
+            quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote', partsTitle: 'Parts',
+            colPart: 'Part', colMaterialSurface: 'Material / finishing', colBasePrice: 'Base ¥/pc',
+            colUnit: 'Customer unit price', colSubtotal: 'Customer subtotal',
+            customerRev: (v) => ` · customer mark ${v}`, pricePlaceholder: '¥ / pc',
+            fldQuoteCurrency: 'Customer currency', fldLeadAfterConfirm: 'Lead time (after confirmation)',
+            dayUnit: 'days', dayPlaceholder: 'days',
+            preview: (rateDate, eurCny, eurQuote, currency, markup, total) =>
+                `Preview: ECB rate on ${rateDate} is 1 EUR = ${eurCny} CNY${eurQuote ? ` = ${eurQuote} ${currency}` : ''}, markup × ${markup}, total ${total}.`,
+            previewHint: 'Prices may change with later FX rates until the customer confirms.',
+            needMarkup: 'No markup rate set for this customer yet', canProceed: 'You can preview or send',
+            previewBtn: 'Preview at current rate', resendBtn: 'Send again', sendBtn: 'Send quote',
+            historyTitle: 'Quote history', versionCount: (n) => `${n} version${n === 1 ? '' : 's'}`,
+            colVersion: 'Version', colCurrency: 'Currency', colLead: 'Lead time', colMarkup: 'Markup',
+            colTotal: 'Customer total', colRate: 'FX rate', colSentAt: 'Sent at',
+            markupTimes: (v) => `× ${v}`,
+            rateLocked: ' (locked at confirmation)', rateUnlocked: ' (latest, not locked)', empty: 'No quotes yet',
+        },
+    prodDetail: {
+        back: '← Dispatch', title: 'Production order', notFound: 'Production order not found',
+        dueProblem: 'Enter the supplier due date (e.g. 2026-10-20)', errNoSupplier: 'Select at least one supplier',
+        confirmOffer: (n) => `Offer to ${n} supplier${n === 1 ? '' : 's'}? First come, first served.`, offered: 'Offered',
+        confirmPublish: 'Publish to the open market? Every dispatchable supplier can see it. First come, first served.', published: 'Published to market',
+        confirmRecall: 'Withdraw? Nobody has accepted it yet; it goes back to assembling.', recalled: 'Withdrawn',
+        contractCreated: 'Contract created; waiting for the supplier to sign',
+        confirmCancelContract: 'Cancel this contract? It returns to “accepted, awaiting contract” and can be recreated.',
+        contractCancelled: 'Contract cancelled',
+        confirmRevokeSupplier: (name) => `Revoke the order accepted by ${name}? Their order is cancelled and this one goes back to assembling for re-dispatch.`,
+        revokedSupplier: 'Supplier revoked',
+        confirmUnallocate: (code) => `Unallocate ${code}? Every share split from this line returns to the dispatch pool.`,
+        unallocated: (code) => `${code} unallocated`,
+        summaryTitle: 'Summary', fldLines: 'Lines', fldTotalQty: 'Total quantity', fldMode: 'Mode',
+        fldDue: 'Supplier due date', fldDispatched: 'Dispatched at', fldSupplier: 'Supplier',
+        partsTitle: 'Parts', colCustomerOrder: 'Customer / order', colMaterialSurface: 'Material / finishing',
+        colPieces: 'Pieces', unallocate: 'Unallocate',
+        emptyParts: 'No parts yet', emptyPartsSub: 'Allocate parts to it from Dispatch',
+        deleteEmpty: 'Delete this empty order',
+        priceTitle: 'Supplier prices (at current discount rates, locked on acceptance)',
+        colSupplier: 'Supplier', colDiscount: 'Discount', colSupplierTotal: 'Supplier total ¥',
+        noSupplierAvailable: 'No dispatchable suppliers yet', noSupplierAvailableSub: 'Set discount rates under “Parties”',
+        offerDueLabel: 'Supplier due date',
+        publishBtn: 'Publish to market', offerSelected: (n) => `Offer to ${n} selected`,
+        offersOpen: 'Dispatching', offersAccepted: 'Accepted',
+        colOfferedTo: 'Offered to',
+        marketNote: 'Published to the open market — every dispatchable supplier can see it, first come first served.',
+        acceptedNote: (name, when, due) => `${name} accepted on ${when}, supplier due date ${due}.`,
+        awaitingContract: (deadline) => `No contract yet. Signature deadline ${deadline} (7 days after acceptance); if unsigned by then the order is cancelled and re-dispatched automatically.`,
+        awaitingSignature: (created, deadline) => `Contract created (${created}), awaiting the supplier's signature. Deadline ${deadline}; if unsigned by then the order is cancelled and re-dispatched.`,
+        signedNote: (when) => `Signed by the supplier on ${when}. The order is locked: it cannot be revoked or changed. Production, QC and shipping are not built yet.`,
+        createContract: 'Create contract', dropContract: 'Cancel contract', recall: 'Withdraw',
+        revokeSupplier: 'Revoke supplier', ship: 'Ship', cancelHistory: 'Cancellation history',
+        colReason: 'Reason', colAcceptedAt: 'Accepted', colCancelledAt: 'Cancelled',
+    },
         errors: {
             'auth.bad_credentials': 'Incorrect email or password',
             'auth.otp_rate_limited': 'Too many requests. Please try again later.',
