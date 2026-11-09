@@ -253,7 +253,7 @@ export interface Strings {
             overview: string; dashboard: string; quoting: string; quotes: string
             dispatch: string; execution: string; production: string; orders: string
             onboarding: string; supplierOnboarding: string
-            masterData: string; parties: string; internalOps: string
+            masterData: string; parties: string; accounts: string; internalOps: string
         }
     }
     /** 运营后台 */
@@ -299,6 +299,37 @@ export interface Strings {
             freeText: string; discountHint: string; saved: (name: string) => string
             errDiscount: string; save: string
         }
+        accounts: {
+            title: string
+            tabUsers: string; tabOrgs: string; tabStaff: string
+            search: string; searchHint: string; query: string
+            colEmail: string; colName: string; colOrg: string; colType: string
+            colStatus: string; colVerified: string; colCreated: string; colCountry: string
+            colDept: string
+            statusActive: string; statusDisabled: string
+            typeCustomer: string; typeSupplier: string; typeInternal: string
+            verified: string; unverified: string
+            create: string; edit: string; disable: string; enable: string
+            save: string; cancel: string
+            newUser: string; editUser: string; newOrg: string; editOrg: string
+            newStaff: string; editStaff: string
+            fldOrg: string; fldEmail: string; fldName: string; fldPassword: string
+            fldCountry: string; fldType: string
+            immutable: string; immutableType: string; passwordRule: string
+            all: string; selectPlaceholder: string
+            usersTotal: (n: number) => string
+            orgsTotal: (n: number) => string
+            staffTotal: (n: number) => string
+            noUsers: string; noUsersSub: string; noOrgs: string; noStaff: string
+            staffOrgHint: string
+            confirmDisableUser: (email: string) => string
+            confirmDisableOrg: (name: string) => string
+            confirmDisableStaff: (email: string) => string
+            created: string; saved: string
+            disabledOk: (who: string) => string
+            enabledOk: (who: string) => string
+        }
+
         dispatchPage: {
             title: string; newOpsOrder: string; created: (id: string) => string
             poolTitle: string; poolCount: (n: number) => string
@@ -662,7 +693,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 overview: '总览', dashboard: '工作台', quoting: '询价与报价', quotes: '报价',
                 dispatch: '派单管理', execution: '执行', production: '生产与质检', orders: '订单',
                 onboarding: '入驻', supplierOnboarding: '供应商入驻',
-                masterData: '主数据', parties: '交易方', internalOps: '内部 · 运营',
+                masterData: '主数据', parties: '交易方', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
         ops: {
@@ -716,6 +747,40 @@ export const STRINGS: Record<Lang, Strings> = {
                 saved: (name) => `「${name}」已保存`,
                 errDiscount: '折率请填大于 0、最多 4 位小数的数字，如 0.8', save: '保存',
             },
+            accounts: {
+                title: '账号管理',
+                tabUsers: '外部用户', tabOrgs: '组织', tabStaff: '运营账号',
+                search: '搜索', searchHint: '留空显示全部', query: '查询',
+                colEmail: '邮箱', colName: '姓名', colOrg: '公司', colType: '类型',
+                colStatus: '状态', colVerified: '邮箱已验证', colCreated: '创建', colCountry: '国家',
+                colDept: '内部组织',
+                statusActive: '正常', statusDisabled: '已禁用',
+                typeCustomer: '客户', typeSupplier: '供应商', typeInternal: '内部',
+                verified: '已验证', unverified: '未验证',
+                create: '＋ 新建', edit: '编辑', disable: '禁用', enable: '启用',
+                save: '保存', cancel: '取消',
+                newUser: '新建外部用户', editUser: '编辑外部用户',
+                newOrg: '新建组织', editOrg: '编辑组织',
+                newStaff: '新建运营账号', editStaff: '编辑运营账号',
+                fldOrg: '所属公司', fldEmail: '登录邮箱', fldName: '姓名',
+                fldPassword: '初始密码（至少 8 位）', fldCountry: '国家（两位代码，可选）',
+                fldType: '类型',
+                immutable: '（不可改）', immutableType: '（不可改：改类型等于改受众）',
+                passwordRule: '至少 8 位',
+                all: '全部', selectPlaceholder: '（请选择）',
+                usersTotal: (n) => `${n} 个`, orgsTotal: (n) => `${n} 家`, staffTotal: (n) => `${n} 个`,
+                noUsers: '还没有外部用户', noUsersSub: '点右上角「新建」创建第一个',
+                noOrgs: '还没有组织', noStaff: '还没有运营账号',
+                staffOrgHint: '运营账号不挂客户/供应商，必须属于「内部」组织。如果选不到，先去「组织」页建一个内部组织。',
+                confirmDisableUser: (email) => `禁用 ${email}？禁用后无法登录，数据保留。`,
+                confirmDisableOrg: (name) => `禁用「${name}」？该公司下的账号将无法登录；数据保留。`,
+                confirmDisableStaff: (email) => `禁用运营账号 ${email}？禁用后无法登录后台。`,
+                created: '已创建', saved: '已保存',
+                disabledOk: (who) => `已禁用 ${who}`,
+                enabledOk: (who) => `已启用 ${who}`,
+            },
+
+
             dispatchPage: {
                 title: '派单管理', newOpsOrder: '＋ 新建生产订单',
                 created: (id) => `已新建生产订单 ${id}`,
@@ -1182,7 +1247,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 overview: 'Overview', dashboard: 'Dashboard', quoting: 'Quoting', quotes: 'Quotes',
                 dispatch: 'Dispatch', execution: 'Execution', production: 'Production & QC', orders: 'Orders',
                 onboarding: 'Onboarding', supplierOnboarding: 'Supplier onboarding',
-                masterData: 'Master data', parties: 'Parties', internalOps: 'Internal · Operations',
+                masterData: 'Master data', parties: 'Parties', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
         ops: {
@@ -1236,6 +1301,39 @@ export const STRINGS: Record<Lang, Strings> = {
                 saved: (name) => `${name} saved`,
                 errDiscount: 'Enter a discount rate greater than 0 with at most 4 decimals, e.g. 0.8', save: 'Save',
             },
+            accounts: {
+                title: 'Accounts',
+                tabUsers: 'External users', tabOrgs: 'Organizations', tabStaff: 'Staff accounts',
+                search: 'Search', searchHint: 'Leave blank to list everything', query: 'Search',
+                colEmail: 'Email', colName: 'Name', colOrg: 'Company', colType: 'Type',
+                colStatus: 'Status', colVerified: 'Email verified', colCreated: 'Created', colCountry: 'Country',
+                colDept: 'Internal org',
+                statusActive: 'Active', statusDisabled: 'Disabled',
+                typeCustomer: 'Customer', typeSupplier: 'Supplier', typeInternal: 'Internal',
+                verified: 'Verified', unverified: 'Not verified',
+                create: '+ New', edit: 'Edit', disable: 'Disable', enable: 'Enable',
+                save: 'Save', cancel: 'Cancel',
+                newUser: 'New external user', editUser: 'Edit external user',
+                newOrg: 'New organization', editOrg: 'Edit organization',
+                newStaff: 'New staff account', editStaff: 'Edit staff account',
+                fldOrg: 'Company', fldEmail: 'Login email', fldName: 'Name',
+                fldPassword: 'Initial password (min 8 chars)', fldCountry: 'Country (2-letter code, optional)',
+                fldType: 'Type',
+                immutable: ' (cannot be changed)', immutableType: ' (cannot be changed: type defines the audience)',
+                passwordRule: 'Min 8 characters',
+                all: 'All', selectPlaceholder: '(select)',
+                usersTotal: (n) => `${n}`, orgsTotal: (n) => `${n}`, staffTotal: (n) => `${n}`,
+                noUsers: 'No external users yet', noUsersSub: 'Use “New” in the top-right corner to create one',
+                noOrgs: 'No organizations yet', noStaff: 'No staff accounts yet',
+                staffOrgHint: 'Staff accounts are not attached to customers or suppliers — they must belong to an Internal organization. If none is selectable, create one on the Organizations tab first.',
+                confirmDisableUser: (email) => `Disable ${email}? They will not be able to sign in; data is kept.`,
+                confirmDisableOrg: (name) => `Disable “${name}”? Accounts under it will not be able to sign in; data is kept.`,
+                confirmDisableStaff: (email) => `Disable staff account ${email}? They will not be able to sign in.`,
+                created: 'Created', saved: 'Saved',
+                disabledOk: (who) => `${who} disabled`,
+                enabledOk: (who) => `${who} enabled`,
+            },
+
             dispatchPage: {
                 title: 'Dispatch', newOpsOrder: '+ New production order',
                 created: (id) => `Production order ${id} created`,

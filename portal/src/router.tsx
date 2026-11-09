@@ -30,6 +30,7 @@ import { OpsProductionPage } from './pages/ops/ProductionPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsOnboardingPage } from './pages/ops/OnboardingPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
+import { OpsAccountsPage } from './pages/ops/AccountsPage'
 
 import { SettingsPage } from './pages/SettingsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
@@ -131,6 +132,7 @@ export const router = createBrowserRouter([
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'onboarding', element: <OpsOnboardingPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
+            { path: 'accounts', element: <OpsAccountsPage /> },
             { path: 'settings', element: <SettingsPage /> },
         ],
     },

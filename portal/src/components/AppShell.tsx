@@ -240,6 +240,7 @@ const opsNav = (t: Strings): NavItem[] => [
     { to: '/ops/onboarding', ic: '⊕', n: t.nav.ops.supplierOnboarding },
     { sec: t.nav.ops.masterData },
     { to: '/ops/parties', ic: '⌂', n: t.nav.ops.parties },
+    { to: '/ops/accounts', ic: '☰', n: t.nav.ops.accounts },
 ]
 
 export function OpsShell({ children }: { children: ReactNode }) {
