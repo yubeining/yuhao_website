@@ -5,7 +5,12 @@ import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.security.CurrentParty;
 import com.mfg.platform.identity.dto.OrganizationView;
 import com.mfg.platform.identity.dto.UserView;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -29,6 +34,19 @@ public class ExternalOrgController {
     @GetMapping({"/customer/organization", "/supplier/organization"})
     public OrganizationView myOrganization(@CurrentParty UUID orgId) {
         return OrganizationView.of(identityService.getOrganization(orgId));
+    }
+
+    /**
+     * 补公司名。只有客户端有这条路 —— 供应商的公司名是运营在发邀请时给的，
+     * 自助改名的规则还没定（docs/design/14 Q8 附近）。
+     */
+    @PatchMapping("/customer/organization")
+    public OrganizationView rename(@CurrentParty UUID orgId,
+                                   @Valid @RequestBody RenameRequest request) {
+        return OrganizationView.of(identityService.renameOwnOrganization(orgId, request.name()));
+    }
+
+    public record RenameRequest(@NotBlank @Size(max = 200) String name) {
     }
 
     @GetMapping({"/customer/organization/members", "/supplier/organization/members"})

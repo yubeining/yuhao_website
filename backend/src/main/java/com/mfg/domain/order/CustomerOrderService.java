@@ -3,6 +3,7 @@ package com.mfg.domain.order;
 import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
+import com.mfg.platform.identity.OrganizationRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -44,16 +45,19 @@ class CustomerOrderService {
     private final PartRevisionRepository revisions;
     private final PartFileRepository files;
     private final PartDrawingService drawings;
+    private final OrganizationRepository organizations;
 
     CustomerOrderService(CustomerOrderRepository orders, CustomerOrderPartRepository lines,
                          PartDesignRepository parts, PartRevisionRepository revisions,
-                         PartFileRepository files, PartDrawingService drawings) {
+                         PartFileRepository files, PartDrawingService drawings,
+                         OrganizationRepository organizations) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
         this.revisions = revisions;
         this.files = files;
         this.drawings = drawings;
+        this.organizations = organizations;
     }
 
     // ---------- 订单 ----------
@@ -106,6 +110,11 @@ class CustomerOrderService {
         if (orderLines.isEmpty()) {
             throw BusinessException.conflict("order.no_lines");
         }
+        // 注册时可以不填公司名（docs/design/14 §4），但订单一旦提交就是对外文件，
+        // 上面没有公司名 → 报价单、合同、发票都没主体。所以卡在这里，不往后拖。
+        organizations.findById(customerOrgId)
+                .filter(o -> o.getName() != null && !o.getName().isBlank())
+                .orElseThrow(() -> new BusinessException(400, "organization.name_required"));
         Set<UUID> revisionIds = orderLines.stream().map(CustomerOrderPart::getPartRevisionId).collect(Collectors.toSet());
         revisions.lockAllByIdIn(revisionIds, customerOrgId);
         Set<UUID> withDrawing = Set.copyOf(

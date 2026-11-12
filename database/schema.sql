@@ -220,7 +220,7 @@ CREATE TABLE public.ops_user (
 CREATE TABLE public.organization (
     id uuid NOT NULL,
     type text NOT NULL,
-    name text NOT NULL,
+    name text,
     country text,
     status text DEFAULT 'ACTIVE'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,

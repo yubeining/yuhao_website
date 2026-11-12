@@ -14,7 +14,11 @@ import jakarta.validation.constraints.Size;
  */
 public record RegisterRequest(
         @NotNull PartyType portalType,
-        @NotBlank String orgName,
+        /**
+         * 可选。注册阶段不再要求填公司名（2026-11-12，docs/design/14 §4）：
+         * 公司会被建出来但名字留空，提交订单前再补。
+         */
+        @Size(max = 200) String orgName,
         String country,
         @NotBlank @Email String email,
         @NotBlank @Size(min = 8, max = 100) String password,

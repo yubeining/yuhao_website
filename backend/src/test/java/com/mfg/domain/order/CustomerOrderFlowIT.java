@@ -157,6 +157,33 @@ class CustomerOrderFlowIT {
         assertThat(messageOf(res)).isEqualTo("order.no_lines");
     }
 
+    /**
+     * 公司名没补 → 不能提交订单；补完就能提交。
+     *
+     * <p>注册阶段不收公司名（docs/design/14 §4），但订单一旦提交就是对外文件，
+     * 报价单 / 合同 / 发票都要有主体。所以卡在提交这一步。
+     */
+    @Test
+    void orderCannotBeSubmittedBeforeCompanyNameIsFilled() throws Exception {
+        Customer c = registerWithoutCompany("submit");
+        String orderId = createOrder(c);
+        JsonNode line = addLine(c, orderId, uniqueCode(), "Bracket", 1);
+        uploadPdf(c, line);
+
+        // 零件和图纸都齐了，唯独公司没名字
+        ResponseEntity<String> rejected = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+        assertThat(rejected.getStatusCode().value()).isEqualTo(400);
+        assertThat(messageOf(rejected)).isEqualTo("organization.name_required");
+
+        // 补公司名
+        JsonNode renamed = patch("/customer/organization", Map.of("name", "Nachzügler GmbH"), c.token());
+        assertThat(renamed.path("data").path("name").asText()).isEqualTo("Nachzügler GmbH");
+
+        // 现在可以提交了
+        JsonNode submitted = post("/customer/orders/" + orderId + "/submit", null, c.token()).path("data");
+        assertThat(submitted.path("status").asText()).isEqualTo("SUBMITTED");
+    }
+
     /** 提交锁定版本；之后订单和这一版的图纸都不能再动。 */
     @Test
     void submittingLocksTheRevisionAndFreezesTheOrder() throws Exception {
@@ -468,6 +495,19 @@ class CustomerOrderFlowIT {
     // ---------- 场景搭建 ----------
 
     private record Customer(String token, UUID orgId, UUID userId) {
+    }
+
+    /** 注册但不填公司名（docs/design/14 §4：注册阶段不收公司名）。 */
+    private Customer registerWithoutCompany(String tag) throws Exception {
+        String email = "noname-" + tag + "-" + UUID.randomUUID() + "@example.com";
+        post("/auth/register",
+                new RegisterRequest(PartyType.CUSTOMER, null, "DE", email, "password123", "Alice"), null);
+        String token = post("/auth/login",
+                new ExternalAuthController.ExternalLoginRequest(email, "password123"), null)
+                .path("data").path("accessToken").asText();
+        String orgId = get("/customer/organization", token).path("data").path("id").asText();
+        assertThat(orgId).isNotBlank();
+        return new Customer(token, UUID.fromString(orgId), null);
     }
 
     private Customer register(String tag) throws Exception {

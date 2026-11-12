@@ -64,11 +64,31 @@ public class IdentityService {
         if (externalUsers.existsByEmail(email)) {
             throw new BusinessException(409, "auth.email_taken");
         }
+        // 公司名可以空着 —— 注册不填，提交订单前补（docs/design/14 §4）
         Organization org = organizations.save(
-                new Organization(orgType, req.orgName().trim(), trimToNull(req.country())));
+                new Organization(orgType, trimToNull(req.orgName()), trimToNull(req.country())));
         return externalUsers.save(new ExternalUser(
                 org.getId(), email, req.displayName().trim(),
                 passwordEncoder.encode(req.password())));
+    }
+
+    /**
+     * 补自己公司的名字 —— 注册时没填，提交订单前补（docs/design/14 §4）。
+     *
+     * <p>只改名字。国家、类型、状态都不在这里动：类型决定受众，国家影响合规，
+     * 都不是「补个名字」该顺带改的东西。
+     */
+    @Transactional
+    public Organization renameOwnOrganization(UUID orgId, String name) {
+        Organization org = organizations.findById(orgId)
+                .orElseThrow(() -> new BusinessException(404, "organization.not_found"));
+        String trimmed = trimToNull(name);
+        if (trimmed == null) {
+            // 空名字等于没补，直接拒绝 —— 不要让「补了但补成空」变成一次静默的空操作
+            throw new BusinessException(400, "organization.name_required");
+        }
+        org.setName(trimmed);
+        return organizations.save(org);
     }
 
     @Transactional(readOnly = true)

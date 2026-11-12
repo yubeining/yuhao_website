@@ -31,7 +31,8 @@ public class Organization extends BaseEntity {
     @Column(name = "type", nullable = false)
     private Type type;
 
-    @Column(name = "name", nullable = false)
+    /** 注册时可以为空 —— 提交订单前必须补（docs/design/14 §4）。 */
+    @Column(name = "name")
     private String name;
 
     /** ISO 3166-1 alpha-2。 */
