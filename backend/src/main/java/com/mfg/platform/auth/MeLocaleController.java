@@ -19,7 +19,7 @@ import java.util.stream.Collectors;
 /**
  * 修改「自己」的语言偏好。
  *
- * <h3>为什么挂在两个端各一份</h3>
+ * <h3>为什么每个端各一份</h3>
  * <p>和 {@link WhoAmIController} 同理：路径前缀即受众。写成一个通用的
  * {@code /me/locale} 就成了三端公共入口，端级闸门管不到它。
  *
@@ -51,7 +51,7 @@ class MeLocaleController {
     public record LocaleRequest(@NotBlank @Size(max = 16) String locale) {
     }
 
-    @PatchMapping({"/customer/me/locale", "/supplier/me/locale"})
+    @PatchMapping({"/customer/me/locale", "/supplier/me/locale", "/ops/me/locale"})
     void update(@CurrentUser UserPrincipal principal, @Valid @RequestBody LocaleRequest request) {
         String normalized = request.locale().trim().toLowerCase(Locale.ROOT);
         if (!supported.contains(normalized)) {

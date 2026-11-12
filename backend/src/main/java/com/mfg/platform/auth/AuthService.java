@@ -127,7 +127,12 @@ public class AuthService {
     /** 改自己的语言偏好。取值为 {@code zh} / {@code en}（由调用方校验）。 */
     @Transactional
     public void updateLocale(UUID userId, String locale) {
-        externalUsers.findById(userId).ifPresent(u -> u.setLocale(locale));
+        // 外部用户和运营账号在两张物理隔离的表里，id 各自唯一 —— 先试外部，没有再试运营。
+        // ★ 少这一半的后果：运营在后台切语言，接口返回 200 但什么都没存，
+        //   下次登录又变回去，而日志干净得像成功了一样（2026-11-12 E2E 抓到）。
+        externalUsers.findById(userId).ifPresentOrElse(
+                u -> u.setLocale(locale),
+                () -> opsUsers.findById(userId).ifPresent(o -> o.setLocale(locale)));
     }
 
     /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */

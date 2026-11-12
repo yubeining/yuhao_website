@@ -129,12 +129,21 @@ export function verifyOtp(channel: OtpChannel, identifier: string, code: string)
 /**
  * 把自己的语言偏好写回账号 —— 换设备、换浏览器也跟着走。
  *
- * ★ 按端分路径（{@code /customer/me/locale} 与 {@code /supplier/me/locale}）：
+ * ★ 按端分路径（{@code /customer} / {@code /supplier} / {@code /ops} 各一份）：
  *   路径前缀即受众，写成一个通用的 {@code /me/locale} 就成了三端公共入口。
+ *
+ * ★ 运营端曾经漏了这一支：非 SUPPLIER 一律打到 {@code /customer/me/locale}，
+ *   而运营 principal 打客户端的路径会被端级闸门拦成 403 —— 运营在后台切语言
+ *   看起来切了，实际一次都没存下来（2026-11-12 E2E 抓到的）。
  *
  * ★ 失败不抛给调用方 —— 存语言失败不该让人用不了页面。
  */
+const LOCALE_PATH: Record<PartyType, string> = {
+    CUSTOMER: '/customer/me/locale',
+    SUPPLIER: '/supplier/me/locale',
+    OPERATOR: '/ops/me/locale',
+}
+
 export function updateMyLocale(partyType: PartyType, locale: string): Promise<void> {
-    const path = partyType === 'SUPPLIER' ? '/supplier/me/locale' : '/customer/me/locale'
-    return http.patch<void>(path, { locale })
+    return http.patch<void>(LOCALE_PATH[partyType], { locale })
 }
