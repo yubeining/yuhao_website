@@ -1,0 +1,12 @@
+{
+  "name": "yuhao-e2e",
+  "private": true,
+  "type": "module",
+  "description": "主流程端到端测试：驱动真实 Chrome 走完 客户 → 运营 → 供应商 一条订单",
+  "scripts": {
+    "e2e": "node e2e-main.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "^1.49.0"
+  }
+}
