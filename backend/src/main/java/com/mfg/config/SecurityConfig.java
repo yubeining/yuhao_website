@@ -44,12 +44,16 @@ public class SecurityConfig {
     private final String apiPrefix;
     private final JwtAuthFilter jwtAuthFilter;
     private final String contentSecurityPolicy;
+    /** provider=memory 时才有 /dev/storage/** 这套本地签名 URL 落点（见 DevStorageController）。 */
+    private final boolean devStorageEnabled;
 
     public SecurityConfig(@Value("${app.api.prefix:}") String apiPrefix,
                           JwtAuthFilter jwtAuthFilter,
                           @Value("${app.storage.s3.public-endpoint:}") String storagePublicEndpoint,
-                          @Value("${app.storage.s3.endpoint:}") String storageEndpoint) {
+                          @Value("${app.storage.s3.endpoint:}") String storageEndpoint,
+                          @Value("${app.storage.provider:s3}") String storageProvider) {
         this.apiPrefix = apiPrefix == null ? "" : apiPrefix;
+        this.devStorageEnabled = "memory".equalsIgnoreCase(storageProvider);
         this.jwtAuthFilter = jwtAuthFilter;
         // 图纸/图片走对象存储的签名 URL(外网域名),CSP 的 img/connect 要放行它 ——
         // 域名不写死,从存储配置推出(§C3:存储位置全走配置)。取 public-endpoint,没有则回落 endpoint。
@@ -78,7 +82,8 @@ public class SecurityConfig {
                         .contentTypeOptions(withDefaults())
                         .referrerPolicy(rp -> rp.policy(ReferrerPolicy.SAME_ORIGIN)))
 
-                .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(auth -> {
+                    auth
                         // 探针。show-details: never，不泄露依赖状态
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
                         .permitAll()
@@ -87,13 +92,20 @@ public class SecurityConfig {
                         // ★ 这些端点的数据范围必须从资源反查，绝不信客户端传的 party
                         //   （CLAUDE.md §5 铁律 5）
                         .requestMatchers(apiPrefix + "/public/**", apiPrefix + "/auth/**")
-                        .permitAll()
+                        .permitAll();
 
-                        // 其余 API 一律要登录
-                        .requestMatchers(apiPrefix + "/**").authenticated()
+                    // 本地内存存储的签名 URL 落点（只有 provider=memory 时才存在这个控制器）。
+                    // ★ 预签名 URL 的性质就是"拿到链接即可访问、不带登录态"：下载走
+                    //   window.location.assign，根本没有 Authorization 头。鉴权靠 URL 里那张
+                    //   随机、一次性、带过期的凭证。生产用 s3 时这段不注册，路径自然 404。
+                    if (devStorageEnabled) {
+                        auth.requestMatchers(apiPrefix + "/dev/storage/**").permitAll();
+                    }
 
-                        // 非 API = SPA 外壳 + 静态资源。见类注释。
-                        .anyRequest().permitAll())
+                    // 其余 API 一律要登录 + 非 API 走 SPA 外壳
+                    auth.requestMatchers(apiPrefix + "/**").authenticated()
+                        .anyRequest().permitAll();
+                })
 
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((req, res, e) -> writeError(res, HttpStatus.UNAUTHORIZED))

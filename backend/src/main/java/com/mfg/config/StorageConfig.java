@@ -126,8 +126,9 @@ public class StorageConfig {
     static class MemoryProvider {
 
         @Bean
-        StorageService storageService() {
-            return new MemoryStorageService();
+        MemoryStorageService storageService(@Value("${app.api.prefix:}") String apiPrefix) {
+            // 传前缀是因为签名 URL 要指向本应用的 /dev/storage/{token}（同源，浏览器才发得出去）
+            return new MemoryStorageService(apiPrefix);
         }
     }
 

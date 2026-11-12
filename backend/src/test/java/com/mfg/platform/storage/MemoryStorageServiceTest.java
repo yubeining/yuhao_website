@@ -14,7 +14,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
  */
 class MemoryStorageServiceTest {
 
-    private final StorageService storage = new MemoryStorageService();
+    private final MemoryStorageService storage = new MemoryStorageService("/api/v1");
 
     @Test
     void putThenGetRoundTrips() throws Exception {
@@ -74,5 +74,30 @@ class MemoryStorageServiceTest {
     private void put(String key, String body, String contentType) {
         byte[] bytes = body.getBytes(StandardCharsets.UTF_8);
         storage.put(key, new ByteArrayInputStream(bytes), bytes.length, contentType);
+    }
+
+    // ---------- 签名 URL（本地内存实现的真实可用性）----------
+
+    @Test
+    void presignedPutReturnsSameOriginOneTimeUrl() {
+        var url = storage.presignedPut("drawing/x.pdf", java.time.Duration.ofMinutes(15), "application/pdf");
+
+        // ★ 不能再是 memory:/// —— 浏览器发不出去，本地就永远传不了图纸（2026-11-12 修）
+        assertThat(url.getScheme()).isNull();
+        assertThat(url.getPath()).startsWith("/api/v1/dev/storage/");
+
+        String token = url.getPath().substring("/api/v1/dev/storage/".length());
+        assertThat(storage.consume(token, "put")).isPresent();
+        // 一次性：同一个 token 用第二次就没了
+        assertThat(storage.consume(token, "put")).isEmpty();
+    }
+
+    @Test
+    void presignedGetTokenIsOperationScoped() {
+        var url = storage.presignedGet("drawing/x.pdf", java.time.Duration.ofMinutes(15));
+        String token = url.getPath().substring("/api/v1/dev/storage/".length());
+
+        // 拿下载凭证去当上传凭证用 —— 必须拒绝，否则等于给了个任意写入口
+        assertThat(storage.consume(token, "put")).isEmpty();
     }
 }
