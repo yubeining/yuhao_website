@@ -49,7 +49,7 @@ try {
   // ───────── 客户 ─────────
   await run('客户注册', async () => {
     await page.goto(BASE + '/auth/register', { waitUntil: 'networkidle' })
-    await field('公司名称').fill(CUSTOMER.company)
+    // 注册不收公司名（docs/design/14 §4）—— 提交订单前才补
     await field('国家 / 地区').selectOption('Germany')
     await field('联系人姓名').fill(CUSTOMER.name)
     await field('企业邮箱').fill(CUSTOMER.email)
@@ -95,7 +95,20 @@ try {
     await shot(page, '04-part-uploaded')
   })
 
+  await run('补公司名（注册时没填）', async () => {
+    await page.goto(BASE + '/customer/settings', { waitUntil: 'networkidle' })
+    await page.waitForTimeout(1000)
+    await page.locator('.field2').filter({ hasText: '公司名称' }).locator('input').fill(CUSTOMER.company)
+    await page.getByRole('button', { name: '保存', exact: true }).click()
+    await page.waitForTimeout(1500)
+    if (!(await text(page)).includes('已保存')) throw new Error('公司名没保存成功')
+    await shot(page, '05a-company-name')
+  })
+
   await run('提交订单', async () => {
+    // 上一步在设置页补公司名，这里回到订单
+    await page.goto(orderUrl, { waitUntil: 'networkidle' })
+    await page.waitForTimeout(700)
     await page.getByRole('button', { name: /提交订单/ }).click()
     await page.waitForTimeout(2000)
     const t = await text(page)

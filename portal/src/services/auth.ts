@@ -20,7 +20,11 @@ export interface TokenResponse {
 
 export interface RegisterInput {
     portalType: 'CUSTOMER' | 'SUPPLIER'
-    orgName: string
+    /**
+     * 可选。注册阶段不再要求公司名（docs/design/14 §4）——
+     * 后端会建一个没名字的公司，提交订单前由客户在「设置 → 公司信息」补。
+     */
+    orgName?: string
     country?: string
     email: string
     password: string

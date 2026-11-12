@@ -21,7 +21,6 @@ export function RegisterPage() {
     const c = t.reg
     const countries = [...COUNTRIES, c.otherCountry]
 
-    const [company, setCompany] = useState('')
     const [country, setCountry] = useState(countries[0])
     const [name, setName] = useState('')
     const [mail, setMail] = useState('')
@@ -32,16 +31,17 @@ export function RegisterPage() {
 
     const submit = async () => {
         if (busy) return
-        if (!company || !mail || !pw) return setErr(c.errRequired)
+        if (!mail || !pw) return setErr(c.errRequired)
         if (pw.length < 8) return setErr(c.errPwShort)
         if (!agree) return setErr(c.errAgree)
         setErr(null)
         setBusy(true)
         try {
             // 客户自助注册(供应商是邀请制,不走这里)
+            // 注册阶段不收公司名（docs/design/14 §4）：
+            // 公司会被建出来但名字留空，提交订单前在「设置 → 公司信息」里补
             await register({
                 portalType: 'CUSTOMER',
-                orgName: company,
                 country: country === c.otherCountry ? undefined : country,
                 email: mail.trim(),
                 password: pw,
@@ -66,14 +66,11 @@ export function RegisterPage() {
                     <h1 className="fh">{c.h}</h1>
                     <div className="fsub">{c.sub}<Link to="/auth/signin">{c.subA}</Link></div>
 
-                    <FieldRow>
-                        <Field label={c.co}>
-                            <Input value={company} onChange={(v) => { setCompany(v); setErr(null) }} placeholder={c.coP} />
-                        </Field>
-                        <Field label={c.country}>
-                            <Select value={country} onChange={setCountry} options={countries} />
-                        </Field>
-                    </FieldRow>
+                    {/* ★ 公司名不在这里收（2026-11-12）：注册只建账号，公司名在提交订单前补。
+                        理由见 docs/design/14 §4 —— 注册就建公司会让「一家公司多个采购」建不出来。 */}
+                    <Field label={c.country}>
+                        <Select value={country} onChange={setCountry} options={countries} />
+                    </Field>
                     <FieldRow>
                         <Field label={c.name}>
                             <Input value={name} onChange={setName} placeholder={c.nameP} />

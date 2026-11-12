@@ -36,7 +36,7 @@ export interface Strings {
         actionFailed: string
         loading: string
         retry: string
-        cancel: string
+        cancel: string; save: string
         create: string
         untitledOrder: string
         /** 表格列头。同一列在多个页面出现，必须同一套说法。 */
@@ -239,6 +239,8 @@ export interface Strings {
         notFoundTitle: string; notFoundSub: string; backHome: string
         settings: string; appearance: string; light: string; dark: string
         account: string; name: string; role: string
+        /** 注册时不收公司名，在设置里补（docs/design/14 §4）。 */
+        companyInfo: string; companyName: string; companyNameHint: string; companySaved: string
     }
     /** 导航与外壳。三端共用，所以按端分组，不要混成一锅。 */
     nav: {
@@ -430,7 +432,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存',
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -680,6 +682,9 @@ export const STRINGS: Record<Lang, Strings> = {
         backHome: '回首页',
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
         account: '账号', name: '姓名', role: '身份',
+        companyInfo: '公司信息', companyName: '公司名称',
+        companyNameHint: '注册时没有收集。报价单、合同和发票都要用，提交订单前请补上。',
+        companySaved: '公司名称已保存',
     },
         nav: {
             settings: '设置', signOut: '退出登录',
@@ -896,6 +901,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_identifier_invalid': '邮箱格式不正确',
             'auth.otp_send_failed': '验证码发送失败，请稍后再试',
             'auth.otp_channel_unavailable': '该登录方式暂未开放',
+            'organization.name_required': '请先补全公司名称',
             'part.code_taken': '这个图号已经有零件了',
             'part.not_found': '零件不存在',
             'part.revision_conflict': '有人同时在改这个零件的版本，请刷新后重试',
@@ -984,6 +990,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
+            save: 'Save',
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',
@@ -1234,6 +1241,9 @@ export const STRINGS: Record<Lang, Strings> = {
         backHome: 'Back to home',
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
         account: 'Account', name: 'Name', role: 'Role',
+        companyInfo: 'Company', companyName: 'Company name',
+        companyNameHint: 'Not collected at sign-up. It appears on quotes, contracts and invoices — please fill it in before submitting an order.',
+        companySaved: 'Company name saved',
     },
         nav: {
             settings: 'Settings', signOut: 'Sign out',
@@ -1449,6 +1459,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_identifier_invalid': 'Please enter a valid email address.',
             'auth.otp_send_failed': 'Could not send the code. Please try again.',
             'auth.otp_channel_unavailable': 'This sign-in method is not available yet.',
+            'organization.name_required': 'Please complete your company name first',
             'part.code_taken': 'A part with this drawing number already exists',
             'part.not_found': 'Part not found',
             'part.revision_conflict': 'This part was changed at the same time. Refresh and try again',
