@@ -88,6 +88,11 @@ public class SecurityConfig {
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
                         .permitAll()
 
+                        // 日志出口。★ 放行不等于不鉴权：端点自己校验 LOG_TAIL_TOKEN，
+                        //   没配 token 时它返回 404。放行是必须的 —— 否则要被 JWT 挡住，
+                        //   而这个端点的调用方恰恰是没有业务身份的一方。
+                        .requestMatchers("/actuator/logtail").permitAll()
+
                         // 公开端点：官网留资、登录、公开报价查看链接
                         // ★ 这些端点的数据范围必须从资源反查，绝不信客户端传的 party
                         //   （CLAUDE.md §5 铁律 5）
