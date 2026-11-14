@@ -139,18 +139,6 @@ export function SignInPage() {
                         {c.sub}<Link to="/auth/register">{c.subA}</Link>
                     </div>
 
-                    {/* 两种登录方式并列，默认密码（老用户照旧），验证码是新增的 */}
-                    <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                        <button type="button" className={`btn sm${mode === 'password' ? ' pri' : ''}`}
-                            onClick={() => { setMode('password'); setErr(null); setNeedsRegistration(false) }}>
-                            {c.modePassword}
-                        </button>
-                        <button type="button" className={`btn sm${mode === 'code' ? ' pri' : ''}`}
-                            onClick={() => { setMode('code'); setErr(null) }}>
-                            {c.modeCode}
-                        </button>
-                    </div>
-
                     {mode === 'password' ? (
                         <>
                             <Field label={c.email}>
@@ -203,7 +191,19 @@ export function SignInPage() {
                         </>
                     )}
 
-                    <div className="fnote">{c.note}</div>
+                    {/* 两种登录方式并列，默认密码（老用户照旧），验证码是新增的。放在表单下面，不打断输入 */}
+                    <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
+                        <button type="button" className={`btn sm${mode === 'password' ? ' pri' : ''}`}
+                            onClick={() => { setMode('password'); setErr(null); setNeedsRegistration(false) }}>
+                            {c.modePassword}
+                        </button>
+                        <button type="button" className={`btn sm${mode === 'code' ? ' pri' : ''}`}
+                            onClick={() => { setMode('code'); setErr(null) }}>
+                            {c.modeCode}
+                        </button>
+                    </div>
+
+                    <div className="fnote" style={{ marginTop: 12 }}>{c.note}</div>
                     <div className="fnote" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
                         {c.staffPrompt}<Link to="/auth/internal/signin">{c.staffLink}</Link>
                     </div>
