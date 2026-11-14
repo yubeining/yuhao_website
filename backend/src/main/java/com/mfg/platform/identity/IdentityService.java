@@ -95,7 +95,10 @@ public class IdentityService {
                 new Organization(Organization.Type.CUSTOMER, null, null));
         int at = normalized.indexOf('@');
         String localPart = at > 0 ? normalized.substring(0, at) : normalized;
-        String displayName = localPart.isBlank() ? normalized : localPart;
+        // ★ 纯数字前缀（QQ 邮箱就是）不适合当称呼：顶栏和「你好，X」里显示一个号码
+        //   既不像名字也容易看错。这种前缀直接回落成完整邮箱，用户可在设置里改成真名。
+        boolean hasLetter = localPart.chars().anyMatch(Character::isLetter);
+        String displayName = localPart.isBlank() || !hasLetter ? normalized : localPart;
         return externalUsers.save(new ExternalUser(org.getId(), normalized, displayName, null));
     }
 
