@@ -1,27 +1,28 @@
 /**
- * 客户自助注册。供应商不走这里 —— 供应商是邀请制（见 InvitePage）。
+ * 客户自助注册。供应商不走这里（邀请入口已于 2026-11-14 下线，
+ * 现在由运营在「账号管理」里建供应商账号）。
  */
 
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
-import { BigButton, Checkbox, ErrMsg, Field, FieldRow, Input, Select } from '../../components/form'
+import { CountrySelect } from '../../components/CountrySelect'
+import { BigButton, Checkbox, ErrMsg, Field, FieldRow, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { register } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { errorText } from '../../i18n/errorText'
+import { OTHER_COUNTRY } from '../../i18n/countries'
 
-/** 国家列表。最后一项是"其他"，文案随语言变，所以在这里拼。 */
-const COUNTRIES = ['Germany', 'Austria', 'Switzerland', 'Netherlands']
 
 export function RegisterPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const c = t.reg
-    const countries = [...COUNTRIES, c.otherCountry]
 
-    const [country, setCountry] = useState(countries[0])
+    // 存 ISO 两位代码（与运营端 organization.country 口径一致）；空 / OTHER 都表示没填
+    const [country, setCountry] = useState('')
     const [name, setName] = useState('')
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
@@ -42,7 +43,7 @@ export function RegisterPage() {
             // 公司会被建出来但名字留空，提交订单前在「设置 → 公司信息」里补
             await register({
                 portalType: 'CUSTOMER',
-                country: country === c.otherCountry ? undefined : country,
+                country: country && country !== OTHER_COUNTRY ? country : undefined,
                 email: mail.trim(),
                 password: pw,
                 displayName: name || mail.trim(),
@@ -69,7 +70,7 @@ export function RegisterPage() {
                     {/* ★ 公司名不在这里收（2026-11-12）：注册只建账号，公司名在提交订单前补。
                         理由见 docs/design/14 §4 —— 注册就建公司会让「一家公司多个采购」建不出来。 */}
                     <Field label={c.country}>
-                        <Select value={country} onChange={setCountry} options={countries} />
+                        <CountrySelect value={country} onChange={setCountry} />
                     </Field>
                     <FieldRow>
                         <Field label={c.name}>
