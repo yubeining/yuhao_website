@@ -227,7 +227,7 @@ export interface Strings {
     misc: {
         notFoundTitle: string; notFoundSub: string; backHome: string
         settings: string; appearance: string; light: string; dark: string
-        account: string; name: string; role: string; nameHint: string; nameSaved: string
+        account: string; name: string; role: string
         /** 注册时不收公司名，在设置里补（docs/design/14 §4）。 */
         companyInfo: string; companyName: string; companyNameHint: string; companySaved: string
     }
@@ -640,9 +640,7 @@ export const STRINGS: Record<Lang, Strings> = {
         notFoundSub: '链接可能已经失效，或者你没有访问这个页面的身份。',
         backHome: '回首页',
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
-        account: '账号', name: '称呼', role: '身份',
-        nameHint: '注册时默认用邮箱前缀，可以改成你希望我们称呼的名字。',
-        nameSaved: '称呼已保存',
+        account: '账号', name: '姓名', role: '身份',
         companyInfo: '公司信息', companyName: '公司名称',
         companyNameHint: '注册时没有收集。报价单、合同和发票都要用，提交订单前请补上。',
         companySaved: '公司名称已保存',
@@ -1166,9 +1164,7 @@ export const STRINGS: Record<Lang, Strings> = {
         notFoundSub: 'The link may have expired, or you do not have access to this page.',
         backHome: 'Back to home',
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
-        account: 'Account', name: 'Display name', role: 'Role',
-        nameHint: 'Defaults to your email prefix. Change it to whatever you want us to call you.',
-        nameSaved: 'Display name saved',
+        account: 'Account', name: 'Name', role: 'Role',
         companyInfo: 'Company', companyName: 'Company name',
         companyNameHint: 'Not collected at sign-up. It appears on quotes, contracts and invoices — please fill it in before submitting an order.',
         companySaved: 'Company name saved',

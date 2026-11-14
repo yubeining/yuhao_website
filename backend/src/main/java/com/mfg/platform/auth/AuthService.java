@@ -135,19 +135,6 @@ public class AuthService {
                 () -> opsUsers.findById(userId).ifPresent(o -> o.setLocale(locale)));
     }
 
-    /**
-     * 改自己的称呼（显示名）。
-     *
-     * <p>和 {@link #updateLocale} 同样的坑：外部用户与运营账号在两张表里，
-     * 只改一边的话另一端的请求会返回 200 但什么都没存。两处都要试。
-     */
-    @Transactional
-    public void updateDisplayName(UUID userId, String displayName) {
-        externalUsers.findById(userId).ifPresentOrElse(
-                u -> u.setDisplayName(displayName),
-                () -> opsUsers.findById(userId).ifPresent(o -> o.setDisplayName(displayName)));
-    }
-
     /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */
     @Transactional
     public void markEmailVerified(UUID userId, Instant at) {
