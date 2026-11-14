@@ -3,6 +3,14 @@ server:
   # ★ 不要写死 —— 换个托管平台就是换个端口，而端口错了的表现是
   #   "容器起来了但访问不通"，日志里一切正常，最容易怀疑到别的地方去。
   port: ${SERVER_PORT:3001}
+  # ★ 默认关闭。前端单包 480KB，压缩后约 143KB —— 这是首屏最大的一笔省。
+  #   min-response-size 设 1KB：太小的响应压缩反而更慢。
+  compression:
+    enabled: ${SERVER_COMPRESSION_ENABLED:true}
+    # ★ text/javascript 必须写：Spring 6 给 .js 的默认 MIME 是它，不是 application/javascript。
+    #   漏了它，压缩配置看起来生效、实际一个字节都没压。
+    mime-types: text/html,text/css,text/plain,text/javascript,application/javascript,application/json,image/svg+xml,application/xml
+    min-response-size: 1024
 
   shutdown: graceful
 
