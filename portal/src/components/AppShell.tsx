@@ -236,8 +236,6 @@ const opsNav = (t: Strings): NavItem[] => [
     { sec: t.nav.ops.execution },
     { to: '/ops/production', ic: '⚙', n: t.nav.ops.production },
     { to: '/ops/orders', ic: '▣', n: t.nav.ops.orders },
-    { sec: t.nav.ops.onboarding },
-    { to: '/ops/onboarding', ic: '⊕', n: t.nav.ops.supplierOnboarding },
     { sec: t.nav.ops.masterData },
     { to: '/ops/parties', ic: '⌂', n: t.nav.ops.parties },
     { to: '/ops/accounts', ic: '☰', n: t.nav.ops.accounts },

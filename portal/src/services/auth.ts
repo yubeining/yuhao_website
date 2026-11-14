@@ -72,27 +72,6 @@ export function logout(refreshToken: string): Promise<void> {
     })
 }
 
-/** 凭邀请链接查到的邀请：注册页预填用。无效（不存在 / 过期 / 用过 / 作废）→ 410 auth.invite_invalid。 */
-export interface SupplierInviteCheck {
-    orgName: string
-    email: string
-    expiresAt: string
-}
-
-export function checkSupplierInvite(token: string): Promise<SupplierInviteCheck> {
-    return publicRequest<SupplierInviteCheck>(`/auth/supplier-invites/${encodeURIComponent(token)}`)
-}
-
-/** 凭邀请注册供应商账号。邮箱就是邀请上的那个，不收。 */
-export function registerWithSupplierInvite(
-    token: string, input: { orgName: string; displayName: string; password: string },
-): Promise<UserView> {
-    return publicRequest<UserView>(`/auth/supplier-invites/${encodeURIComponent(token)}/register`, {
-        method: 'POST',
-        body: input,
-    })
-}
-
 // ---------- 验证码登录（邮箱）----------
 
 export type OtpChannel = 'EMAIL' | 'SMS'

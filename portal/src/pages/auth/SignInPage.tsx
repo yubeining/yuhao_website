@@ -205,9 +205,6 @@ export function SignInPage() {
 
                     <div className="fnote">{c.note}</div>
                     <div className="fnote" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
-                        {c.invited}<Link to="/auth/invite">{c.invitedA}</Link>
-                    </div>
-                    <div className="fnote" style={{ marginTop: 8 }}>
                         {c.staffPrompt}<Link to="/auth/internal/signin">{c.staffLink}</Link>
                     </div>
                 </div>
