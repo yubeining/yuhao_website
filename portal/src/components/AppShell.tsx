@@ -11,6 +11,7 @@
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Logo } from './brand'
+import { UserGlyph } from './icons'
 import { useSession } from '../auth/useSession'
 import { clearSession } from '../auth/session'
 import { logout as apiLogout } from '../services/auth'
@@ -125,7 +126,7 @@ function UserMenu({ sub }: { sub: string }) {
     return (
         <div className="gwrap">
             <button className="guser" type="button" onClick={() => setOpen((v) => !v)}>
-                <span className="av">{displayName.slice(-1)}</span>
+                <span className="av"><UserGlyph /></span>
                 <span>
                     <span className="un">{displayName}</span>
                     <span className="ur">{sub}</span>
