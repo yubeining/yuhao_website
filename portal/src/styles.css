@@ -665,3 +665,32 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .fchip.lg b{font-weight:400;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;
   white-space:nowrap;min-width:0;}
 .fchip.lg i{font-style:normal;font-family:var(--mono);font-size:10.5px;color:var(--faint);flex:none;}
+
+/* ═══════════════════════════════ 日期选择器（自绘） */
+.dp{position:relative;}
+.dp-trigger{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  text-align:left;cursor:pointer;font:inherit;}
+.dp-ph{color:var(--faint);}
+.dp-ic{color:var(--faint);font-size:12px;}
+.dp-pop{position:absolute;top:calc(100% + 6px);left:0;z-index:40;width:296px;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);
+  box-shadow:0 14px 34px rgba(16,25,36,.16);padding:12px;}
+.dp-head{display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.dp-title{flex:1;font-size:13.5px;font-weight:650;}
+.dp-nav{width:26px;height:26px;border:1px solid var(--line);background:var(--panel);
+  border-radius:8px;display:grid;place-items:center;cursor:pointer;color:var(--muted);font-size:12px;}
+.dp-nav:hover{background:var(--panel-2);}
+.dp-wd{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;margin-bottom:4px;}
+.dp-wd span{text-align:center;font-size:11px;color:var(--faint);padding:4px 0;}
+.dp-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:2px;}
+.dp-d{height:32px;display:grid;place-items:center;font-size:13px;border:0;background:transparent;
+  border-radius:8px;cursor:pointer;color:var(--ink);font:inherit;}
+.dp-d:hover{background:var(--panel-2);}
+.dp-d.out{color:var(--faint);}
+.dp-d.today{box-shadow:inset 0 0 0 1px var(--acc-line);color:var(--acc-ink);font-weight:600;}
+.dp-d.sel{background:var(--acc);color:#fff;font-weight:600;}
+.dp-d.sel:hover{background:var(--acc-hi);}
+.dp-foot{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;
+  border-top:1px solid var(--line);}
+.dp-link{background:none;border:0;color:var(--acc-ink);font-size:12.5px;cursor:pointer;padding:4px;font:inherit;}
+.dp-link:hover{text-decoration:underline;}

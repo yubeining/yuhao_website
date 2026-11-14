@@ -216,6 +216,8 @@ export interface Strings {
         line: Record<'PENDING' | 'IN_PRODUCTION' | 'PRODUCED' | 'QC_PENDING' | 'QC_PASSED' | 'SUPERSEDED' | 'SCRAPPED' | 'CANCELLED', string>
         cancelReason: Record<'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT', string>
     }
+    /** 日期选择器。只有「选择 / 清除 / 今天」三个词，其他都靠浏览器本地化。 */
+    datePicker: { placeholder: string; clear: string; today: string }
     /** 个人资料页。只有昵称可改，其余只读。 */
     profile: {
         title: string; basic: string; nickname: string; email: string; role: string
@@ -621,6 +623,7 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         cancelReason: { WITHDRAWN: '供应商退单', REVOKED: '运营收回', SIGN_TIMEOUT: '超时未签字' },
     },
+    datePicker: { placeholder: '选择日期', clear: '清除', today: '今天' },
     profile: {
         title: '个人资料', basic: '基本信息', nickname: '昵称', email: '邮箱', role: '身份',
         joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
@@ -1137,6 +1140,7 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         cancelReason: { WITHDRAWN: 'Withdrawn by supplier', REVOKED: 'Withdrawn by us', SIGN_TIMEOUT: 'Signature timeout' },
     },
+    datePicker: { placeholder: 'Pick a date', clear: 'Clear', today: 'Today' },
     profile: {
         title: 'Profile', basic: 'Basic information', nickname: 'Nickname', email: 'Email', role: 'Role',
         joined: 'Joined', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved',
