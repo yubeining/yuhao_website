@@ -4,6 +4,8 @@ import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
 import com.mfg.common.web.RequestContext;
 import com.mfg.platform.storage.StorageService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
@@ -36,6 +38,8 @@ import java.util.stream.Collectors;
  */
 @Service
 class PartDrawingService {
+
+    private static final Logger log = LoggerFactory.getLogger(PartDrawingService.class);
 
     /** complete 时读文件开头多少字节来判类型 —— 各格式签名都在开头几十字节内，8KB 绰绰有余。 */
     private static final int HEAD_BYTES = 8192;
@@ -117,6 +121,9 @@ class PartDrawingService {
         // 对象名服务端生成，不含客户文件名（设计文档 2 §5.1）
         String key = "drawing/" + UUID.randomUUID();
         PartFile file = files.save(new PartFile(revision.getId(), customerOrgId, key, filename, signedType, userId));
+        // ★ 埋点：上传是从浏览器直传对象存储的，服务端只看到"开始"和"完成"两个点。
+        //   这两个点之间的间隔就是真实的传输耗时，排障时不用再让用户开 DevTools。
+        log.info("part.file.presign fileId={} ttlSeconds={}", file.getId(), signedUrlTtl.getSeconds());
         return new UploadTicket(file.getId(),
                 storage.presignedPut(key, signedUrlTtl, signedType).toString(),
                 signedType,
@@ -162,6 +169,10 @@ class PartDrawingService {
         int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
                 List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.COMPLETED,
                 verdict.detectedType(), size, Instant.now());
+        // 从建 PENDING 行（= 发签名 URL 那一刻）到完成校验的间隔 ≈ 浏览器上传耗时
+        long elapsedMs = Math.max(1, java.time.Duration.between(file.getCreatedAt(), Instant.now()).toMillis());
+        log.info("part.file.upload_completed fileId={} sizeBytes={} elapsedMs={} throughputKBps={}",
+                fileId, size, elapsedMs, Math.round(size / 1024.0 / (elapsedMs / 1000.0)));
         return changed == 1 ? FileView.of(requireFile(customerOrgId, fileId)) : settledOutcome(customerOrgId, fileId);
     }
 
