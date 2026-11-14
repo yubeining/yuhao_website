@@ -72,7 +72,7 @@ public class OtpService {
     public OtpService(OtpCodeStore store, OtpEmailTemplate templates,
                       NotificationService notifications, AuthService auth,
                       AuthTokenIssuer tokenIssuer, RateLimiter rateLimiter, RedisService redis,
-                      @Value("${app.auth.otp.identifier-limit:5}") int identifierLimit,
+                      @Value("${app.auth.otp.identifier-limit:20}") int identifierLimit,
                       // ★ 必须 ≤ 发信供应商的每日额度，否则熔断永远不触发：
                       //   数到 100 的时候 Resend 已经开始拒收，而我们还在数。
                       //   默认值取 Resend 免费档的 100/天。★ 如果同一个发信账号还要发别的邮件
@@ -107,7 +107,7 @@ public class OtpService {
         requireChannelAvailable(channel);
         String identifierHash = sha256(normalized);
 
-        // 第一层：同一标识 5 次 / 小时
+        // 第一层：同一标识 20 次 / 小时
         if (!rateLimiter.tryAcquire("otp-send", identifierHash, identifierLimit, Duration.ofHours(1))) {
             audit("send", channel, normalized, "rate_limited");
             throw new BusinessException(429, "auth.otp_rate_limited");
