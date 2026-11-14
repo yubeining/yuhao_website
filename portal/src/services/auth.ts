@@ -7,8 +7,8 @@ import type { PartyType } from '../auth/session'
  * 内外两条独立入口(和后端一致,页面不混):
  *   外部(客户/供应商)  /auth/login          只凭账号+密码,受众由后端按账号所属组织推出
  *   内部(运营)         /auth/internal/login  恒 OPERATOR
- * 注册只对外部:/auth/register(建组织 + 首个用户)。
- */
+ * 注册只对外部:/auth/register/otp(邮箱验证码,建组织 + 首个用户并直接签发登录态)。
+*/
 
 export interface TokenResponse {
     accessToken: string
@@ -16,19 +16,6 @@ export interface TokenResponse {
     portalType: PartyType
     displayName: string
     locale: string
-}
-
-export interface RegisterInput {
-    portalType: 'CUSTOMER' | 'SUPPLIER'
-    /**
-     * 可选。注册阶段不再要求公司名（docs/design/14 §4）——
-     * 后端会建一个没名字的公司，提交订单前由客户在「设置 → 公司信息」补。
-     */
-    orgName?: string
-    country?: string
-    email: string
-    password: string
-    displayName: string
 }
 
 export interface UserView {
@@ -57,10 +44,15 @@ export function opsLogin(account: string, password: string): Promise<TokenRespon
 }
 
 /** 外部自助注册:建公司 + 首个用户。 */
-export function register(input: RegisterInput): Promise<UserView> {
-    return publicRequest<UserView>('/auth/register', {
+/**
+ * 邮箱验证码注册（2026-11-14）：校验并消费验证码、建号、直接返回登录态。
+ *
+ * 建出来的账号没有密码 —— 以后只能用验证码登录。显示名是邮箱前缀（后端生成）。
+ */
+export function registerWithCode(email: string, code: string): Promise<TokenResponse> {
+    return publicRequest<TokenResponse>('/auth/register/otp', {
         method: 'POST',
-        body: input,
+        body: { email, code },
     })
 }
 

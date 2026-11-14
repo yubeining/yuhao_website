@@ -136,11 +136,13 @@ export interface Strings {
     }
     reg: {
         h: string; sub: string; subA: string
-        co: string; coP: string; country: string
-        name: string; nameP: string; email: string; pw: string; pwP: string
+        email: string; code: string; codeP: string
+        sendCode: string; resend: string; resendIn: (seconds: number) => string
+        codeSentTo: (email: string) => string
+        hint: string
         agree: string; submit: string
         /** 本地校验提示（后端没这几种） */
-        errRequired: string; errPwShort: string; errAgree: string
+        errRequired: string; errCode: string; errAgree: string
         errTaken: string; errFailed: string
         otherCountry: string
     }
@@ -520,15 +522,17 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         reg: {
             h: '注册', sub: '已有账号？', subA: '返回登录',
-            co: '公司名称', coP: '公司名称', country: '国家 / 地区',
-            name: '联系人姓名', nameP: '姓名', email: '企业邮箱',
-            pw: '设置密码', pwP: '至少 8 位',
+            email: '企业邮箱', code: '验证码', codeP: '6 位验证码',
+            sendCode: '发送验证码', resend: '重新发送',
+            resendIn: (sec) => `${sec} 秒后重发`,
+            codeSentTo: (email) => `验证码已发送至 ${email}`,
+            hint: '验证码 5 分钟内有效、只能用一次。账号不设密码，以后用邮箱验证码登录。',
             agree: '我已阅读并同意服务条款与隐私政策',
             submit: '创建账号',
-            errRequired: '请填写公司名称、邮箱和密码',
-            errPwShort: '密码至少 8 位',
+            errRequired: '请先填写邮箱',
+            errCode: '请输入 6 位验证码',
             errAgree: '请先同意服务条款与隐私政策',
-            errTaken: '这个邮箱已经注册过了',
+            errTaken: '这个邮箱已经注册过了，直接登录即可',
             errFailed: '注册失败，请重试',
             otherCountry: '其他',
         },
@@ -1042,15 +1046,17 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         reg: {
             h: 'Sign up', sub: 'Already have an account? ', subA: 'Sign in',
-            co: 'Company name', coP: 'Company name', country: 'Country / Region',
-            name: 'Contact name', nameP: 'Full name', email: 'Work email',
-            pw: 'Password', pwP: 'At least 8 characters',
+            email: 'Work email', code: 'Verification code', codeP: '6-digit code',
+            sendCode: 'Send code', resend: 'Resend',
+            resendIn: (sec) => `Resend in ${sec}s`,
+            codeSentTo: (email) => `Code sent to ${email}`,
+            hint: 'The code is valid for 5 minutes and can be used once. Accounts have no password — you sign in with an email code.',
             agree: 'I agree to the Terms and Privacy Policy',
-            submit: 'Sign up',
-            errRequired: 'Please fill in company name, email and password',
-            errPwShort: 'Password must be at least 8 characters',
+            submit: 'Create account',
+            errRequired: 'Please enter your email first',
+            errCode: 'Enter the 6-digit code',
             errAgree: 'Please accept the Terms and Privacy Policy first',
-            errTaken: 'This email is already registered',
+            errTaken: 'This email is already registered — just sign in',
             errFailed: 'Sign-up failed. Please try again.',
             otherCountry: 'Other',
         },
