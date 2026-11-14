@@ -133,6 +133,12 @@ app:
   #   日志里有订单号、打码邮箱、IP，长期开着等于把内部状态挂在公网。
   diagnostics:
     log-token: ${LOG_TAIL_TOKEN:}
+    log-tail:
+      # 保留窗口与条数上限，先到先算。5 万行 ≈ 10 MB 堆内存。
+      # ★ 只留时间不留条数，一次异常刷屏就能把堆吃光；只留条数不留时间，
+      #   重启后可能只剩几分钟的日志。
+      retention: ${LOG_TAIL_RETENTION:24h}
+      max-lines: ${LOG_TAIL_MAX_LINES:50000}
 
   web:
     # 分页封顶：全局统一,防 pageSize=1000000 拖库。内外之分由路径层(端级闸门)管,不进这里。
