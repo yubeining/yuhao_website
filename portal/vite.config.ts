@@ -26,7 +26,9 @@ export default defineConfig({
     build: {
         outDir: path.resolve(__dirname, '../backend/src/main/resources/static'),
         emptyOutDir: true,
-        sourcemap: true,
+        // ★ 不产出 sourcemap：.map 会被 Spring 当静态资源公开（实测 2.2MB 可下载），
+        //   既泄露源码又把镜像撑大。要线上调试就换成 'hidden' 并单独存档。
+        sourcemap: false,
     },
 
     server: {
