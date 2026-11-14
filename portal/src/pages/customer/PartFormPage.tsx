@@ -263,17 +263,16 @@ export function PartFormPage() {
                             <FieldRow cols={3}>
                                 <Field label={t.customer.partForm.fldCode}>
                                     {isNew
-                                        ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)}
-                                            placeholder={t.customer.partForm.codePlaceholder} />
+                                        ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
                                         // 图号决定挂哪个零件，加进订单后不能改：只显示，不放一个打字没反应的输入框
                                         : <div className="m" style={{ padding: '9px 0' }}>{f.code}</div>}
                                 </Field>
-                                <Field label={t.common.table.name}><Input value={f.name} onChange={set('name')} /></Field>
-                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} /></Field>
+                                <Field label={`${t.common.table.name} *`}><Input value={f.name} onChange={set('name')} /></Field>
+                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} placeholder="" /></Field>
                             </FieldRow>
                             <FieldRow>
-                                <Field label={t.customer.partForm.fldMaterial}><Input value={f.mat} onChange={set('mat')} placeholder={t.customer.partForm.optionalPlaceholder} /></Field>
-                                <Field label={t.customer.partForm.fldSurface}><Input value={f.surf} onChange={set('surf')} placeholder={t.customer.partForm.optionalPlaceholder} /></Field>
+                                <Field label={t.customer.partForm.fldMaterial}><Input value={f.mat} onChange={set('mat')} /></Field>
+                                <Field label={t.customer.partForm.fldSurface}><Input value={f.surf} onChange={set('surf')} /></Field>
                             </FieldRow>
                         </>
                     ) : line && (
@@ -291,13 +290,6 @@ export function PartFormPage() {
                         <div className="attach-hd">
                             <span className="attach-k">{t.customer.partForm.drawingTitle}</span>
                             {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill(line.revision.revNo)}</Pill>}
-                            <span className="attach-hint">
-                                {isNew
-                                    ? t.customer.partForm.hintNew
-                                    : locked
-                                        ? t.customer.partForm.hintLocked
-                                        : t.customer.partForm.hintRequired}
-                            </span>
                             <span className="sp" />
                             {draft && (
                                 <button className="btn sm" type="button" disabled={busy} onClick={() => picker.current?.click()}>
@@ -333,10 +325,6 @@ export function PartFormPage() {
                                     </span>
                                 ))}
                             </div>
-                        )}
-
-                        {line && line.revision.files.length === 0 && uploads.length === 0 && (
-                            <div className="attach-hint" style={{ marginTop: 9 }}>{t.customer.partForm.noDrawing}</div>
                         )}
 
                         {uploads.map((u) => (
