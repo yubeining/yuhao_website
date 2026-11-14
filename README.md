@@ -64,11 +64,16 @@ docker compose up -d
 # 4. 前端（产物落进后端 static/）
 cd portal && npm install && npm run build
 
-# 5. 后端（监听 3001）—— 环境变量见 .env
-cd backend && mvn spring-boot:run
+# 5. 后端（监听 3001）—— 脚本负责先加载 .env
+./scripts/dev-backend.sh
 ```
 
 打开 <http://localhost:3001>。
+
+> **`.env` 不会被应用自动读取**（没有 dotenv 依赖）。`scripts/dev-backend.sh` 只做一件事：
+> `set -a; . .env` 之后再 `mvn spring-boot:run`。
+> 绕过它直接 `cd backend && mvn spring-boot:run`，`DB_URL` 会落到默认的 `5432` ——
+> 那上面多半是本机 brew 的 postgres，报错是「库/角色不存在」，看着像迁移没跑。
 
 首次启动时 `SchemaMigrationRunner` 会自动跑完 `database/migrations/` 下所有迁移。
 

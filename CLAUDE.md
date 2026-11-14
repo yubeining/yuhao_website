@@ -657,8 +657,13 @@ docker compose up -d
 cd portal && npm install && npm run build
 
 # 后端（默认监听 3001，同时托管前端）
-cd backend && mvn spring-boot:run
+./scripts/dev-backend.sh
 ```
+
+> **`.env` 不会被应用自动读取**（没有 dotenv 依赖），所以后端从脚本起。
+> 它只做 `set -a; . .env` 再 `mvn spring-boot:run`。
+> 直接 `cd backend && mvn spring-boot:run` 时 `DB_URL` 会落到默认 `5432`，
+> 连到本机 brew 的 postgres，报错却是「库/角色不存在」—— 和上面那条端口冲突是同一个坑。
 
 改前端时用 dev server，别每次重新 build：
 
