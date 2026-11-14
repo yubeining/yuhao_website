@@ -223,17 +223,20 @@ export interface Strings {
         line: Record<'PENDING' | 'IN_PRODUCTION' | 'PRODUCED' | 'QC_PENDING' | 'QC_PASSED' | 'SUPERSEDED' | 'SCRAPPED' | 'CANCELLED', string>
         cancelReason: Record<'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT', string>
     }
+    /** 个人资料页。只有昵称可改，其余只读。 */
+    profile: {
+        title: string; nickname: string; email: string; role: string; joined: string; saved: string
+    }
     /** 通用页面（404 / 设置） */
     misc: {
         notFoundTitle: string; notFoundSub: string; backHome: string
         settings: string; appearance: string; light: string; dark: string
-        account: string; name: string; role: string
         /** 注册时不收公司名，在设置里补（docs/design/14 §4）。 */
         companyInfo: string; companyName: string; companyNameHint: string; companySaved: string
     }
     /** 导航与外壳。三端共用，所以按端分组，不要混成一锅。 */
     nav: {
-        settings: string; signOut: string
+        settings: string; signOut: string; profile: string
         defaultUser: string; supplierFallback: string
         customer: { trade: string; overview: string; orders: string; quotes: string }
         supplier: {
@@ -635,18 +638,21 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         cancelReason: { WITHDRAWN: '供应商退单', REVOKED: '运营收回', SIGN_TIMEOUT: '超时未签字' },
     },
+    profile: {
+        title: '个人资料', nickname: '昵称', email: '邮箱', role: '身份',
+        joined: '注册时间', saved: '已保存',
+    },
     misc: {
         notFoundTitle: '这个地址没有对应的页面',
         notFoundSub: '链接可能已经失效，或者你没有访问这个页面的身份。',
         backHome: '回首页',
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
-        account: '账号', name: '姓名', role: '身份',
         companyInfo: '公司信息', companyName: '公司名称',
         companyNameHint: '注册时没有收集。报价单、合同和发票都要用，提交订单前请补上。',
         companySaved: '公司名称已保存',
     },
         nav: {
-            settings: '设置', signOut: '退出登录',
+            settings: '设置', signOut: '退出登录', profile: '个人资料',
             defaultUser: '用户', supplierFallback: '供应商',
             customer: { trade: '交易', overview: '概览', orders: '我的订单', quotes: '我的报价' },
             supplier: {
@@ -1159,18 +1165,21 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         cancelReason: { WITHDRAWN: 'Withdrawn by supplier', REVOKED: 'Withdrawn by us', SIGN_TIMEOUT: 'Signature timeout' },
     },
+    profile: {
+        title: 'Profile', nickname: 'Nickname', email: 'Email', role: 'Role',
+        joined: 'Joined', saved: 'Saved',
+    },
     misc: {
         notFoundTitle: 'This page does not exist',
         notFoundSub: 'The link may have expired, or you do not have access to this page.',
         backHome: 'Back to home',
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
-        account: 'Account', name: 'Name', role: 'Role',
         companyInfo: 'Company', companyName: 'Company name',
         companyNameHint: 'Not collected at sign-up. It appears on quotes, contracts and invoices — please fill it in before submitting an order.',
         companySaved: 'Company name saved',
     },
         nav: {
-            settings: 'Settings', signOut: 'Sign out',
+            settings: 'Settings', signOut: 'Sign out', profile: 'Profile',
             defaultUser: 'User', supplierFallback: 'Supplier',
             customer: { trade: 'Trade', overview: 'Overview', orders: 'Orders', quotes: 'Quotes' },
             supplier: {

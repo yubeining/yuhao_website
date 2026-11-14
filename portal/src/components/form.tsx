@@ -9,7 +9,7 @@
 import { useI18n } from '../i18n/I18nProvider'
 import type { CSSProperties, ReactNode } from 'react'
 
-export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, style, id, autoComplete }: {
+export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, disabled, style, id, autoComplete }: {
     value: string
     onChange: (v: string) => void
     /** 离开输入框时触发（比如失焦保存、失焦查询） */
@@ -18,6 +18,8 @@ export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad
     type?: string
     /** 校验不过时描红 */
     bad?: boolean
+    /** 只读展示（置灰、不可编辑）。用于「不能改但要看得到」的字段。 */
+    disabled?: boolean
     style?: CSSProperties
     id?: string
     autoComplete?: string
@@ -31,6 +33,7 @@ export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad
             placeholder={placeholder}
             value={value}
             style={style}
+            disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
             onBlur={onBlur}
         />

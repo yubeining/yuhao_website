@@ -135,6 +135,38 @@ public class AuthService {
                 () -> opsUsers.findById(userId).ifPresent(o -> o.setLocale(locale)));
     }
 
+    /** 个人资料页要展示的字段。partyType 由 principal 补，实体里没有这个概念。 */
+    public record Profile(String email, String nickname, Instant createdAt) {
+    }
+
+    /**
+     * 查自己的资料。外部用户和运营账号在两张表里，id 各自唯一 —— 先试外部，没有再试运营。
+     *
+     * <p>不返回密码、租户 id 之外的内部字段（§3 铁律 5：白名单序列化）。
+     */
+    @Transactional(readOnly = true)
+    public Optional<Profile> findProfile(UUID userId) {
+        Optional<Profile> external = externalUsers.findById(userId)
+                .map(u -> new Profile(u.getEmail(), u.getDisplayName(), u.getCreatedAt()));
+        if (external.isPresent()) {
+            return external;
+        }
+        return opsUsers.findById(userId)
+                .map(u -> new Profile(u.getEmail(), u.getDisplayName(), u.getCreatedAt()));
+    }
+
+    /**
+     * 改自己的昵称（显示名）。
+     *
+     * <p>和 {@link #updateLocale} 同一个坑：两张表都要试，否则一端返回 200 却什么都没存。
+     */
+    @Transactional
+    public void updateNickname(UUID userId, String nickname) {
+        externalUsers.findById(userId).ifPresentOrElse(
+                u -> u.setDisplayName(nickname),
+                () -> opsUsers.findById(userId).ifPresent(o -> o.setDisplayName(nickname)));
+    }
+
     /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */
     @Transactional
     public void markEmailVerified(UUID userId, Instant at) {
