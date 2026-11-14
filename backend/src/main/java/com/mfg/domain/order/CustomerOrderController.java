@@ -17,6 +17,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -32,7 +33,7 @@ class CustomerOrderController {
         this.service = service;
     }
 
-    public record OrderDraftRequest(@Size(max = 200) String title, @Positive Integer wantedLeadDays) {
+    public record OrderDraftRequest(@Size(max = 200) String title, LocalDate wantedDate) {
     }
 
     public record AddLineRequest(@NotBlank @Size(max = 200) String code,
@@ -54,7 +55,7 @@ class CustomerOrderController {
 
     @PostMapping("/customer/orders")
     OrderView create(@CurrentUser UserPrincipal user, @Valid @RequestBody OrderDraftRequest request) {
-        return service.create(user.partyId(), user.id(), request.title(), request.wantedLeadDays());
+        return service.create(user.partyId(), user.id(), request.title(), request.wantedDate());
     }
 
     /** 新建的排在前面。排序由后端定，不从请求收。 */
@@ -72,7 +73,7 @@ class CustomerOrderController {
     @PatchMapping("/customer/orders/{orderId}")
     OrderView update(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                      @Valid @RequestBody OrderDraftRequest request) {
-        return service.updateDraft(user.partyId(), orderId, request.title(), request.wantedLeadDays());
+        return service.updateDraft(user.partyId(), orderId, request.title(), request.wantedDate());
     }
 
     @PostMapping("/customer/orders/{orderId}/submit")

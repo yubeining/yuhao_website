@@ -9,7 +9,6 @@ import { RegisterPage } from './pages/auth/RegisterPage'
 import { QuoteListPage } from './pages/customer/QuoteListPage'
 import { QuoteDetailPage } from './pages/customer/QuoteDetailPage'
 import { OrderListPage } from './pages/customer/OrderListPage'
-import { NewOrderPage } from './pages/customer/NewOrderPage'
 import { OrderDetailPage } from './pages/customer/OrderDetailPage'
 import { PartFormPage } from './pages/customer/PartFormPage'
 
@@ -82,7 +81,6 @@ export const router = createBrowserRouter([
             { path: 'quotes', element: <QuoteListPage /> },
             { path: 'quotes/:id', element: <QuoteDetailPage /> },
             { path: 'orders', element: <OrderListPage /> },
-            { path: 'orders/new', element: <NewOrderPage /> },
             { path: 'orders/:id', element: <OrderDetailPage /> },
             // ★ new 必须排在 :partId 前面，否则 /parts/new 会被当成 id 为 "new" 的零件
             { path: 'orders/:id/parts/new', element: <PartFormPage /> },

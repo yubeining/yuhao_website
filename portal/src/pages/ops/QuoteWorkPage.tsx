@@ -191,7 +191,7 @@ export function OpsQuoteWorkPage() {
                         <Fld k={t.quoteWork.fldCustomer} v={order.customerName ?? X} />
                         <Fld k={t.quoteWork.fldParts} v={order.lines.length} mono />
                         <Fld k={t.quoteWork.fldTotalQty} v={totalQty} mono />
-                        <Fld k={t.quoteWork.fldLead} v={order.wantedLeadDays ? t.quoteWork.leadDays(order.wantedLeadDays) : X} />
+                        <Fld k={t.quoteWork.fldLead} v={order.wantedDate || X} />
                         <Fld k={t.quoteWork.fldSubmitted} v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
                     </Fields>
                 </CardBody>

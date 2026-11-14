@@ -5,20 +5,21 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import {
     Banner, Card, CardBody, Empty, Hello, Page, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
-import { cancelOrder, listOrders, type OrderSummaryView } from '../../services'
+import { cancelOrder, createOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 
 export function OrderListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)
+    const [creating, setCreating] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async () => {
@@ -30,6 +31,19 @@ export function OrderListPage() {
     }, [t])
 
     useEffect(() => { void load() }, [load])
+
+    const createDraft = async () => {
+        if (creating) return
+        setCreating(true)
+        try {
+            const o = await createOrder({ title: null, wantedDate: null })
+            navigate(`/customer/orders/${o.id}`)
+        } catch (e) {
+            setErr(errorText(t, e))
+        } finally {
+            setCreating(false)
+        }
+    }
 
     const cancel = async (id: string) => {
         try {
@@ -50,7 +64,9 @@ export function OrderListPage() {
                         {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(orders.length)}</Pill>}
                         {/* ★ 空态时隐藏：中央那个按钮已经能建单，两个入口指向同一个动作 */}
                         {orders && orders.length > 0 && (
-                            <Link className="btn pri" to="/customer/orders/new">{t.customer.orders.newOrder}</Link>
+                            <button className="btn pri" type="button" disabled={creating} onClick={() => void createDraft()}>
+                                {creating ? '…' : t.customer.orders.newOrder}
+                            </button>
                         )}
                     </>
                 }
@@ -98,7 +114,9 @@ export function OrderListPage() {
                         <Empty
                             text={t.customer.orders.empty}
                             sub={t.customer.orders.emptySub}
-                            action={<Link className="btn pri" to="/customer/orders/new">{t.customer.orders.newOrder}</Link>}
+                            action={<button className="btn pri" type="button" disabled={creating} onClick={() => void createDraft()}>
+                                {creating ? '…' : t.customer.orders.newOrder}
+                            </button>}
                         />
                     </CardBody>
                 )}

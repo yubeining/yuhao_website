@@ -12,8 +12,8 @@ export interface OpsOrderSummaryView {
     customerName?: string | null
     title?: string | null
     status: OrderStatus
-    /** 客户期望的交货天数，仅参考 */
-    wantedLeadDays?: number | null
+    /** 客户期望的交货日期（yyyy-MM-dd），仅参考 */
+    wantedDate?: string | null
     lineCount: number
     totalQuantity: number
     createdAt: string
@@ -26,7 +26,7 @@ export interface OpsOrderView {
     customerName?: string | null
     title?: string | null
     status: OrderStatus
-    wantedLeadDays?: number | null
+    wantedDate?: string | null
     createdAt: string
     submittedAt?: string | null
     lines: OrderLineView[]

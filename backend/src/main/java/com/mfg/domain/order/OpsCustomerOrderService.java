@@ -60,7 +60,7 @@ class OpsCustomerOrderService {
         return PagedResponse.of(page, o -> {
             long[] c = counts.getOrDefault(o.getId(), new long[] {0, 0});
             return new OpsOrderSummaryView(o.getId(), o.getCustomerOrgId(), customerNames.get(o.getCustomerOrgId()),
-                    o.getTitle(), o.getStatus().name(), o.getWantedLeadDays(), c[0], c[1],
+                    o.getTitle(), o.getStatus().name(), o.getWantedDate(), c[0], c[1],
                     o.getCreatedAt(), o.getSubmittedAt());
         });
     }
@@ -72,7 +72,7 @@ class OpsCustomerOrderService {
         List<OrderLineView> lineViews = customerOrders.lineViews(orgId,
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, orgId));
         return new OpsOrderView(order.getId(), orgId, customerNames(Set.of(orgId)).get(orgId), order.getTitle(),
-                order.getStatus().name(), order.getWantedLeadDays(), order.getCreatedAt(), order.getSubmittedAt(),
+                order.getStatus().name(), order.getWantedDate(), order.getCreatedAt(), order.getSubmittedAt(),
                 lineViews);
     }
 

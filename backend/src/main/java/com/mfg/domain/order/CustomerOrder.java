@@ -10,6 +10,7 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.UUID;
 
 /**
@@ -46,9 +47,14 @@ class CustomerOrder extends BaseEntity {
     @Column(name = "title")
     private String title;
 
-    /** 客户期望的交货天数 —— 仅参考,不是运营填的交期(那个是承诺,见设计文档 13 §2.06)。 */
-    @Column(name = "wanted_lead_days")
-    private Integer wantedLeadDays;
+    /**
+     * 客户期望的交货日期 —— 仅参考,不是运营承诺的交期（那个在报价里填,见设计文档 13 §2.06）。
+     *
+     * <p>2026-11-15 从「天数」改成「日期」：客户想的是"哪天要",不是"几天后"。
+     * 旧列 wanted_lead_days 留在库里没删，回滚那一版 jar 时仍能写。
+     */
+    @Column(name = "wanted_date")
+    private LocalDate wantedDate;
 
     @Column(name = "submitted_at", columnDefinition = "timestamp with time zone")
     private Instant submittedAt;
@@ -56,16 +62,16 @@ class CustomerOrder extends BaseEntity {
     protected CustomerOrder() {
     }
 
-    CustomerOrder(UUID customerOrgId, UUID createdByUserId, String title, Integer wantedLeadDays) {
+    CustomerOrder(UUID customerOrgId, UUID createdByUserId, String title, LocalDate wantedDate) {
         this.customerOrgId = customerOrgId;
         this.createdByUserId = createdByUserId;
         this.title = title;
-        this.wantedLeadDays = wantedLeadDays;
+        this.wantedDate = wantedDate;
     }
 
-    void updateDraft(String title, Integer wantedLeadDays) {
+    void updateDraft(String title, LocalDate wantedDate) {
         this.title = title;
-        this.wantedLeadDays = wantedLeadDays;
+        this.wantedDate = wantedDate;
     }
 
     UUID getCustomerOrgId() {
@@ -84,8 +90,8 @@ class CustomerOrder extends BaseEntity {
         return title;
     }
 
-    Integer getWantedLeadDays() {
-        return wantedLeadDays;
+    LocalDate getWantedDate() {
+        return wantedDate;
     }
 
     Instant getSubmittedAt() {
