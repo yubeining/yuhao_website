@@ -66,7 +66,7 @@ export interface Strings {
             colCode: string; colQty: string
             customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
             remove: string; emptyParts: string; emptyPartsSub: string
-            submitOrder: (n: number) => string; needDrawings: (n: number) => string
+            submit: string; needDrawings: (n: number) => string
             /** 一个零件都没有时的提交按钮文案 */
             needParts: string
         }
@@ -442,9 +442,9 @@ export const STRINGS: Record<Lang, Strings> = {
             customerRev: (v) => `客户标记 ${v}`,
             drawingUploaded: '图纸已传', drawingMissing: '缺图纸', remove: '删除',
             emptyParts: '暂无零件', emptyPartsSub: '录入零件并传好图纸后提交',
-            submitOrder: (n) => `提交订单（${n} 个零件）→`,
+            submit: '提交订单',
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
-            needParts: '先添加零件',
+            needParts: '先添加至少一个零件',
         },
         partForm: {
             uploadFailed: '上传失败',
@@ -954,7 +954,7 @@ export const STRINGS: Record<Lang, Strings> = {
             customerRev: (v) => `Customer mark ${v}`,
             drawingUploaded: 'Drawing attached', drawingMissing: 'No drawing', remove: 'Remove',
             emptyParts: 'No parts yet', emptyPartsSub: 'Add parts and drawings, then submit',
-            submitOrder: (n) => `Submit order (${n} part${n === 1 ? '' : 's'}) →`,
+            submit: 'Submit order',
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
             needParts: 'Add a part first',
         },
