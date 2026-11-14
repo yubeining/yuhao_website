@@ -128,6 +128,12 @@ app:
   api:
     prefix: /api/v1
 
+  # 运维出口：最近日志的只读端点（GET /actuator/logtail）。
+  # ★ 默认关闭（token 为空 → 404）。要临时排查线上问题才配，查完删掉重启。
+  #   日志里有订单号、打码邮箱、IP，长期开着等于把内部状态挂在公网。
+  diagnostics:
+    log-token: ${LOG_TAIL_TOKEN:}
+
   web:
     # 分页封顶：全局统一,防 pageSize=1000000 拖库。内外之分由路径层(端级闸门)管,不进这里。
     page:
