@@ -16,6 +16,7 @@ import {
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
+import { DatePicker } from '../../components/DatePicker'
 import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
     ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
@@ -88,8 +89,8 @@ export function OrderDetailPage() {
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const canSubmit = draft && order.lines.length > 0 && noDrawing === 0
 
-    const saveDraftInfo = async () => {
-        const date = wantedDate.trim() || null
+    const saveDraftInfo = async (nextDate?: string) => {
+        const date = (nextDate ?? wantedDate).trim() || null
         // 后端不输出 null 字段，拿到的是 undefined —— 统一成 null 再比，否则每次失焦都会多发一次保存
         if ((title.trim() || null) === (order.title ?? null) && date === (order.wantedDate ?? null)) return
         try {
@@ -173,10 +174,10 @@ export function OrderDetailPage() {
                 <CardBody>
                     <Fields>
                         <Fld k={t.customer.orderDetail.fldName} v={draft
-                            ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={saveDraftInfo} />
+                            ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
                             : (order.title || X)} />
                         <Fld k={t.customer.orderDetail.fldLead} v={draft
-                            ? <Input type="date" value={wantedDate} onChange={setWantedDate} onBlur={saveDraftInfo} />
+                            ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
                             : (order.wantedDate || X)} />
                         <Fld k={t.customer.orderDetail.fldParts} v={order.lines.length} mono />
                         <Fld k={t.customer.orderDetail.fldTotalQty} v={totalQty} mono />
