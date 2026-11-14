@@ -77,7 +77,7 @@ export function subscribeSession(listener: () => void): () => void {
 
 /** 各 principal type 的落地页（和 router.tsx 的实际路由一致）。 */
 export const HOME_BY_TYPE: Record<PartyType, string> = {
-    CUSTOMER: '/customer',
+    CUSTOMER: '/customer/orders',
     SUPPLIER: '/supplier/hall',
     OPERATOR: '/ops/dashboard',
 }

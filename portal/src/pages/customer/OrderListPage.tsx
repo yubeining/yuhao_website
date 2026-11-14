@@ -5,24 +5,20 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { Input } from '../../components/form'
+import { Link, useNavigate } from 'react-router-dom'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, pill, TableWrap,
+    Banner, Card, CardBody, Empty, Hello, Page, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
-import { cancelOrder, createOrder, listOrders, type OrderSummaryView } from '../../services'
+import { cancelOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 
 export function OrderListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)
-    const [title, setTitle] = useState('')
-    const [adding, setAdding] = useState(false)
-    const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async () => {
@@ -34,18 +30,6 @@ export function OrderListPage() {
     }, [t])
 
     useEffect(() => { void load() }, [load])
-
-    const create = async () => {
-        setBusy(true)
-        try {
-            const o = await createOrder({ title: title.trim() || null, wantedLeadDays: null })
-            navigate(`/customer/orders/${o.id}`)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
 
     const cancel = async (id: string) => {
         try {
@@ -66,26 +50,13 @@ export function OrderListPage() {
                         {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(orders.length)}</Pill>}
                         {/* ★ 空态时隐藏：中央那个按钮已经能建单，两个入口指向同一个动作 */}
                         {orders && orders.length > 0 && (
-                            <button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>
+                            <Link className="btn pri" to="/customer/orders/new">{t.customer.orders.newOrder}</Link>
                         )}
                     </>
                 }
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
-
-            {adding && (
-                <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={t.customer.orders.newTitle} />
-                    <CardBody>
-                        <Input value={title} placeholder={t.customer.orders.titlePlaceholder} onChange={setTitle} />
-                    </CardBody>
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setAdding(false)}>{t.common.cancel}</button>}
-                        right={<button className="btn pri" type="button" onClick={create} disabled={busy}>{t.common.create}</button>}
-                    />
-                </Card>
-            )}
 
             <Card>
                 {orders === null ? (
@@ -127,7 +98,7 @@ export function OrderListPage() {
                         <Empty
                             text={t.customer.orders.empty}
                             sub={t.customer.orders.emptySub}
-                            action={<button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>}
+                            action={<Link className="btn pri" to="/customer/orders/new">{t.customer.orders.newOrder}</Link>}
                         />
                     </CardBody>
                 )}
