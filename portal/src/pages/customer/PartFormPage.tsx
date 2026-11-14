@@ -46,7 +46,8 @@ interface Upload {
     error?: string
 }
 
-const EMPTY: Form = { code: '', name: '', qty: '', mat: '', surf: '', customerRev: '' }
+// 数量默认 1：空着会让用户以为可以留空，点提交才报错
+const EMPTY: Form = { code: '', name: '', qty: '1', mat: '', surf: '', customerRev: '' }
 
 /** 文件名里的图号和客户版本标记，只填进还空着的字段。 */
 function prefilled(prev: Form, files: File[]): Form {
@@ -239,7 +240,7 @@ export function PartFormPage() {
                 back={<Link className="btn sm qui" to={`/customer/orders/${order.id}`}
                     style={{ margin: '0 0 6px -9px' }}>← {order.title || t.common.untitledOrder}</Link>}
                 title={isNew ? t.customer.partForm.titleNew : draft ? t.customer.partForm.titleEdit : (line?.partName ?? t.customer.partForm.titlePart)}
-                sub={line ? t.customer.partForm.versionLine(line.code, line.revision.revNo) : undefined}
+                sub={line ? t.customer.partForm.versionOnly(line.revision.revNo) : undefined}
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
@@ -261,14 +262,18 @@ export function PartFormPage() {
                     {draft ? (
                         <>
                             <FieldRow cols={3}>
-                                <Field label={t.customer.partForm.fldCode}>
+                                <Field label={isNew ? t.customer.partForm.fldCode : t.customer.partForm.fldCodeReadonly}>
                                     {isNew
-                                        ? <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
+                                        ? <>
+                                            <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
+                                            {/* ★ 图号是零件身份：重复使用会复用已有零件，必须写出来 */}
+                                            <div className="fnote" style={{ marginTop: 6 }}>{t.customer.partForm.codeHint}</div>
+                                        </>
                                         // 图号决定挂哪个零件，加进订单后不能改：只显示，不放一个打字没反应的输入框
-                                        : <div className="m" style={{ padding: '9px 0' }}>{f.code}</div>}
+                                        : <div className="ro" style={{ color: 'var(--muted)' }}>{f.code}</div>}
                                 </Field>
                                 <Field label={`${t.common.table.name} *`}><Input value={f.name} onChange={set('name')} /></Field>
-                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} placeholder="" /></Field>
+                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} placeholder="" width={170} /></Field>
                             </FieldRow>
                             <FieldRow>
                                 <Field label={t.customer.partForm.fldMaterial}><Input value={f.mat} onChange={set('mat')} /></Field>
@@ -288,7 +293,7 @@ export function PartFormPage() {
 
                     <div className="attach">
                         <div className="attach-hd">
-                            <span className="attach-k">{t.customer.partForm.drawingTitle}</span>
+                            <span className="attach-k">{t.customer.partForm.drawingTitle} <span style={{ color: 'var(--bad)' }}>*</span></span>
                             {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill(line.revision.revNo)}</Pill>}
                             <span className="sp" />
                             {draft && (
@@ -327,6 +332,8 @@ export function PartFormPage() {
                             </div>
                         )}
 
+                        <div className="fnote" style={{ marginTop: 9 }}>{t.customer.partForm.drawingHint}</div>
+
                         {uploads.map((u) => (
                             <div key={u.key} style={{ marginTop: 9 }}>
                                 <div className="t2">{u.name}{u.error ? ` —— ${u.error}` : ` · ${u.pct}%`}</div>
@@ -338,9 +345,12 @@ export function PartFormPage() {
                 {draft && (
                     <CardFoot
                         left={<Link className="btn" to={`/customer/orders/${order.id}`}>{isNew ? t.customer.partForm.cancel : t.customer.partForm.backToOrder}</Link>}
-                        right={<button className="btn pri" type="button" onClick={save} disabled={busy}>
-                            {isNew ? t.customer.partForm.addToOrder : t.customer.partForm.save}
-                        </button>}
+                        right={<>
+                            {isNew && <span className="fnote" style={{ marginRight: 12 }}>{t.customer.partForm.addHint}</span>}
+                            <button className="btn pri" type="button" onClick={save} disabled={busy}>
+                                {isNew ? t.customer.partForm.addToOrder : t.customer.partForm.saveEdit}
+                            </button>
+                        </>}
                     />
                 )}
             </Card>

@@ -73,16 +73,17 @@ export interface Strings {
         partForm: {
             uploadFailed: string; errRequired: string; notFound: string
             titleNew: string; titleEdit: string; titlePart: string
-            versionLine: (code: string, rev: number) => string
+            versionLine: (code: string, rev: number) => string; versionOnly: (rev: number) => string
             lockedBanner: string
             reuseExisting: (name: string, rev: number, files: number) => string
             reuseNewVersionQueued: string; reuseNewVersion: (name: string) => string
             infoTitle: string
-            fldCode: string; fldMaterial: string; fldSurface: string
-            drawingTitle: string; lockedPill: (rev: number) => string
+            fldCode: string; fldCodeReadonly: string; codeHint: string
+            fldMaterial: string; fldSurface: string
+            drawingTitle: string; drawingHint: string; lockedPill: (rev: number) => string
             chooseDrawing: string; replaceDrawing: string
             download: string; removeTitle: string
-            cancel: string; backToOrder: string; addToOrder: string; save: string
+            cancel: string; backToOrder: string; addToOrder: string; addHint: string; saveEdit: string
         }
         quotes: {
             title: string
@@ -452,17 +453,22 @@ export const STRINGS: Record<Lang, Strings> = {
             notFound: '零件不存在',
             titleNew: '添加零件', titleEdit: '编辑零件', titlePart: '零件',
             versionLine: (code, rev) => `${code} · 第 ${rev} 版`,
+            versionOnly: (rev) => `第 ${rev} 版`,
             lockedBanner: '订单已提交或已取消，不能再添加零件。',
             reuseExisting: (name, rev, files) => `已有零件「${name}」：加进订单后沿用上次提交的第 ${rev} 版图纸（${files} 个文件）。`,
             reuseNewVersionQueued: '你选了新文件，会为这张订单开一个新版本。',
             reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
-            fldCode: '图号 *', fldMaterial: '材料', fldSurface: '表面处理',
+            fldCode: '图号 *', fldCodeReadonly: '图号',
+            codeHint: '零件的唯一标识；重复使用会复用已有零件',
+            fldMaterial: '材料', fldSurface: '表面处理',
             drawingTitle: '图纸',
+            drawingHint: '订单提交前，每个零件至少要有一份图纸',
             lockedPill: (rev) => `第 ${rev} 版 · 已锁定`,
             chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
             download: '下载', removeTitle: '移除',
-            cancel: '取消', backToOrder: '返回订单', addToOrder: '添加', save: '保存',
+            cancel: '取消', backToOrder: '返回订单', addToOrder: '添加到订单',
+            addHint: '添加后进入零件详情', saveEdit: '保存修改',
         },
             quotes: {
                 title: '我的报价',
@@ -964,17 +970,22 @@ export const STRINGS: Record<Lang, Strings> = {
             notFound: 'Part not found',
             titleNew: 'Add part', titleEdit: 'Edit part', titlePart: 'Part',
             versionLine: (code, rev) => `${code} · rev ${rev}`,
+            versionOnly: (rev) => `Rev ${rev}`,
             lockedBanner: 'The order has been submitted or cancelled; parts can no longer be added.',
             reuseExisting: (name, rev, files) => `Part "${name}" already exists. Adding it to this order reuses revision ${rev} (${files} file${files === 1 ? '' : 's'}).`,
             reuseNewVersionQueued: 'You selected new files, so a new revision will be created for this order.',
             reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
-            fldCode: 'Drawing no. *', fldMaterial: 'Material', fldSurface: 'Surface finishing',
+            fldCode: 'Drawing no. *', fldCodeReadonly: 'Drawing no.',
+            codeHint: 'Identifies the part; reusing it links to the existing part',
+            fldMaterial: 'Material', fldSurface: 'Surface finishing',
             drawingTitle: 'Drawings',
+            drawingHint: 'Every part needs at least one drawing before the order is submitted',
             lockedPill: (rev) => `Rev ${rev} · locked`,
             chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
             download: 'Download', removeTitle: 'Remove',
-            cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add', save: 'Save',
+            cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add to order',
+            addHint: 'Opens the part after adding', saveEdit: 'Save changes',
         },
             quotes: {
                 title: 'My quotes',
