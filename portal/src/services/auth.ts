@@ -113,6 +113,29 @@ export function verifyOtp(channel: OtpChannel, identifier: string, code: string)
  *
  * ★ 失败不抛给调用方 —— 存语言失败不该让人用不了页面。
  */
+const PROFILE_PATH: Record<PartyType, string> = {
+    CUSTOMER: '/customer/me/profile',
+    SUPPLIER: '/supplier/me/profile',
+    OPERATOR: '/ops/me/profile',
+}
+
+/** 个人资料：邮箱 / 昵称 / 身份 / 注册时间。身份由后端按组织类型给出。 */
+export interface MyProfile {
+    email: string
+    nickname: string
+    partyType: PartyType
+    createdAt: string
+}
+
+export function getMyProfile(partyType: PartyType): Promise<MyProfile> {
+    return http.get<MyProfile>(PROFILE_PATH[partyType])
+}
+
+/** 改自己的昵称。 */
+export function updateMyNickname(partyType: PartyType, nickname: string): Promise<void> {
+    return http.patch<void>(PROFILE_PATH[partyType], { nickname })
+}
+
 const LOCALE_PATH: Record<PartyType, string> = {
     CUSTOMER: '/customer/me/locale',
     SUPPLIER: '/supplier/me/locale',
