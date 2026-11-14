@@ -10,9 +10,9 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Input } from '../../components/form'
+import { Field, FieldRow, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pill, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -133,15 +133,20 @@ export function OrderDetailPage() {
                 right={
                     <>
                         {pill(orderSt(t)[order.status])}
-                        {/* ★ 提交入口常驻（草稿时），不再随零件数出现/消失；缺什么用按钮文案说 */}
+                        {/* ★ 按钮名固定「提交订单」：原因属于说明，不该被写成按钮文案 */}
                         {draft && (
-                            <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
-                                {canSubmit
-                                    ? t.customer.orderDetail.submitOrder(order.lines.length)
-                                    : order.lines.length === 0
-                                        ? t.customer.orderDetail.needParts
-                                        : t.customer.orderDetail.needDrawings(noDrawing)}
-                            </button>
+                            <>
+                                {!canSubmit && (
+                                    <span className="t2" style={{ color: 'var(--muted)' }}>
+                                        {order.lines.length === 0
+                                            ? t.customer.orderDetail.needParts
+                                            : t.customer.orderDetail.needDrawings(noDrawing)}
+                                    </span>
+                                )}
+                                <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
+                                    {t.customer.orderDetail.submit}
+                                </button>
+                            </>
                         )}
                     </>
                 }
@@ -172,19 +177,30 @@ export function OrderDetailPage() {
                 <CardHead title={t.customer.orderDetail.infoTitle}
                     right={saved ? <span className="t2" style={{ color: 'var(--muted)' }}>{t.common.saved}</span> : undefined} />
                 <CardBody>
-                    <Fields>
-                        <Fld k={t.customer.orderDetail.fldName} v={draft
-                            ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
-                            : (order.title || X)} />
-                        <Fld k={t.customer.orderDetail.fldLead} v={draft
-                            ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
-                            : (order.wantedDate || X)} />
-                        <Fld k={t.customer.orderDetail.fldParts} v={order.lines.length} mono />
-                        <Fld k={t.customer.orderDetail.fldTotalQty} v={totalQty} mono />
-                        {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示，不能直接截字符串（CLAUDE.md §4） */}
-                        <Fld k={t.customer.orderDetail.fldCreated} v={fmtDate(new Date(order.createdAt))} mono />
-                        <Fld k={t.customer.orderDetail.fldSubmitted} v={order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X} mono />
-                    </Fields>
+                    {/* ★ 同一张卡只用一套规格：标签 12.5px 常规、值 14px。
+                        可编辑与只读靠「输入框 vs 纯文本」区分，不靠字号 —— 之前混了 Fld(10.5 大写/13 等宽)。 */}
+                    <FieldRow>
+                        <Field label={t.customer.orderDetail.fldName}>
+                            {draft
+                                ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
+                                : <div className="ro">{order.title || X}</div>}
+                        </Field>
+                        <Field label={t.customer.orderDetail.fldLead}>
+                            {draft
+                                ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
+                                : <div className="ro">{order.wantedDate || X}</div>}
+                        </Field>
+                    </FieldRow>
+
+                    <div className="f4row" style={{ marginTop: 14 }}>
+                        <Field label={t.customer.orderDetail.fldParts}><div className="ro">{order.lines.length}</div></Field>
+                        <Field label={t.customer.orderDetail.fldTotalQty}><div className="ro">{totalQty}</div></Field>
+                        {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示（CLAUDE.md §4） */}
+                        <Field label={t.customer.orderDetail.fldCreated}><div className="ro">{fmtDate(new Date(order.createdAt))}</div></Field>
+                        <Field label={t.customer.orderDetail.fldSubmitted}>
+                            <div className="ro">{order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X}</div>
+                        </Field>
+                    </div>
                 </CardBody>
             </Card>
 
