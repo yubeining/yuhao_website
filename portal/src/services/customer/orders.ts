@@ -27,8 +27,8 @@ export interface OrderSummaryView {
     id: string
     title?: string | null
     status: OrderStatus
-    /** 客户期望的交货天数，仅参考 */
-    wantedLeadDays?: number | null
+    /** 客户期望的交货日期（yyyy-MM-dd），仅参考 */
+    wantedDate?: string | null
     lineCount: number
     totalQuantity: number
     createdAt: string
@@ -55,7 +55,7 @@ export interface OrderView {
     id: string
     title?: string | null
     status: OrderStatus
-    wantedLeadDays?: number | null
+    wantedDate?: string | null
     createdAt: string
     submittedAt?: string | null
     lines: OrderLineView[]
@@ -63,7 +63,8 @@ export interface OrderView {
 
 export interface OrderDraftInput {
     title: string | null
-    wantedLeadDays: number | null
+    /** yyyy-MM-dd；null = 客户没填 */
+    wantedDate: string | null
 }
 
 export interface LineInput {

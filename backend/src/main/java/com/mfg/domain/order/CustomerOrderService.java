@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -63,8 +64,8 @@ class CustomerOrderService {
     // ---------- 订单 ----------
 
     @Transactional
-    public OrderView create(UUID customerOrgId, UUID userId, String title, Integer wantedLeadDays) {
-        CustomerOrder saved = orders.save(new CustomerOrder(customerOrgId, userId, blankToNull(title), wantedLeadDays));
+    public OrderView create(UUID customerOrgId, UUID userId, String title, LocalDate wantedDate) {
+        CustomerOrder saved = orders.save(new CustomerOrder(customerOrgId, userId, blankToNull(title), wantedDate));
         return view(customerOrgId, saved);
     }
 
@@ -79,7 +80,7 @@ class CustomerOrderService {
         }
         return PagedResponse.of(page, o -> {
             long[] c = counts.getOrDefault(o.getId(), new long[] {0, 0});
-            return new OrderSummaryView(o.getId(), o.getTitle(), o.getStatus().name(), o.getWantedLeadDays(),
+            return new OrderSummaryView(o.getId(), o.getTitle(), o.getStatus().name(), o.getWantedDate(),
                     c[0], c[1], o.getCreatedAt(), o.getSubmittedAt());
         });
     }
@@ -90,9 +91,9 @@ class CustomerOrderService {
     }
 
     @Transactional
-    public OrderView updateDraft(UUID customerOrgId, UUID orderId, String title, Integer wantedLeadDays) {
+    public OrderView updateDraft(UUID customerOrgId, UUID orderId, String title, LocalDate wantedDate) {
         CustomerOrder order = requireDraft(customerOrgId, orderId);
-        order.updateDraft(blankToNull(title), wantedLeadDays);
+        order.updateDraft(blankToNull(title), wantedDate);
         return view(customerOrgId, orders.saveAndFlush(order));
     }
 
@@ -234,7 +235,7 @@ class CustomerOrderService {
         List<CustomerOrderPart> orderLines =
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(order.getId(), customerOrgId);
         List<OrderLineView> views = lineViews(customerOrgId, orderLines);
-        return new OrderView(order.getId(), order.getTitle(), order.getStatus().name(), order.getWantedLeadDays(),
+        return new OrderView(order.getId(), order.getTitle(), order.getStatus().name(), order.getWantedDate(),
                 order.getCreatedAt(), order.getSubmittedAt(), views);
     }
 

@@ -62,6 +62,7 @@ CREATE TABLE public.customer_order (
     version bigint DEFAULT 0 NOT NULL,
     status text NOT NULL,
     title text,
+    wanted_date date,
     wanted_lead_days integer,
     submitted_at timestamp with time zone,
     CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'READY'::text, 'CANCELLED'::text]))),

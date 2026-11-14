@@ -30,14 +30,15 @@ export function OrderDetailPage() {
     const [missing, setMissing] = useState(false)
     const [loadErr, setLoadErr] = useState<string | null>(null)
     const [title, setTitle] = useState('')
-    const [lead, setLead] = useState('')
+    const [wantedDate, setWantedDate] = useState('')
+    const [saved, setSaved] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
     const apply = (o: OrderView) => {
         setOrder(o)
         setTitle(o.title ?? '')
-        setLead(o.wantedLeadDays ? String(o.wantedLeadDays) : '')
+        setWantedDate(o.wantedDate ?? '')
     }
 
     const load = useCallback(async () => {
@@ -52,6 +53,13 @@ export function OrderDetailPage() {
     }, [id, t])
 
     useEffect(() => { void load() }, [load])
+
+    // 「已保存」2 秒后自己消失
+    useEffect(() => {
+        if (!saved) return
+        const timer = window.setTimeout(() => setSaved(false), 2000)
+        return () => window.clearTimeout(timer)
+    }, [saved])
 
     if (missing) {
         return (
@@ -81,16 +89,14 @@ export function OrderDetailPage() {
     const canSubmit = draft && order.lines.length > 0 && noDrawing === 0
 
     const saveDraftInfo = async () => {
-        const days = lead.trim() ? Number(lead.trim()) : null
-        if (days !== null && (!Number.isInteger(days) || days <= 0)) {
-            setErr(t.customer.orderDetail.errLeadDays)
-            return
-        }
+        const date = wantedDate.trim() || null
         // 后端不输出 null 字段，拿到的是 undefined —— 统一成 null 再比，否则每次失焦都会多发一次保存
-        if ((title.trim() || null) === (order.title ?? null) && days === (order.wantedLeadDays ?? null)) return
+        if ((title.trim() || null) === (order.title ?? null) && date === (order.wantedDate ?? null)) return
         try {
-            apply(await updateOrder(order.id, { title: title.trim() || null, wantedLeadDays: days }))
+            apply(await updateOrder(order.id, { title: title.trim() || null, wantedDate: date }))
             setErr(null)
+            // ★ 失焦即保存，就必须告诉用户存了 —— 否则改完切走，不知道生效没有
+            setSaved(true)
         } catch (e) {
             setErr(errorText(t, e))
         }
@@ -126,7 +132,16 @@ export function OrderDetailPage() {
                 right={
                     <>
                         {pill(orderSt(t)[order.status])}
-                        {draft && <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>}
+                        {/* ★ 提交入口常驻（草稿时），不再随零件数出现/消失；缺什么用按钮文案说 */}
+                        {draft && (
+                            <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
+                                {canSubmit
+                                    ? t.customer.orderDetail.submitOrder(order.lines.length)
+                                    : order.lines.length === 0
+                                        ? t.customer.orderDetail.needParts
+                                        : t.customer.orderDetail.needDrawings(noDrawing)}
+                            </button>
+                        )}
                     </>
                 }
             />
@@ -153,15 +168,16 @@ export function OrderDetailPage() {
             )}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={t.customer.orderDetail.infoTitle} />
+                <CardHead title={t.customer.orderDetail.infoTitle}
+                    right={saved ? <span className="t2" style={{ color: 'var(--muted)' }}>{t.common.saved}</span> : undefined} />
                 <CardBody>
                     <Fields>
                         <Fld k={t.customer.orderDetail.fldName} v={draft
                             ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={saveDraftInfo} />
                             : (order.title || X)} />
                         <Fld k={t.customer.orderDetail.fldLead} v={draft
-                            ? <Input value={lead} placeholder={t.customer.orderDetail.leadPlaceholder} onChange={setLead} onBlur={saveDraftInfo} />
-                            : (order.wantedLeadDays ? t.customer.orderDetail.leadDays(order.wantedLeadDays) : X)} />
+                            ? <Input type="date" value={wantedDate} onChange={setWantedDate} onBlur={saveDraftInfo} />
+                            : (order.wantedDate || X)} />
                         <Fld k={t.customer.orderDetail.fldParts} v={order.lines.length} mono />
                         <Fld k={t.customer.orderDetail.fldTotalQty} v={totalQty} mono />
                         {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示，不能直接截字符串（CLAUDE.md §4） */}
@@ -221,11 +237,6 @@ export function OrderDetailPage() {
                 {draft && order.lines.length > 0 && (
                     <CardFoot
                         left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>}
-                        right={
-                            <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
-                                {canSubmit ? t.customer.orderDetail.submitOrder(order.lines.length) : t.customer.orderDetail.needDrawings(noDrawing)}
-                            </button>
-                        }
                     />
                 )}
             </Card>

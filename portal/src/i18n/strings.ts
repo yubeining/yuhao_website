@@ -37,6 +37,8 @@ export interface Strings {
         loading: string
         retry: string
         cancel: string; save: string
+        /** 自动保存后的轻提示 */
+        saved: string
         create: string
         untitledOrder: string
         /** 表格列头。同一列在多个页面出现，必须同一套说法。 */
@@ -57,15 +59,16 @@ export interface Strings {
             notFound: string; backToOrders: string; addPart: string; addFirstPart: string
             missingDrawingBanner: (n: number) => string; submittedBanner: string
             quotedBanner: string; quoteLink: string; confirmedBanner: string; cancelledBanner: string
-            infoTitle: string; fldName: string; fldLead: string
-            leadPlaceholder: string; titlePlaceholder: string; leadDays: (n: number) => string
+            infoTitle: string; fldName: string; fldLead: string; titlePlaceholder: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
             partsTitle: (n: number) => string; missingDrawingPill: (n: number) => string
             colRevision: string; colMaterial: string; colDrawing: string; colProgress: string
             colCode: string; colQty: string
             customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
             remove: string; emptyParts: string; emptyPartsSub: string
-            submitOrder: (n: number) => string; needDrawings: (n: number) => string; errLeadDays: string
+            submitOrder: (n: number) => string; needDrawings: (n: number) => string
+            /** 一个零件都没有时的提交按钮文案 */
+            needParts: string
         }
         partForm: {
             uploadFailed: string; errRequired: string; notFound: string
@@ -404,7 +407,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存',
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -430,9 +433,8 @@ export const STRINGS: Record<Lang, Strings> = {
             quotedBanner: '平台已报价，等你确认。', quoteLink: '查看报价 →',
             confirmedBanner: '报价已确认。', cancelledBanner: '订单已取消。',
             infoTitle: '订单信息',
-            fldName: '名称', fldLead: '期望交期',
-            leadPlaceholder: '天（仅供参考）', titlePlaceholder: '订单名称',
-            leadDays: (n) => `${n} 天（仅供参考）`,
+            fldName: '名称', fldLead: '期望交货日期',
+            titlePlaceholder: '订单名称',
             fldParts: '零件数', fldTotalQty: '总件数', fldCreated: '建单日期', fldSubmitted: '提交时间',
             partsTitle: (n) => `零件 ${n} 个`, missingDrawingPill: (n) => `${n} 缺图纸`,
             colRevision: '版本', colMaterial: '材料', colDrawing: '图纸', colProgress: '进度',
@@ -442,7 +444,7 @@ export const STRINGS: Record<Lang, Strings> = {
             emptyParts: '暂无零件', emptyPartsSub: '录入零件并传好图纸后提交',
             submitOrder: (n) => `提交订单（${n} 个零件）→`,
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
-            errLeadDays: '期望交期请填正整数天数',
+            needParts: '先添加零件',
         },
         partForm: {
             uploadFailed: '上传失败',
@@ -920,7 +922,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
-            save: 'Save',
+            save: 'Save', saved: 'Saved',
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',
@@ -946,9 +948,8 @@ export const STRINGS: Record<Lang, Strings> = {
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', quoteLink: 'View quote →',
             confirmedBanner: 'Quote confirmed.', cancelledBanner: 'Order cancelled.',
             infoTitle: 'Order details',
-            fldName: 'Name', fldLead: 'Requested lead time',
-            leadPlaceholder: 'days (for reference)', titlePlaceholder: 'Order name',
-            leadDays: (n) => `${n} days (for reference)`,
+            fldName: 'Name', fldLead: 'Requested delivery date',
+            titlePlaceholder: 'Order name',
             fldParts: 'Parts', fldTotalQty: 'Total quantity', fldCreated: 'Created', fldSubmitted: 'Submitted',
             partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, missingDrawingPill: (n) => `${n} missing drawing`,
             colRevision: 'Rev', colMaterial: 'Material', colDrawing: 'Drawing', colProgress: 'Progress',
@@ -958,7 +959,7 @@ export const STRINGS: Record<Lang, Strings> = {
             emptyParts: 'No parts yet', emptyPartsSub: 'Add parts and drawings, then submit',
             submitOrder: (n) => `Submit order (${n} part${n === 1 ? '' : 's'}) →`,
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
-            errLeadDays: 'Requested lead time must be a whole number of days',
+            needParts: 'Add a part first',
         },
         partForm: {
             uploadFailed: 'Upload failed',

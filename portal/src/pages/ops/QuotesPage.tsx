@@ -86,7 +86,7 @@ export function OpsQuotesPage() {
                                         <td>{o.customerName ?? X}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
-                                        <td className="n">{o.wantedLeadDays ? t.ops.quotes.leadDays(o.wantedLeadDays) : X}</td>
+                                        <td className="n">{o.wantedDate || X}</td>
                                         <td className="n">{o.submittedAt ? fmtDateTime(new Date(o.submittedAt)) : X}</td>
                                         <td>{pill(orderSt(t)[o.status])}</td>
                                         <td>

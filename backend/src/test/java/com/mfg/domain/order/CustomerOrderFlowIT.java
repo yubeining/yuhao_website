@@ -25,6 +25,7 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -96,17 +97,17 @@ class CustomerOrderFlowIT {
     void draftCanBeCreatedAndEdited() throws Exception {
         Customer c = register("draft");
         JsonNode created = post("/customer/orders",
-                new CustomerOrderController.OrderDraftRequest("Batch 1", 30), c.token()).path("data");
+                new CustomerOrderController.OrderDraftRequest("Batch 1", LocalDate.of(2026, 12, 1)), c.token()).path("data");
         assertThat(created.path("status").asText()).isEqualTo("DRAFT");
         assertThat(created.path("title").asText()).isEqualTo("Batch 1");
-        assertThat(created.path("wantedLeadDays").asInt()).isEqualTo(30);
+        assertThat(created.path("wantedDate").asText()).isEqualTo("2026-12-01");
 
         String id = created.path("id").asText();
         JsonNode edited = patch("/customer/orders/" + id,
                 new CustomerOrderController.OrderDraftRequest("Batch 1b", null), c.token()).path("data");
         assertThat(edited.path("title").asText()).isEqualTo("Batch 1b");
         // 接口不输出值为 null 的字段（spring.jackson.default-property-inclusion: non_null），清空后字段直接不出现
-        assertThat(edited.has("wantedLeadDays")).isFalse();
+        assertThat(edited.has("wantedDate")).isFalse();
 
         JsonNode list = get("/customer/orders", c.token()).path("data");
         assertThat(list.path("total").asInt()).isEqualTo(1);
