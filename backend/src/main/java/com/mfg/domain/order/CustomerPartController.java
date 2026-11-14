@@ -80,4 +80,11 @@ class CustomerPartController {
     ViewUrl viewUrl(@CurrentUser UserPrincipal user, @PathVariable UUID fileId) {
         return service.issueViewUrl(user.partyId(), user.id(), user.partyType(), user.partyId(), fileId);
     }
+
+    /** 预览用：不带 attachment，PDF / 图片才能在浏览器里直接显示。 */
+    @GetMapping("/customer/files/{fileId}/preview-url")
+    ViewUrl previewUrl(@CurrentUser UserPrincipal user, @PathVariable UUID fileId) {
+        return service.issuePreviewUrl(user.partyId(), user.id(), user.partyType(), user.partyId(),
+                fileId, null, null);
+    }
 }

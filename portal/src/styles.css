@@ -699,3 +699,24 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .f4row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;}
 .ro{display:flex;align-items:center;min-height:38px;font-size:14px;color:var(--ink);
   font-variant-numeric:tabular-nums;}
+
+/* ═══════════════════════════════ 图纸文件行 / 预览弹层 */
+.fileRow{display:flex;align-items:center;gap:12px;padding:10px 2px;border-bottom:1px solid var(--line);}
+.fileRow:last-child{border-bottom:0;}
+.fileIco{width:30px;height:30px;border-radius:7px;background:var(--panel-2);border:1px solid var(--line);
+  display:grid;place-items:center;font-size:9.5px;font-weight:700;color:var(--acc-ink);flex:none;}
+.fileName{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:14px;}
+.fileSize{font-size:12.5px;color:var(--muted);flex:none;font-variant-numeric:tabular-nums;}
+.fileActs{display:flex;gap:14px;flex:none;font-size:12.5px;}
+.fileActs button{border:0;background:none;color:var(--acc-ink);cursor:pointer;padding:2px 0;font:inherit;}
+.fileActs button:hover{text-decoration:underline;}
+.fileActs button:disabled{color:var(--faint);cursor:not-allowed;text-decoration:none;}
+.fileActs .del{color:var(--muted);}
+.fp-overlay{position:fixed;inset:0;background:rgba(10,16,24,.55);display:grid;place-items:center;z-index:60;}
+.fp-modal{width:min(900px,92vw);height:min(640px,86vh);background:var(--panel);border-radius:var(--r3);
+  overflow:hidden;display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.35);}
+.fp-head{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--line);}
+.fp-title{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13.5px;font-weight:600;}
+.fp-body{flex:1;background:var(--panel-2);display:grid;place-items:center;overflow:hidden;}
+.fp-frame{width:100%;height:100%;border:0;background:#fff;}
+.fp-img{max-width:100%;max-height:100%;object-fit:contain;}

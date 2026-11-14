@@ -36,7 +36,7 @@ export interface Strings {
         actionFailed: string
         loading: string
         retry: string
-        cancel: string; save: string
+        cancel: string; save: string; close: string
         /** 自动保存后的轻提示 */
         saved: string
         create: string
@@ -82,7 +82,7 @@ export interface Strings {
             fldMaterial: string; fldSurface: string
             drawingTitle: string; drawingHint: string; lockedPill: (rev: number) => string
             chooseDrawing: string; replaceDrawing: string
-            download: string; removeTitle: string
+            download: string; removeTitle: string; preview: string; previewUnsupported: string
             cancel: string; backToOrder: string; addToOrder: string; addHint: string; saveEdit: string
         }
         quotes: {
@@ -408,7 +408,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭',
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -467,6 +467,7 @@ export const STRINGS: Record<Lang, Strings> = {
             lockedPill: (rev) => `第 ${rev} 版 · 已锁定`,
             chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
             download: '下载', removeTitle: '移除',
+            preview: '预览', previewUnsupported: '该格式无法在线预览，请下载后用 CAD 软件打开',
             cancel: '取消', backToOrder: '返回订单', addToOrder: '添加到订单',
             addHint: '添加后进入零件详情', saveEdit: '保存修改',
         },
@@ -925,7 +926,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
-            save: 'Save', saved: 'Saved',
+            save: 'Save', saved: 'Saved', close: 'Close',
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',
@@ -984,6 +985,7 @@ export const STRINGS: Record<Lang, Strings> = {
             lockedPill: (rev) => `Rev ${rev} · locked`,
             chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
             download: 'Download', removeTitle: 'Remove',
+            preview: 'Preview', previewUnsupported: 'This format cannot be previewed; download it and open it in CAD',
             cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add to order',
             addHint: 'Opens the part after adding', saveEdit: 'Save changes',
         },
