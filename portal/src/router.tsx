@@ -6,10 +6,10 @@ import { SignInPage } from './pages/auth/SignInPage'
 import { OpsSignInPage } from './pages/auth/OpsSignInPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
 
-import { CustomerHomePage } from './pages/customer/HomePage'
 import { QuoteListPage } from './pages/customer/QuoteListPage'
 import { QuoteDetailPage } from './pages/customer/QuoteDetailPage'
 import { OrderListPage } from './pages/customer/OrderListPage'
+import { NewOrderPage } from './pages/customer/NewOrderPage'
 import { OrderDetailPage } from './pages/customer/OrderDetailPage'
 import { PartFormPage } from './pages/customer/PartFormPage'
 
@@ -77,10 +77,12 @@ export const router = createBrowserRouter([
             </PortalGuard>
         ),
         children: [
-            { index: true, element: <CustomerHomePage /> },
+            // 概览页已删除（2026-11-14）：它只是订单列表的副本，且多一层点击
+            { index: true, element: <Navigate to="/customer/orders" replace /> },
             { path: 'quotes', element: <QuoteListPage /> },
             { path: 'quotes/:id', element: <QuoteDetailPage /> },
             { path: 'orders', element: <OrderListPage /> },
+            { path: 'orders/new', element: <NewOrderPage /> },
             { path: 'orders/:id', element: <OrderDetailPage /> },
             // ★ new 必须排在 :partId 前面，否则 /parts/new 会被当成 id 为 "new" 的零件
             { path: 'orders/:id/parts/new', element: <PartFormPage /> },

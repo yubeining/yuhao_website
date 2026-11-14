@@ -47,16 +47,6 @@ export interface Strings {
     }
     /** 客户端页面 */
     customer: {
-        home: {
-            greeting: (name: string) => string
-            newOrder: string
-            quotesPending: (n: number) => string
-            viewQuotes: string
-            myOrders: string
-            orderCount: (n: number) => string
-            empty: string
-            createFirst: string
-        }
         orders: {
             title: string; sub: string; count: (n: number) => string
             newOrder: string; newTitle: string; titlePlaceholder: string
@@ -239,7 +229,7 @@ export interface Strings {
     nav: {
         settings: string; signOut: string; profile: string
         defaultUser: string; supplierFallback: string
-        customer: { trade: string; overview: string; orders: string; quotes: string }
+        customer: { trade: string; orders: string; quotes: string }
         supplier: {
             accept: string; orders: string; settlement: string; bill: string
             company: string; profile: string; hall: string; workspace: string
@@ -422,16 +412,6 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         },
         customer: {
-            home: {
-                greeting: (name) => `你好，${name}`,
-                newOrder: '＋ 新建订单',
-                quotesPending: (n) => `有 ${n} 单报价等你确认。`,
-                viewQuotes: '我的报价 →',
-                myOrders: '我的订单',
-                orderCount: (n) => `${n} 单`,
-                empty: '还没有订单',
-                createFirst: '新建订单',
-            },
             orders: {
                 title: '我的订单',
                 sub: '录入零件、传好图纸后提交',
@@ -655,7 +635,7 @@ export const STRINGS: Record<Lang, Strings> = {
         nav: {
             settings: '设置', signOut: '退出登录', profile: '个人资料',
             defaultUser: '用户', supplierFallback: '供应商',
-            customer: { trade: '交易', overview: '概览', orders: '我的订单', quotes: '我的报价' },
+            customer: { trade: '交易', orders: '我的订单', quotes: '我的报价' },
             supplier: {
                 accept: '接单', orders: '我的订单', settlement: '结算', bill: '对账与开票',
                 company: '企业', profile: '企业资料', hall: '订单市场', workspace: '我的工作台',
@@ -948,16 +928,6 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         },
         customer: {
-            home: {
-                greeting: (name) => `Hello, ${name}`,
-                newOrder: '+ New order',
-                quotesPending: (n) => `${n} quote${n === 1 ? '' : 's'} awaiting your confirmation.`,
-                viewQuotes: 'My quotes →',
-                myOrders: 'My orders',
-                orderCount: (n) => `${n} order${n === 1 ? '' : 's'}`,
-                empty: 'No orders yet',
-                createFirst: 'New order',
-            },
             orders: {
                 title: 'My orders',
                 sub: 'Add parts and drawings, then submit',
@@ -1182,7 +1152,7 @@ export const STRINGS: Record<Lang, Strings> = {
         nav: {
             settings: 'Settings', signOut: 'Sign out', profile: 'Profile',
             defaultUser: 'User', supplierFallback: 'Supplier',
-            customer: { trade: 'Trade', overview: 'Overview', orders: 'Orders', quotes: 'Quotes' },
+            customer: { trade: 'Trade', orders: 'Orders', quotes: 'Quotes' },
             supplier: {
                 accept: 'Orders', orders: 'My orders', settlement: 'Settlement', bill: 'Reconciliation & invoicing',
                 company: 'Company', profile: 'Company profile', hall: 'Order market', workspace: 'My workspace',

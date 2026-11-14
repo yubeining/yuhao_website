@@ -182,7 +182,6 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
 
 const customerNav = (t: Strings): NavItem[] => [
     { sec: t.nav.customer.trade },
-    { to: '/customer', ic: '◫', n: t.nav.customer.overview },
     // ★ 订单是整条链的主干：建订单 → 加零件 → 提交 → 确认价格 →（平台安排生产）
     { to: '/customer/orders', ic: '▣', n: t.nav.customer.orders },
     { to: '/customer/quotes', ic: '€', n: t.nav.customer.quotes },
