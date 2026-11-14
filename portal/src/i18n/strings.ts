@@ -430,7 +430,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 myOrders: '我的订单',
                 orderCount: (n) => `${n} 单`,
                 empty: '还没有订单',
-                createFirst: '建第一个订单',
+                createFirst: '新建订单',
             },
             orders: {
                 title: '我的订单',
@@ -956,7 +956,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 myOrders: 'My orders',
                 orderCount: (n) => `${n} order${n === 1 ? '' : 's'}`,
                 empty: 'No orders yet',
-                createFirst: 'Create your first order',
+                createFirst: 'New order',
             },
             orders: {
                 title: 'My orders',

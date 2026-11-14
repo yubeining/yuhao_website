@@ -28,12 +28,17 @@ export function CustomerHomePage() {
     }, [t])
 
     const toConfirm = orders?.filter((o) => o.status === 'QUOTED').length ?? 0
+    // ★ 空态时顶部不再放「新建订单」：它和列表中央那个按钮指向同一个地址，
+    //   两个 CTA 平分视线。有订单时中央按钮消失，顶部按钮出现。
+    const hasOrders = !!orders && orders.length > 0
 
     return (
         <Page>
             <Hello
                 title={t.customer.home.greeting(session?.displayName ?? '')}
-                right={<Link className="btn pri" to="/customer/orders">{t.customer.home.newOrder}</Link>}
+                right={hasOrders
+                    ? <Link className="btn pri" to="/customer/orders">{t.customer.home.newOrder}</Link>
+                    : undefined}
             />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {toConfirm > 0 && (
