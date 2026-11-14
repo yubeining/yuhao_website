@@ -134,6 +134,8 @@ public class SecurityConfig {
                 + "img-src 'self' data: blob:" + ext + "; "
                 + "font-src 'self' data:; "
                 + "connect-src 'self'" + ext + "; "
+                // PDF / 图片预览用 iframe 指向对象存储的签名 URL；只放行存储域
+                + "frame-src 'self'" + ext + "; "
                 + "object-src 'none'; "
                 + "base-uri 'self'; "
                 + "form-action 'self'; "

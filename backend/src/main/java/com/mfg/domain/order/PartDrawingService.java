@@ -227,6 +227,30 @@ class PartDrawingService {
         return new ViewUrl(url, now.plus(signedUrlTtl));
     }
 
+    /**
+     * 预览用 URL：同样是签名 GET，但<b>不带 attachment</b> —— 浏览器才会内嵌显示 PDF / 图片。
+     *
+     * <p>下载和预览是两个 URL：下载必须带 {@code Content-Disposition: attachment}，
+     * 否则用户点「下载」会被 PDF 查看器接管；预览反过来，带了 attachment 就变成下载。
+     *
+     * <p>审计与下载一致：每次签发都落一行，预览不等于免费访问。
+     */
+    @Transactional
+    ViewUrl issuePreviewUrl(UUID customerOrgId, UUID accessorUserId, PartyType accessorPartyType,
+                            UUID accessorOrgId, UUID fileId, PartFileAccessLog.ContextType contextType,
+                            UUID contextId) {
+        PartFile file = requireFile(customerOrgId, fileId);
+        if (file.getUploadStatus() != PartFile.UploadStatus.COMPLETED) {
+            throw BusinessException.conflict("part.file_not_completed");
+        }
+        Instant now = Instant.now();
+        String url = storage.presignedGet(file.getStorageKey(), signedUrlTtl).toString();
+        accessLog.save(new PartFileAccessLog(file.getId(), file.getPartRevisionId(), customerOrgId,
+                accessorUserId, accessorPartyType, accessorOrgId,
+                PartFileAccessLog.AccessType.SIGNED_URL_ISSUED, contextType, contextId, RequestContext.traceId(), now));
+        return new ViewUrl(url, now.plus(signedUrlTtl));
+    }
+
     // ---------- 给订单域同包复用 ----------
 
     PartDesign insertPart(UUID customerOrgId, String code, String name) {

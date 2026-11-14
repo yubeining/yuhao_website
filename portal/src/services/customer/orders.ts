@@ -122,6 +122,11 @@ export function startNewRevision(orderId: string, lineId: string, customerRev: s
 }
 
 /** 在订单里看图：后端校验这一行确实锁的是这个文件的版本，并按订单记审计。 */
+/** 预览用：后端签的是 inline URL（不带 attachment），PDF / 图片才会直接在浏览器里显示。 */
+export function filePreviewUrl(fileId: string): Promise<ViewUrl> {
+    return http.get<ViewUrl>(`/customer/files/${fileId}/preview-url`)
+}
+
 export function lineFileViewUrl(orderId: string, lineId: string, fileId: string): Promise<ViewUrl> {
     return http.get<ViewUrl>(`/customer/orders/${orderId}/lines/${lineId}/files/${fileId}/view-url`)
 }

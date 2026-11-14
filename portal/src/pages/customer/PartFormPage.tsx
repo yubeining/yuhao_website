@@ -18,6 +18,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Field, FieldRow, Input, Stepper } from '../../components/form'
+import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pill,
 } from '../../components/ui'
@@ -26,7 +27,7 @@ import { useMock } from '../../mock/MockProvider'
 import { humanSize, parseDrawingName } from '../../mock/drawing'
 import { X } from '../../mock/format'
 import {
-    addLine, ApiError, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
+    addLine, ApiError, filePreviewUrl, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
     uploadDrawing, type FileView, type OrderLineView, type OrderView, type PartView,
 } from '../../services'
 
@@ -81,6 +82,7 @@ export function PartFormPage() {
     const [uploads, setUploads] = useState<Upload[]>([])
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
+    const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; fileId: string } | null>(null)
 
     const line: OrderLineView | undefined = order?.lines.find((l) => l.id === partId)
 
@@ -189,6 +191,17 @@ export function PartFormPage() {
             setErr(errorText(t, e))
         } finally {
             setBusy(false)
+        }
+    }
+
+    const openPreview = async (file: FileView) => {
+        const kind = previewKindOf(file.originalFilename)
+        if (!kind) return
+        try {
+            const { url } = await filePreviewUrl(file.id)
+            setPreview({ name: file.originalFilename, url, kind, fileId: file.id })
+        } catch (e) {
+            setErr(errorText(t, e))
         }
     }
 
@@ -304,40 +317,58 @@ export function PartFormPage() {
                         </div>
 
                         {isNew && queued.length > 0 && (
-                            <div className="fcell" style={{ marginTop: 9 }}>
+                            <div style={{ marginTop: 6 }}>
                                 {queued.map((x) => (
-                                    <span className="fchip lg" key={x.name} title={x.name}>
-                                        <span className="fx">{ext(x.name)}</span>
-                                        <b>{x.name}</b><i>{humanSize(x.size)}</i>
-                                        <button type="button" className="fdel" title={t.customer.partForm.removeTitle}
-                                            onClick={() => setQueued((prev) => prev.filter((y) => y.name !== x.name))}>×</button>
-                                    </span>
+                                    <div className="fileRow" key={x.name}>
+                                        <span className="fileIco">{ext(x.name)}</span>
+                                        <span className="fileName" title={x.name}>{x.name}</span>
+                                        <span className="fileSize">{humanSize(x.size)}</span>
+                                        <span className="fileActs">
+                                            <button type="button" className="del" title={t.customer.partForm.removeTitle}
+                                                onClick={() => setQueued((prev) => prev.filter((y) => y.name !== x.name))}>
+                                                {t.customer.partForm.removeTitle}
+                                            </button>
+                                        </span>
+                                    </div>
                                 ))}
                             </div>
                         )}
 
                         {line && line.revision.files.length > 0 && (
-                            <div className="fcell" style={{ marginTop: 9 }}>
-                                {line.revision.files.map((x) => (
-                                    <span className="fchip lg" key={x.id} title={x.originalFilename}>
-                                        <span className="fx">{ext(x.originalFilename)}</span>
-                                        <b>{x.originalFilename}</b>
-                                        <i>{x.sizeBytes != null ? humanSize(x.sizeBytes) : X}</i>
-                                        <button type="button" className="btn qui sm" onClick={() => void view(x)}>{t.customer.partForm.download}</button>
-                                        {draft && !locked && (
-                                            <button type="button" className="fdel" title={t.customer.partForm.removeTitle} onClick={() => void remove(x)}>×</button>
-                                        )}
-                                    </span>
-                                ))}
+                            <div style={{ marginTop: 6 }}>
+                                {line.revision.files.map((x) => {
+                                    const kind = previewKindOf(x.originalFilename)
+                                    return (
+                                        <div className="fileRow" key={x.id}>
+                                            <span className="fileIco">{ext(x.originalFilename)}</span>
+                                            <span className="fileName" title={x.originalFilename}>{x.originalFilename}</span>
+                                            <span className="fileSize">{x.sizeBytes != null ? humanSize(x.sizeBytes) : X}</span>
+                                            <span className="fileActs">
+                                                <button type="button" disabled={!kind}
+                                                    title={kind ? undefined : t.customer.partForm.previewUnsupported}
+                                                    onClick={() => void openPreview(x)}>{t.customer.partForm.preview}</button>
+                                                <button type="button" onClick={() => void view(x)}>{t.customer.partForm.download}</button>
+                                                {draft && !locked && (
+                                                    <button type="button" className="del" title={t.customer.partForm.removeTitle}
+                                                        onClick={() => void remove(x)}>{t.customer.partForm.removeTitle}</button>
+                                                )}
+                                            </span>
+                                        </div>
+                                    )
+                                })}
                             </div>
                         )}
 
                         <div className="fnote" style={{ marginTop: 9 }}>{t.customer.partForm.drawingHint}</div>
 
                         {uploads.map((u) => (
-                            <div key={u.key} style={{ marginTop: 9 }}>
-                                <div className="t2">{u.name}{u.error ? ` —— ${u.error}` : ` · ${u.pct}%`}</div>
-                                {!u.error && <Bar pct={u.pct} />}
+                            <div className="fileRow" key={u.key}>
+                                <span className="fileIco">{ext(u.name)}</span>
+                                <span className="fileName" title={u.name}>{u.name}</span>
+                                <span className="fileSize">{u.error ?? `${u.pct}%`}</span>
+                                <span className="fileActs" style={{ width: 90 }}>
+                                    {!u.error && <Bar pct={u.pct} />}
+                                </span>
                             </div>
                         ))}
                     </div>
@@ -354,6 +385,19 @@ export function PartFormPage() {
                     />
                 )}
             </Card>
+
+            {preview && (
+                <FilePreviewModal
+                    name={preview.name}
+                    url={preview.url}
+                    kind={preview.kind}
+                    onClose={() => setPreview(null)}
+                    onDownload={() => {
+                        const f = line?.revision.files.find((x) => x.id === preview.fileId)
+                        if (f) void view(f)
+                    }}
+                />
+            )}
         </Page>
     )
 }
