@@ -11,11 +11,14 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { CountrySelect } from '../../components/CountrySelect'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
+import { OTHER_COUNTRY, countryName } from '../../i18n/countries'
+import { useI18n } from '../../i18n/I18nProvider'
 import { useMock } from '../../mock/MockProvider'
 import {
     createAccount, createOrganization, createStaff, disableAccount, disableOrganization, disableStaff,
@@ -300,6 +303,10 @@ function OrgsTab() {
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [form, setForm] = useState<{ id?: string; type: string; name: string; country: string } | null>(null)
+    const { lang } = useI18n()
+
+    /** 下拉里的 OTHER 只是「列表里没有」，库里不存这个值。 */
+    const submitCountry = (v: string) => (v && v !== OTHER_COUNTRY ? v : null)
 
     const load = useCallback(async (keyword: string, orgType: string) => {
         try {
@@ -327,10 +334,10 @@ function OrgsTab() {
         setErr(null)
         try {
             if (form.id) {
-                await updateOrganization(form.id, { name: form.name, country: form.country || null })
+                await updateOrganization(form.id, { name: form.name, country: submitCountry(form.country) })
                 setOk(a.saved)
             } else {
-                await createOrganization({ type: form.type, name: form.name, country: form.country || null })
+                await createOrganization({ type: form.type, name: form.name, country: submitCountry(form.country) })
                 setOk(a.created)
             }
             setForm(null)
@@ -418,7 +425,7 @@ function OrgsTab() {
                         </FieldRow>
                         <FieldRow>
                             <Field label={a.fldCountry}>
-                                <Input value={form.country} placeholder="DE"
+                                <CountrySelect value={form.country}
                                     onChange={(v) => setForm({ ...form, country: v })} />
                             </Field>
                         </FieldRow>
@@ -454,7 +461,7 @@ function OrgsTab() {
                                     <tr key={r.id}>
                                         <td className="t1">{r.name}</td>
                                         <td>{typeLabel(r.type)}</td>
-                                        <td>{r.country ?? '—'}</td>
+                                        <td>{r.country ? (r.country === OTHER_COUNTRY ? t.reg.otherCountry : countryName(r.country, lang)) : '—'}</td>
                                         <td>
                                             <StatusPill status={r.status}
                                                 label={r.status === 'ACTIVE' ? a.statusActive : a.statusDisabled} />
