@@ -122,3 +122,14 @@ const LOCALE_PATH: Record<PartyType, string> = {
 export function updateMyLocale(partyType: PartyType, locale: string): Promise<void> {
     return http.patch<void>(LOCALE_PATH[partyType], { locale })
 }
+
+const NAME_PATH: Record<PartyType, string> = {
+    CUSTOMER: '/customer/me/name',
+    SUPPLIER: '/supplier/me/name',
+    OPERATOR: '/ops/me/name',
+}
+
+/** 改自己的称呼（显示名）。注册时默认是邮箱前缀，用户可在此覆盖。 */
+export function updateMyDisplayName(partyType: PartyType, displayName: string): Promise<void> {
+    return http.patch<void>(NAME_PATH[partyType], { displayName })
+}

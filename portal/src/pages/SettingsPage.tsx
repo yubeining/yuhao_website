@@ -11,9 +11,9 @@ import { Banner, Card, CardBody, CardFoot, CardHead, Hello, Kv, KvRow, Page } fr
 import { Field, Input } from '../components/form'
 import { useMock } from '../mock/MockProvider'
 import { logout } from '../mock/actions'
-import { clearSession } from '../auth/session'
+import { clearSession, setSession } from '../auth/session'
 import { useSession } from '../auth/useSession'
-import { logout as apiLogout } from '../services/auth'
+import { logout as apiLogout, updateMyDisplayName } from '../services/auth'
 import { errorText } from '../i18n/errorText'
 import { getMyOrganization, renameMyOrganization } from '../services/customer/organization'
 
@@ -38,6 +38,37 @@ export function SettingsPage() {
     const [companyBusy, setCompanyBusy] = useState(false)
     const [companyErr, setCompanyErr] = useState<string | null>(null)
     const isCustomer = session?.partyType === 'CUSTOMER'
+
+    // 称呼：默认是邮箱前缀（数字邮箱会得到一串数字），在这里可以改。
+    // ★ 只在用户没动过输入框时跟随登录态，否则刷新 session 会把正在输入的内容冲掉。
+    const [name, setName] = useState('')
+    const [nameTouched, setNameTouched] = useState(false)
+    const [nameOk, setNameOk] = useState(false)
+    const [nameBusy, setNameBusy] = useState(false)
+    const [nameErr, setNameErr] = useState<string | null>(null)
+
+    useEffect(() => {
+        if (!nameTouched && session?.displayName) setName(session.displayName)
+    }, [session?.displayName, nameTouched])
+
+    const saveName = async () => {
+        if (!session || nameBusy) return
+        const trimmed = name.trim()
+        if (!trimmed) return setNameErr(t.errors['common.validation_failed'] ?? t.common.actionFailed)
+        setNameBusy(true)
+        setNameErr(null)
+        setNameOk(false)
+        try {
+            await updateMyDisplayName(session.partyType, trimmed)
+            // 顶栏和「你好，X」都读 session，存下来立刻生效，不用重新登录
+            setSession({ ...session, displayName: trimmed })
+            setNameOk(true)
+        } catch (e) {
+            setNameErr(errorText(t, e))
+        } finally {
+            setNameBusy(false)
+        }
+    }
 
     useEffect(() => {
         if (!isCustomer) return
@@ -121,12 +152,23 @@ export function SettingsPage() {
                 <CardHead title={t.misc.account} />
                 <CardBody>
                     {/* 只显示登录态里真有的字段；邮箱、企业名登录态里没有，不显示 */}
+                    <Field label={t.misc.name}>
+                        <Input value={name} placeholder={t.misc.name}
+                            onChange={(v) => { setName(v); setNameTouched(true); setNameOk(false); setNameErr(null) }} />
+                    </Field>
+                    <div className="fnote" style={{ marginTop: 8 }}>{t.misc.nameHint}</div>
+                    {nameErr && <Banner tone="wa" style={{ marginTop: 10 }}>{nameErr}</Banner>}
+                    {nameOk && <Banner tone="in" style={{ marginTop: 10 }}>{t.misc.nameSaved}</Banner>}
+                    <div style={{ height: 14 }} />
                     <Kv>
-                        <KvRow k={t.misc.name} v={session?.displayName} sans />
                         <KvRow k={t.misc.role} v={session ? PARTY_BY_TYPE(t)[session.partyType] : undefined} sans />
                     </Kv>
                 </CardBody>
-                <CardFoot right={
+                <CardFoot left={
+                    <button className="btn pri" type="button" disabled={nameBusy} onClick={() => void saveName()}>
+                        {nameBusy ? '…' : t.common.save}
+                    </button>
+                } right={
                     <button className="btn" type="button" onClick={signOut}>
                         {t.nav.signOut}
                     </button>
