@@ -64,7 +64,10 @@ export function OrderListPage() {
                 right={
                     <>
                         {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(orders.length)}</Pill>}
-                        <button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>
+                        {/* ★ 空态时隐藏：中央那个按钮已经能建单，两个入口指向同一个动作 */}
+                        {orders && orders.length > 0 && (
+                            <button className="btn pri" type="button" onClick={() => setAdding(true)}>{t.customer.orders.newOrder}</button>
+                        )}
                     </>
                 }
             />
