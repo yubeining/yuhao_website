@@ -126,7 +126,7 @@ export interface Strings {
         h: string; sub: string; subA: string
         email: string; pw: string; forgot: string; submit: string; or: string
         wx: string
-        note: string; invited: string; invitedA: string
+        note: string
         /** 两种登录方式 */
         modePassword: string; modeCode: string
         sendCode: string; codeSentTo: string; codeLabel: string
@@ -149,19 +149,6 @@ export interface Strings {
         brand: string; h: string; sub: string
         email: string; pw: string; submit: string
         badCredentials: string; failed: string
-    }
-    /** 供应商邀请注册 */
-    invite: {
-        loading: string
-        backToSignin: string
-        invalidTitle: string; noInvite: string; invalidExpired: string; invalidNone: string
-        successTitle: string; successBody: (email: string) => string; goSignin: string
-        h: string; intro: (orgName: string) => string
-        emailLabel: string; emailLocked: string
-        orgLabel: string; nameLabel: string; nameP: string
-        pwLabel: string; pwP: string; pw2Label: string
-        submit: string; submitting: string
-        errRequired: string; errPwShort: string; errPwMismatch: string; errFailed: string
     }
     /** 订单 / 零件 / 报价的状态文案。★ 以后端枚举名为 key，不要自己起名。 */
     status: {
@@ -254,7 +241,6 @@ export interface Strings {
         ops: {
             overview: string; dashboard: string; quoting: string; quotes: string
             dispatch: string; execution: string; production: string; orders: string
-            onboarding: string; supplierOnboarding: string
             masterData: string; parties: string; accounts: string; internalOps: string
         }
     }
@@ -348,16 +334,6 @@ export interface Strings {
             ordersEmpty: string
             errInteger: string; errSplitMismatch: (qty: number, sum: number) => string
             allocated: (code: string, orders: number) => string
-        }
-        onboarding: {
-            title: string; inviteTitle: string; orgPlaceholder: string; emailPlaceholder: string
-            generate: string; hint: string
-            linkFor: (email: string) => string; copy: string
-            historyTitle: string; historyCount: (n: number) => string
-            colOrg: string; colEmail: string; colCreatedAt: string; colExpires: string
-            revoke: string; revokeConfirm: string
-            empty: string; emptySub: string; afterRegister: string; errRequired: string
-            stPending: string; stUsed: string; stExpired: string; stRevoked: string
         }
     }
         quoteWork: {
@@ -534,7 +510,6 @@ export const STRINGS: Record<Lang, Strings> = {
             email: '企业邮箱', pw: '密码', forgot: '忘记密码？', submit: '登录', or: '或',
             wx: '微信登录',
             note: '继续即表示同意服务条款与隐私政策。',
-            invited: '收到供应商邀请？', invitedA: '从邀请链接入驻',
             modePassword: '密码登录', modeCode: '验证码登录',
             sendCode: '发送验证码', codeSentTo: '验证码已发送至', codeLabel: '6 位验证码',
             backToEmail: '← 换个邮箱', resend: '重新发送',
@@ -563,26 +538,6 @@ export const STRINGS: Record<Lang, Strings> = {
             sub: '仅限内部员工。账号由管理员开通，不支持自助注册。',
             email: '企业邮箱', pw: '密码', submit: '登录',
             badCredentials: '账号或密码错误', failed: '登录失败，请重试',
-        },
-        invite: {
-            loading: '加载中…',
-            backToSignin: '返回登录',
-            invalidTitle: '邀请链接无效', noInvite: '没有有效的邀请',
-            invalidExpired: '链接可能已过期（7 天有效）、已被使用或已被作废。请联系融一智造运营重新发一条。',
-            invalidNone: '平台供应商为邀请制。请用融一智造运营发给你的邀请链接打开这个页面。',
-            successTitle: '注册成功',
-            successBody: (email) => `用 ${email} 和刚设的密码登录供应商端。平台运营为你设置好合作条件后，才会有订单派给你。`,
-            goSignin: '去登录',
-            h: '供应商入驻',
-            intro: (orgName) => `融一智造邀请 ${orgName} 成为平台供应商。本链接一次性使用。`,
-            emailLabel: '登录邮箱', emailLocked: '邮箱由邀请指定，不能修改',
-            orgLabel: '公司名称', nameLabel: '联系人姓名', nameP: '姓名',
-            pwLabel: '设置密码', pwP: '至少 8 位', pw2Label: '再输一次密码',
-            submit: '创建供应商账号', submitting: '提交中…',
-            errRequired: '请填写公司名称、联系人和密码',
-            errPwShort: '密码至少 8 位',
-            errPwMismatch: '两次输入的密码不一致',
-            errFailed: '注册失败，请重试',
         },
         status: {
             order: {
@@ -697,7 +652,6 @@ export const STRINGS: Record<Lang, Strings> = {
             ops: {
                 overview: '总览', dashboard: '工作台', quoting: '询价与报价', quotes: '报价',
                 dispatch: '派单管理', execution: '执行', production: '生产与质检', orders: '订单',
-                onboarding: '入驻', supplierOnboarding: '供应商入驻',
                 masterData: '主数据', parties: '交易方', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
@@ -806,21 +760,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 errInteger: '请在生产订单里填整数件数',
                 errSplitMismatch: (qty, sum) => `各份加起来要等于 ${qty} 件，现在是 ${sum} 件`,
                 allocated: (code, orders) => `「${code}」已分配到 ${orders} 张生产订单`,
-            },
-            onboarding: {
-                title: '供应商入驻', inviteTitle: '发邀请',
-                orgPlaceholder: '企业名称', emailPlaceholder: '对方登录邮箱',
-                generate: '生成邀请链接',
-                hint: '链接 7 天有效，用一次就失效。对方只能用这个邮箱注册。邮件发送还没接，生成后请自己复制发给对方。',
-                linkFor: (email) => `给 ${email} 的邀请链接（只显示这一次，离开页面就看不到了）：`,
-                copy: '复制链接',
-                historyTitle: '邀请记录', historyCount: (n) => `${n} 条`,
-                colOrg: '企业名称', colEmail: '邮箱', colCreatedAt: '生成时间', colExpires: '到期',
-                revoke: '作废', revokeConfirm: '作废这条邀请？对方将无法再用这个链接注册。',
-                empty: '还没有发过邀请', emptySub: '',
-                afterRegister: '对方注册后，到「交易方」录折率，录好就能派单。',
-                errRequired: '请填写企业名称和正确的邮箱',
-                stPending: '待注册', stUsed: '已注册', stExpired: '已过期', stRevoked: '已作废',
             },
         },
         quoteWork: {
@@ -1093,7 +1032,6 @@ export const STRINGS: Record<Lang, Strings> = {
             submit: 'Sign in', or: 'or',
             wx: 'Continue with WeChat',
             note: 'By continuing you agree to our Terms and Privacy Policy.',
-            invited: 'Invited as a supplier?', invitedA: 'Start onboarding',
             modePassword: 'Password', modeCode: 'Verification code',
             sendCode: 'Send code', codeSentTo: 'Code sent to', codeLabel: '6-digit code',
             backToEmail: '← Use another email', resend: 'Resend',
@@ -1122,26 +1060,6 @@ export const STRINGS: Record<Lang, Strings> = {
             sub: 'Internal staff only. Accounts are created by an administrator; self sign-up is not available.',
             email: 'Work email', pw: 'Password', submit: 'Sign in',
             badCredentials: 'Incorrect email or password', failed: 'Sign-in failed. Please try again.',
-        },
-        invite: {
-            loading: 'Loading…',
-            backToSignin: 'Back to sign in',
-            invalidTitle: 'Invitation link is not valid', noInvite: 'No valid invitation',
-            invalidExpired: 'The link may have expired (valid for 7 days), been used, or been revoked. Please ask your SONNENSCHEIN contact for a new one.',
-            invalidNone: 'Suppliers join by invitation only. Please open this page using the invitation link sent to you.',
-            successTitle: 'Account created',
-            successBody: (email) => `Sign in to the supplier portal with ${email} and the password you just set. Orders become available once our operations team has set up your terms.`,
-            goSignin: 'Go to sign in',
-            h: 'Supplier onboarding',
-            intro: (orgName) => `SONNENSCHEIN has invited ${orgName} to become a supplier. This link can be used once.`,
-            emailLabel: 'Sign-in email', emailLocked: 'The email is set by the invitation and cannot be changed',
-            orgLabel: 'Company name', nameLabel: 'Contact name', nameP: 'Full name',
-            pwLabel: 'Password', pwP: 'At least 8 characters', pw2Label: 'Confirm password',
-            submit: 'Create supplier account', submitting: 'Submitting…',
-            errRequired: 'Please fill in company name, contact and password',
-            errPwShort: 'Password must be at least 8 characters',
-            errPwMismatch: 'The two passwords do not match',
-            errFailed: 'Sign-up failed. Please try again.',
         },
         status: {
             order: {
@@ -1256,7 +1174,6 @@ export const STRINGS: Record<Lang, Strings> = {
             ops: {
                 overview: 'Overview', dashboard: 'Dashboard', quoting: 'Quoting', quotes: 'Quotes',
                 dispatch: 'Dispatch', execution: 'Execution', production: 'Production & QC', orders: 'Orders',
-                onboarding: 'Onboarding', supplierOnboarding: 'Supplier onboarding',
                 masterData: 'Master data', parties: 'Parties', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
@@ -1364,21 +1281,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 errInteger: 'Enter a whole number of pieces for each production order',
                 errSplitMismatch: (qty, sum) => `The shares must add up to ${qty} pcs; currently ${sum}`,
                 allocated: (code, orders) => `${code} allocated to ${orders} production order${orders === 1 ? '' : 's'}`,
-            },
-            onboarding: {
-                title: 'Supplier onboarding', inviteTitle: 'Send an invitation',
-                orgPlaceholder: 'Company name', emailPlaceholder: 'Their sign-in email',
-                generate: 'Generate invite link',
-                hint: 'The link is valid for 7 days and can be used once. They can only register with this email. Email sending is not connected yet — copy the link and send it yourself.',
-                linkFor: (email) => `Invite link for ${email} (shown only once — it disappears when you leave this page):`,
-                copy: 'Copy link',
-                historyTitle: 'Invitations', historyCount: (n) => `${n}`,
-                colOrg: 'Company', colEmail: 'Email', colCreatedAt: 'Created', colExpires: 'Expires',
-                revoke: 'Revoke', revokeConfirm: 'Revoke this invitation? The link will stop working.',
-                empty: 'No invitations sent yet', emptySub: '',
-                afterRegister: 'Once they register, set their discount rate under “Parties” — a supplier can be dispatched after that.',
-                errRequired: 'Enter a company name and a valid email',
-                stPending: 'Pending', stUsed: 'Registered', stExpired: 'Expired', stRevoked: 'Revoked',
             },
         },
         quoteWork: {

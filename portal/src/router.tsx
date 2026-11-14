@@ -5,7 +5,6 @@ import { CustomerShell, OpsShell, SupplierShell } from './components/AppShell'
 import { SignInPage } from './pages/auth/SignInPage'
 import { OpsSignInPage } from './pages/auth/OpsSignInPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
-import { InvitePage } from './pages/auth/InvitePage'
 
 import { CustomerHomePage } from './pages/customer/HomePage'
 import { QuoteListPage } from './pages/customer/QuoteListPage'
@@ -28,7 +27,6 @@ import { OpsDispatchPage } from './pages/ops/DispatchPage'
 import { OpsProdPage } from './pages/ops/ProdPage'
 import { OpsProductionPage } from './pages/ops/ProductionPage'
 import { OpsOrdersPage } from './pages/ops/OrdersPage'
-import { OpsOnboardingPage } from './pages/ops/OnboardingPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
 import { OpsAccountsPage } from './pages/ops/AccountsPage'
 
@@ -66,7 +64,6 @@ export const router = createBrowserRouter([
             { path: 'signin', element: <SignInPage /> },
             { path: 'internal/signin', element: <OpsSignInPage /> },
             { path: 'register', element: <RegisterPage /> },
-            { path: 'invite', element: <InvitePage /> },
         ],
     },
 
@@ -130,7 +127,6 @@ export const router = createBrowserRouter([
             { path: 'dispatch/:id', element: <OpsProdPage /> },
             { path: 'production', element: <OpsProductionPage /> },
             { path: 'orders', element: <OpsOrdersPage /> },
-            { path: 'onboarding', element: <OpsOnboardingPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
             { path: 'accounts', element: <OpsAccountsPage /> },
             { path: 'settings', element: <SettingsPage /> },
