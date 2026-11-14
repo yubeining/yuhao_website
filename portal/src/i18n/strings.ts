@@ -79,11 +79,9 @@ export interface Strings {
             reuseNewVersionQueued: string; reuseNewVersion: (name: string) => string
             infoTitle: string
             fldCode: string; fldMaterial: string; fldSurface: string
-            codePlaceholder: string; optionalPlaceholder: string
             drawingTitle: string; lockedPill: (rev: number) => string
-            hintNew: string; hintLocked: string; hintRequired: string
             chooseDrawing: string; replaceDrawing: string
-            noDrawing: string; download: string; removeTitle: string
+            download: string; removeTitle: string
             cancel: string; backToOrder: string; addToOrder: string; save: string
         }
         quotes: {
@@ -429,7 +427,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: '订单不存在', backToOrders: '← 我的订单',
-            addPart: '＋ 添加零件', addFirstPart: '＋ 录入零件',
+            addPart: '＋ 添加零件', addFirstPart: '＋ 添加零件',
             missingDrawingBanner: (n) => `${n} 个零件还没传图纸，传齐后才能提交。`,
             submittedBanner: '订单已提交，各零件的图纸版本已锁定，不能再修改。',
             quotedBanner: '平台已报价，等你确认。', quoteLink: '查看报价 →',
@@ -460,15 +458,11 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
             fldCode: '图号 *', fldMaterial: '材料', fldSurface: '表面处理',
-            codePlaceholder: '可从文件名自动识别', optionalPlaceholder: '可不填',
             drawingTitle: '图纸',
             lockedPill: (rev) => `第 ${rev} 版 · 已锁定`,
-            hintNew: '选好的文件会在加进订单后上传',
-            hintLocked: '这一版已随订单提交锁定；换图纸会开新版本，之前的订单不受影响',
-            hintRequired: '每个零件至少要有一份图纸，订单才能提交',
             chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
-            noDrawing: '还没有图纸', download: '下载', removeTitle: '移除',
-            cancel: '取消', backToOrder: '返回订单', addToOrder: '加进订单', save: '保存',
+            download: '下载', removeTitle: '移除',
+            cancel: '取消', backToOrder: '返回订单', addToOrder: '添加', save: '保存',
         },
             quotes: {
                 title: '我的报价',
@@ -945,7 +939,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: 'Order not found', backToOrders: '← My orders',
-            addPart: '+ Add part', addFirstPart: '+ Add a part',
+            addPart: '+ Add part', addFirstPart: '+ Add part',
             missingDrawingBanner: (n) => `${n} part${n === 1 ? '' : 's'} without drawings — all parts need drawings before submitting.`,
             submittedBanner: 'Order submitted. Drawing revisions are locked and can no longer be changed.',
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', quoteLink: 'View quote →',
@@ -976,15 +970,11 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
             fldCode: 'Drawing no. *', fldMaterial: 'Material', fldSurface: 'Surface finishing',
-            codePlaceholder: 'Detected from the file name when possible', optionalPlaceholder: 'Optional',
             drawingTitle: 'Drawings',
             lockedPill: (rev) => `Rev ${rev} · locked`,
-            hintNew: 'Selected files are uploaded after the part is added to the order',
-            hintLocked: 'This revision was locked when the order was submitted. Changing drawings creates a new revision; earlier orders are unaffected',
-            hintRequired: 'Each part needs at least one drawing before the order can be submitted',
             chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
-            noDrawing: 'No drawings yet', download: 'Download', removeTitle: 'Remove',
-            cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add to order', save: 'Save',
+            download: 'Download', removeTitle: 'Remove',
+            cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add', save: 'Save',
         },
             quotes: {
                 title: 'My quotes',
