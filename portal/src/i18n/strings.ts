@@ -225,7 +225,8 @@ export interface Strings {
     }
     /** 个人资料页。只有昵称可改，其余只读。 */
     profile: {
-        title: string; nickname: string; email: string; role: string; joined: string; saved: string
+        title: string; basic: string; nickname: string; email: string; role: string
+        joined: string; edit: string; save: string; cancel: string; saved: string
     }
     /** 通用页面（404 / 设置） */
     misc: {
@@ -639,8 +640,8 @@ export const STRINGS: Record<Lang, Strings> = {
         cancelReason: { WITHDRAWN: '供应商退单', REVOKED: '运营收回', SIGN_TIMEOUT: '超时未签字' },
     },
     profile: {
-        title: '个人资料', nickname: '昵称', email: '邮箱', role: '身份',
-        joined: '注册时间', saved: '已保存',
+        title: '个人资料', basic: '基本信息', nickname: '昵称', email: '邮箱', role: '身份',
+        joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
     },
     misc: {
         notFoundTitle: '这个地址没有对应的页面',
@@ -1166,8 +1167,8 @@ export const STRINGS: Record<Lang, Strings> = {
         cancelReason: { WITHDRAWN: 'Withdrawn by supplier', REVOKED: 'Withdrawn by us', SIGN_TIMEOUT: 'Signature timeout' },
     },
     profile: {
-        title: 'Profile', nickname: 'Nickname', email: 'Email', role: 'Role',
-        joined: 'Joined', saved: 'Saved',
+        title: 'Profile', basic: 'Basic information', nickname: 'Nickname', email: 'Email', role: 'Role',
+        joined: 'Joined', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved',
     },
     misc: {
         notFoundTitle: 'This page does not exist',
