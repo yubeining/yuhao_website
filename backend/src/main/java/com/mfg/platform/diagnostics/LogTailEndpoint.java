@@ -36,9 +36,8 @@ import java.util.Map;
 @RequestMapping("/actuator/logtail")
 public class LogTailEndpoint {
 
-    /** 一次最多返回多少条。再多也不该用这个看。 */
-    private static final int MAX_LINES = 1000;
-    private static final int DEFAULT_LINES = 200;
+    /** 不传 lines 时返回多少条。 */
+    private static final int DEFAULT_LINES = 500;
 
     private final LogTailBuffer buffer;
     private final String token;
@@ -68,11 +67,13 @@ public class LogTailEndpoint {
                     .body(Map.of("message", "unauthorized"));
         }
 
-        int limit = lines == null ? DEFAULT_LINES : Math.min(Math.max(lines, 1), MAX_LINES);
+        // 上限跟着缓冲容量走：缓冲最多容纳多少，就允许一次取多少
+        int limit = lines == null ? DEFAULT_LINES : Math.min(Math.max(lines, 1), buffer.maxLines());
         List<String> matched = buffer.tail(limit, q);
 
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("size", buffer.size());
+        body.put("retentionHours", buffer.retentionMillis() / 3_600_000L);
         body.put("limit", limit);
         body.put("q", q);
         body.put("matched", matched.size());
