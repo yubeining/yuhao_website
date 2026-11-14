@@ -142,6 +142,37 @@ public class OtpService {
     // ---------- 校验 ----------
 
     public VerifyOutcome verify(OtpChannel channel, String identifier, String code) {
+        String normalized = consume(channel, identifier, code);
+        Optional<AuthService.Authenticated> account = auth.findExternalByEmail(normalized);
+        if (account.isEmpty()) {
+            // 邮箱证明有效，但还没有账号。登录页据此引导去注册页；
+            // 注册页走 {@link #verifyRegistration}，那条路径会真的建号。
+            audit("verify", channel, normalized, "otp_ok_registration_required");
+            return new VerifyOutcome(true, null);
+        }
+
+        AuthService.Authenticated authenticated = account.get();
+        auth.markEmailVerified(authenticated.principal().id(), Instant.now());
+        audit("verify", channel, normalized, "otp_ok_login");
+        return new VerifyOutcome(false, tokenIssuer.login(authenticated));
+    }
+
+    /**
+     * 注册场景：只校验并消费验证码，返回规整后的邮箱，<b>不查账号、不签发</b>。
+     *
+     * <p>建号由 {@code IdentityService} 负责 —— 这里不该知道"建的是组织还是人"。
+     * 码一次性，消费后调用方必须自己完成建号，失败就只能让用户重新发码。
+     */
+    public String verifyRegistration(OtpChannel channel, String identifier, String code) {
+        String normalized = consume(channel, identifier, code);
+        audit("verify", channel, normalized, "otp_ok_registration");
+        return normalized;
+    }
+
+    /**
+     * 校验并消费一条码。登录和注册共用同一套规则：格式、过期、错次、常量时间比较。
+     */
+    private String consume(OtpChannel channel, String identifier, String code) {
         String normalized = normalize(channel, identifier);
         requireChannelAvailable(channel);
         if (code == null || !CODE.matcher(code).matches()) {
@@ -177,19 +208,7 @@ public class OtpService {
 
         // 一次性：成功即删，同一个码不能用第二次
         store.clear(channel, identifierHash);
-
-        Optional<AuthService.Authenticated> account = auth.findExternalByEmail(normalized);
-        if (account.isEmpty()) {
-            // 邮箱证明有效，但还没有账号。本轮到此为止 —— 建号那一步（填公司信息）还没做，
-            // 所以绝不在这里自动建号（那会造出一个没有公司名的 organization）。
-            audit("verify", channel, normalized, "otp_ok_registration_required");
-            return new VerifyOutcome(true, null);
-        }
-
-        AuthService.Authenticated authenticated = account.get();
-        auth.markEmailVerified(authenticated.principal().id(), Instant.now());
-        audit("verify", channel, normalized, "otp_ok_login");
-        return new VerifyOutcome(false, tokenIssuer.login(authenticated));
+        return normalized;
     }
 
     // ---------- 内部 ----------

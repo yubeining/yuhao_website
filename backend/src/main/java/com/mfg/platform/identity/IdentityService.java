@@ -73,6 +73,33 @@ public class IdentityService {
     }
 
     /**
+     * 邮箱已验证后的自助注册（2026-11-14：注册只要「邮箱 + 验证码」）。
+     *
+     * <p>调用方必须已经校验并消费了验证码 —— 本方法不再看码，只看邮箱。
+     * 建号口径：
+     * <ul>
+     *   <li>组织：客户类型，名字与国家都留空（提交订单前补，docs/design/14 §4）</li>
+     *   <li>用户：没有密码（{@code password_hash} 允许为空），只能用验证码登录</li>
+     *   <li>显示名：邮箱前缀（需求方 2026-11-14 选定；以后可在设置里改）</li>
+     * </ul>
+     *
+     * @throws BusinessException 409 {@code auth.email_taken}
+     */
+    @Transactional
+    public ExternalUser registerVerifiedEmail(String email) {
+        String normalized = normalizeEmail(email);
+        if (externalUsers.existsByEmail(normalized)) {
+            throw new BusinessException(409, "auth.email_taken");
+        }
+        Organization org = organizations.save(
+                new Organization(Organization.Type.CUSTOMER, null, null));
+        int at = normalized.indexOf('@');
+        String localPart = at > 0 ? normalized.substring(0, at) : normalized;
+        String displayName = localPart.isBlank() ? normalized : localPart;
+        return externalUsers.save(new ExternalUser(org.getId(), normalized, displayName, null));
+    }
+
+    /**
      * 补自己公司的名字 —— 注册时没填，提交订单前补（docs/design/14 §4）。
      *
      * <p>只改名字。国家、类型、状态都不在这里动：类型决定受众，国家影响合规，
