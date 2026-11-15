@@ -52,7 +52,7 @@ export interface Strings {
         orders: {
             title: string; sub: string; count: (n: number) => string
             newOrder: string; newTitle: string; titlePlaceholder: string
-            cancelOrder: string; cancelConfirm: string
+            deleteOrder: string; deleteConfirm: string
             empty: string; emptySub: string
         }
         orderDetail: {
@@ -425,8 +425,8 @@ export const STRINGS: Record<Lang, Strings> = {
                 count: (n) => `共 ${n} 单`,
                 newOrder: '＋ 新建订单', newTitle: '新建订单',
                 titlePlaceholder: '订单名称（可选）',
-                cancelOrder: '取消订单',
-                cancelConfirm: '取消后不能恢复。确定取消这张订单吗？',
+                deleteOrder: '删除',
+                deleteConfirm: '删除这张草稿？订单里的图纸也会一并删除，不能恢复。',
                 empty: '暂无订单', emptySub: '新建订单后录入零件',
             },
         orderDetail: {
@@ -947,8 +947,8 @@ export const STRINGS: Record<Lang, Strings> = {
                 count: (n) => `${n} order${n === 1 ? '' : 's'}`,
                 newOrder: '+ New order', newTitle: 'New order',
                 titlePlaceholder: 'Order name (optional)',
-                cancelOrder: 'Cancel order',
-                cancelConfirm: 'This cannot be undone. Cancel this order?',
+                deleteOrder: 'Delete',
+                deleteConfirm: 'Delete this draft? Its drawings are deleted too. This cannot be undone.',
                 empty: 'No orders yet', emptySub: 'Create an order to add parts',
             },
         orderDetail: {

@@ -10,6 +10,8 @@ import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Sort;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -79,6 +81,13 @@ class CustomerOrderController {
     @PostMapping("/customer/orders/{orderId}/submit")
     OrderView submit(@CurrentUser UserPrincipal user, @PathVariable UUID orderId) {
         return service.submit(user.partyId(), orderId);
+    }
+
+    /** 删除草稿（真删）。只有 DRAFT 能删；提交之后客户没有删除/取消权限。 */
+    @DeleteMapping("/customer/orders/{orderId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    void deleteDraft(@CurrentUser UserPrincipal user, @PathVariable UUID orderId) {
+        service.deleteDraft(user.partyId(), orderId);
     }
 
     @PostMapping("/customer/orders/{orderId}/cancel")

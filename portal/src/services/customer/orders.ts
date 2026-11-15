@@ -98,8 +98,9 @@ export function submitOrder(orderId: string): Promise<OrderView> {
 }
 
 /** 只能取消草稿。 */
-export function cancelOrder(orderId: string): Promise<OrderView> {
-    return http.post<OrderView>(`/customer/orders/${orderId}/cancel`)
+/** 删除草稿：真删，不可恢复（后端只允许 DRAFT）。 */
+export function deleteOrder(orderId: string): Promise<void> {
+    return http.delete<void>(`/customer/orders/${orderId}`)
 }
 
 /** 图号命中本客户已有零件时，挂上次锁定的图纸版本；否则新建零件和第 1 版。 */
