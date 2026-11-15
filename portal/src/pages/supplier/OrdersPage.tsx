@@ -15,9 +15,10 @@ import { errorText } from '../../i18n/errorText'
 import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
+import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     listSupplierOrders, producedSupplierLine, shipSupplierOrder, signSupplierOrder, startSupplierLine,
-    supplierOrderFileUrl, supplierOrderPrices, withdrawSupplierOrder,
+    supplierOrderFilePreviewUrl, supplierOrderFileUrl, supplierOrderPrices, withdrawSupplierOrder,
     type OrderPrice, type SupplierOrderView,
 } from '../../services'
 import { cancelReason, lineSt, shortId, supplierOrderSt } from '../ops/dispatchStatus'
@@ -33,6 +34,7 @@ export function SupplierOrdersPage() {
     const [prices, setPrices] = useState<Record<string, OrderPrice>>({})
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
+    const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; orderId: string; lineId: string; fileId: string } | null>(null)
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -80,7 +82,16 @@ export function SupplierOrdersPage() {
         act(() => shipSupplierOrder(o.id))
     }
 
-    const view = (orderId: string, lineId: string, fileId: string) => {
+    /** 看图是预览，不是下载；弹层里的「下载」才用带 attachment 的 URL。 */
+    const openPreview = (orderId: string, lineId: string, name: string, fileId: string) => {
+        const kind = previewKindOf(name)
+        if (!kind) return
+        supplierOrderFilePreviewUrl(orderId, lineId, fileId)
+            .then((u) => setPreview({ name, url: u.url, kind, orderId, lineId, fileId }))
+            .catch((e) => setErr(errorText(t, e)))
+    }
+
+    const download = (orderId: string, lineId: string, fileId: string) => {
         supplierOrderFileUrl(orderId, lineId, fileId)
             .then((u) => window.location.assign(u.url))
             .catch((e) => setErr(errorText(t, e)))
@@ -138,7 +149,12 @@ export function SupplierOrdersPage() {
                                                 {/* 取消的单不给图；已接 / 待签 / 已签都给 —— 签完才是最需要图纸的时候 */}
                                                 {o.status !== 'CANCELLED' && l.files.length ? l.files.map((f) => (
                                                     <div key={f.id}>
-                                                        <button className="btn qui sm" type="button" onClick={() => view(o.id, l.id, f.id)}>{f.originalFilename}</button>
+                                                        <button className="btn qui sm" type="button"
+                                                            disabled={!previewKindOf(f.originalFilename)}
+                                                            title={previewKindOf(f.originalFilename) ? undefined : t.customer.partForm.previewUnsupported}
+                                                            onClick={() => openPreview(o.id, l.id, f.originalFilename, f.id)}>
+                                                            {f.originalFilename}
+                                                        </button>
                                                     </div>
                                                 )) : X}
                                             </td>
@@ -201,6 +217,11 @@ export function SupplierOrdersPage() {
                 onChange={(p) => { setPage(p); void load(p) }} /></Card>
             </>
         }
+            {preview && (
+                <FilePreviewModal name={preview.name} url={preview.url} kind={preview.kind}
+                    onClose={() => setPreview(null)}
+                    onDownload={() => download(preview.orderId, preview.lineId, preview.fileId)} />
+            )}
         </Page>
     )
 }

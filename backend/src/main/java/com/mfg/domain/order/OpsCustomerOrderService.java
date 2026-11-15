@@ -92,6 +92,22 @@ class OpsCustomerOrderService {
                 PartFileAccessLog.ContextType.CUSTOMER_ORDER, orderId);
     }
 
+    /**
+     * 预览用 URL：和下载同样的归属校验与审计，只是签名时不带 attachment，
+     * 浏览器才会在弹层里内嵌渲染 PDF / 图片。
+     */
+    public ViewUrl lineFilePreviewUrl(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId, UUID fileId) {
+        CustomerOrder order = requireSubmitted(orderId);
+        UUID orgId = order.getCustomerOrgId();
+        CustomerOrderPart line = lines.findByIdAndCustomerOrderIdAndCustomerOrgId(lineId, orderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("order.line_not_found"));
+        PartFile file = files.findByIdAndCustomerOrgId(fileId, orgId)
+                .filter(f -> f.getPartRevisionId().equals(line.getPartRevisionId()))
+                .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
+        return drawings.issuePreviewUrl(orgId, opsUserId, PartyType.OPERATOR, opsOrgId, file.getId(),
+                PartFileAccessLog.ContextType.CUSTOMER_ORDER, orderId);
+    }
+
     private CustomerOrder requireSubmitted(UUID orderId) {
         return orders.findByIdAndSubmittedAtIsNotNull(orderId)
                 .orElseThrow(() -> BusinessException.notFound("order.not_found"));

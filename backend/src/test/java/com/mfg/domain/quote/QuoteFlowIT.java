@@ -586,6 +586,15 @@ class QuoteFlowIT {
         assertThat(log.get("context_type")).isEqualTo("CUSTOMER_ORDER");
         assertThat(log.get("context_id")).isEqualTo(UUID.fromString(o.id()));
 
+        // 预览另走一个 URL（不带 attachment），审计同样要落一条
+        ResponseEntity<String> preview = rawGet("/ops/customer-orders/" + o.id() + "/lines/"
+                + line.path("id").asText() + "/files/" + fileId + "/preview-url", ops);
+        assertThat(preview.getStatusCode().value()).as(preview.getBody()).isEqualTo(200);
+        Map<String, Object> previewLog = jdbc.queryForMap("select * from part_file_access_log"
+                + " where part_file_id = ? order by id desc limit 1", UUID.fromString(fileId));
+        assertThat(previewLog.get("accessor_party_type")).isEqualTo("OPERATOR");
+        assertThat(previewLog.get("context_type")).isEqualTo("CUSTOMER_ORDER");
+
         // 文件不属于这一行 → 404，不落审计
         Order other = submittedOrder(c, 1);
         long before = jdbc.queryForObject("select count(*) from part_file_access_log", Long.class);

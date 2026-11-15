@@ -39,4 +39,11 @@ class OpsCustomerOrderController {
                             @PathVariable UUID fileId) {
         return service.lineFileViewUrl(user.id(), user.partyId(), orderId, lineId, fileId);
     }
+
+    /** 预览用：不带 attachment，PDF / 图片在浏览器弹层里直接显示。 */
+    @GetMapping("/ops/customer-orders/{orderId}/lines/{lineId}/files/{fileId}/preview-url")
+    ViewUrl lineFilePreviewUrl(@CurrentUser UserPrincipal user, @PathVariable UUID orderId, @PathVariable UUID lineId,
+                               @PathVariable UUID fileId) {
+        return service.lineFilePreviewUrl(user.id(), user.partyId(), orderId, lineId, fileId);
+    }
 }

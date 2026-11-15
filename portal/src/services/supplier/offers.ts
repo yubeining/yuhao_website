@@ -97,6 +97,11 @@ export function supplierOfferFileUrl(id: string, lineId: string, fileId: string)
     return http.get<ViewUrl>(`/supplier/offers/${id}/lines/${lineId}/files/${fileId}/view-url`)
 }
 
+/** 预览用：不带 attachment，PDF / 图片在浏览器里直接显示。 */
+export function supplierOfferFilePreviewUrl(id: string, lineId: string, fileId: string): Promise<ViewUrl> {
+    return http.get<ViewUrl>(`/supplier/offers/${id}/lines/${lineId}/files/${fileId}/preview-url`)
+}
+
 export function listSupplierOrders(page = 1, pageSize = 20): Promise<PagedResponse<SupplierOrderView>> {
     return http.get<PagedResponse<SupplierOrderView>>(`/supplier/orders?page=${page}&pageSize=${pageSize}`)
 }
@@ -126,6 +131,11 @@ export function shipSupplierOrder(orderId: string): Promise<SupplierOrderView> {
 
 export function supplierOrderFileUrl(id: string, lineId: string, fileId: string): Promise<ViewUrl> {
     return http.get<ViewUrl>(`/supplier/orders/${id}/lines/${lineId}/files/${fileId}/view-url`)
+}
+
+/** 预览用：不带 attachment，PDF / 图片在浏览器里直接显示。 */
+export function supplierOrderFilePreviewUrl(id: string, lineId: string, fileId: string): Promise<ViewUrl> {
+    return http.get<ViewUrl>(`/supplier/orders/${id}/lines/${lineId}/files/${fileId}/preview-url`)
 }
 
 export function supplierOfferPrices(opsOrderIds: string[]): Promise<OfferPrice[]> {

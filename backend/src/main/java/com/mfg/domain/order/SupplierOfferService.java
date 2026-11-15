@@ -206,7 +206,16 @@ class SupplierOfferService {
         OpsOrderPart p = opsParts.findById(lineId).filter(x -> x.getOpsOrderId().equals(o.getId()))
                 .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
         return issue(supplierOrgId, userId, p.getUpstreamPartId(), fileId, PartFileAccessLog.ContextType.OPS_ORDER,
-                o.getId());
+                o.getId(), false);
+    }
+
+    /** 预览：不带 attachment，PDF / 图片在浏览器弹层里直接显示。 */
+    public ViewUrl offerFilePreviewUrl(UUID supplierOrgId, UUID userId, UUID opsOrderId, UUID lineId, UUID fileId) {
+        OpsOrder o = requireOpen(opsOrders.findById(opsOrderId), supplierOrgId);
+        OpsOrderPart p = opsParts.findById(lineId).filter(x -> x.getOpsOrderId().equals(o.getId()))
+                .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
+        return issue(supplierOrgId, userId, p.getUpstreamPartId(), fileId, PartFileAccessLog.ContextType.OPS_ORDER,
+                o.getId(), true);
     }
 
     public ViewUrl orderFileViewUrl(UUID supplierOrgId, UUID userId, UUID supplierOrderId, UUID lineId, UUID fileId) {
@@ -219,21 +228,39 @@ class SupplierOfferService {
         OpsOrderPart p = opsParts.findById(sp.getUpstreamPartId())
                 .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
         return issue(supplierOrgId, userId, p.getUpstreamPartId(), fileId,
-                PartFileAccessLog.ContextType.SUPPLIER_ORDER, so.getId());
+                PartFileAccessLog.ContextType.SUPPLIER_ORDER, so.getId(), false);
+    }
+
+    /** 预览：不带 attachment，PDF / 图片在浏览器弹层里直接显示。 */
+    public ViewUrl orderFilePreviewUrl(UUID supplierOrgId, UUID userId, UUID supplierOrderId, UUID lineId,
+                                       UUID fileId) {
+        SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
+        if (so.getStatus() == SupplierOrder.Status.CANCELLED) {
+            throw BusinessException.notFound("part.file_not_found");
+        }
+        SupplierOrderPart sp = supplierParts.findById(lineId).filter(x -> x.getSupplierOrderId().equals(so.getId()))
+                .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
+        OpsOrderPart p = opsParts.findById(sp.getUpstreamPartId())
+                .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
+        return issue(supplierOrgId, userId, p.getUpstreamPartId(), fileId,
+                PartFileAccessLog.ContextType.SUPPLIER_ORDER, so.getId(), true);
     }
 
     // ---------- helpers ----------
 
     /** 文件必须属于这一行锁定的图纸版本；审计里图纸归属记客户，访问方记供应商。 */
     private ViewUrl issue(UUID supplierOrgId, UUID userId, UUID customerOrderPartId, UUID fileId,
-                          PartFileAccessLog.ContextType contextType, UUID contextId) {
+                          PartFileAccessLog.ContextType contextType, UUID contextId, boolean preview) {
         CustomerOrderPart line = customerLines.findById(customerOrderPartId)
                 .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
         PartFile file = files.findByIdAndCustomerOrgId(fileId, line.getCustomerOrgId())
                 .filter(f -> f.getPartRevisionId().equals(line.getPartRevisionId()))
                 .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
-        return drawings.issueViewUrl(line.getCustomerOrgId(), userId, PartyType.SUPPLIER, supplierOrgId, file.getId(),
-                contextType, contextId);
+        return preview
+                ? drawings.issuePreviewUrl(line.getCustomerOrgId(), userId, PartyType.SUPPLIER, supplierOrgId,
+                        file.getId(), contextType, contextId)
+                : drawings.issueViewUrl(line.getCustomerOrgId(), userId, PartyType.SUPPLIER, supplierOrgId,
+                        file.getId(), contextType, contextId);
     }
 
     private OpsOrder requireOpen(Optional<OpsOrder> found, UUID supplierOrgId) {

@@ -43,6 +43,10 @@ export function getOpsOrder(orderId: string): Promise<OpsOrderView> {
 }
 
 /** 运营看图：和客户端同样的校验，按订单记审计。 */
+export function opsLineFilePreviewUrl(orderId: string, lineId: string, fileId: string): Promise<ViewUrl> {
+    return http.get<ViewUrl>(`/ops/customer-orders/${orderId}/lines/${lineId}/files/${fileId}/preview-url`)
+}
+
 export function opsLineFileViewUrl(orderId: string, lineId: string, fileId: string): Promise<ViewUrl> {
     return http.get<ViewUrl>(`/ops/customer-orders/${orderId}/lines/${lineId}/files/${fileId}/view-url`)
 }

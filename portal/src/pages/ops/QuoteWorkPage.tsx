@@ -17,6 +17,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Input, Select } from '../../components/form'
 import { DatePicker } from '../../components/DatePicker'
+import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
@@ -25,7 +26,7 @@ import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
 import {
     ApiError, getCustomerMarkup, getOpsOrder, listOrderQuotes, opsLineFileViewUrl,
-    QUOTE_CURRENCIES, sendQuote,
+    opsLineFilePreviewUrl, QUOTE_CURRENCIES, sendQuote,
     type FileView, type MarkupView, type OpsOrderView, type OpsQuoteView, type QuoteCurrency,
     type SendQuoteInput,
 } from '../../services'
@@ -48,6 +49,7 @@ export function OpsQuoteWorkPage() {
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
+    const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
 
     /** prefill = true：用最近一版报价填输入框（首次加载、发出之后）。 */
     const load = useCallback(async (prefill: boolean) => {
@@ -146,9 +148,17 @@ export function OpsQuoteWorkPage() {
         })
     }
 
-    const viewFile = (lineId: string, file: FileView) => run(async () => {
-        // 下载链接带 Content-Disposition: attachment，浏览器直接存文件，不会离开本页
-        window.location.assign((await opsLineFileViewUrl(order.id, lineId, file.id)).url)
+    /** 看图是预览，不是下载：用不带 attachment 的签名 URL，在弹层里直接显示。 */
+    const openPreview = (lineId: string, file: FileView) => run(async () => {
+        const kind = previewKindOf(file.originalFilename)
+        if (!kind) return
+        const { url } = await opsLineFilePreviewUrl(order.id, lineId, file.id)
+        setPreview({ name: file.originalFilename, url, kind, lineId, fileId: file.id })
+    })
+
+    /** 弹层里的「下载」才用带 attachment 的那个 URL。 */
+    const download = (lineId: string, fileId: string) => run(async () => {
+        window.location.assign((await opsLineFileViewUrl(order.id, lineId, fileId)).url)
     })
 
     return (
@@ -203,14 +213,20 @@ export function OpsQuoteWorkPage() {
                                         <td>{l.surfaceTreatment || X}</td>
                                         <td className="n">{l.quantity}</td>
                                         <td>
-                                            {l.revision.files.length ? (
-                                                <button className="btn qui sm" type="button"
-                                                    onClick={() => void viewFile(l.id, l.revision.files[0])}>
-                                                    {l.revision.files.length > 1
-                                                        ? t.quoteWork.viewDrawings(l.revision.files.length)
-                                                        : t.quoteWork.viewDrawing}
-                                                </button>
-                                            ) : X}
+                                            {l.revision.files.length ? (() => {
+                                                const f = l.revision.files[0]
+                                                const kind = previewKindOf(f.originalFilename)
+                                                return (
+                                                    <button className="btn qui sm" type="button"
+                                                        disabled={!kind}
+                                                        title={kind ? undefined : t.customer.partForm.previewUnsupported}
+                                                        onClick={() => void openPreview(l.id, f)}>
+                                                        {l.revision.files.length > 1
+                                                            ? t.quoteWork.viewDrawings(l.revision.files.length)
+                                                            : t.quoteWork.viewDrawing}
+                                                    </button>
+                                                )
+                                            })() : X}
                                         </td>
                                         <td>
                                             {editable
@@ -292,6 +308,11 @@ export function OpsQuoteWorkPage() {
                         </TableWrap>
                     </CardBody>
                 </Card>
+            )}
+            {preview && (
+                <FilePreviewModal name={preview.name} url={preview.url} kind={preview.kind}
+                    onClose={() => setPreview(null)}
+                    onDownload={() => download(preview.lineId, preview.fileId)} />
             )}
         </Page>
     )

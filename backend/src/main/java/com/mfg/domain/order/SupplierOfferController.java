@@ -52,6 +52,13 @@ class SupplierOfferController {
         return service.offerFileViewUrl(user.partyId(), user.id(), id, lineId, fileId);
     }
 
+    /** 预览：不带 attachment，PDF / 图片在浏览器弹层里直接显示。 */
+    @GetMapping("/supplier/offers/{id}/lines/{lineId}/files/{fileId}/preview-url")
+    ViewUrl offerFilePreview(@CurrentUser UserPrincipal user, @PathVariable UUID id, @PathVariable UUID lineId,
+                             @PathVariable UUID fileId) {
+        return service.offerFilePreviewUrl(user.partyId(), user.id(), id, lineId, fileId);
+    }
+
     /** 最近接的在前，含已取消的。 */
     @GetMapping("/supplier/orders")
     PagedResponse<DispatchViews.SupplierOrderView> orders(@CurrentUser UserPrincipal user, PageQuery page) {
@@ -78,5 +85,12 @@ class SupplierOfferController {
     ViewUrl orderFile(@CurrentUser UserPrincipal user, @PathVariable UUID id, @PathVariable UUID lineId,
                       @PathVariable UUID fileId) {
         return service.orderFileViewUrl(user.partyId(), user.id(), id, lineId, fileId);
+    }
+
+    /** 预览：不带 attachment，PDF / 图片在浏览器弹层里直接显示。 */
+    @GetMapping("/supplier/orders/{id}/lines/{lineId}/files/{fileId}/preview-url")
+    ViewUrl orderFilePreview(@CurrentUser UserPrincipal user, @PathVariable UUID id, @PathVariable UUID lineId,
+                             @PathVariable UUID fileId) {
+        return service.orderFilePreviewUrl(user.partyId(), user.id(), id, lineId, fileId);
     }
 }

@@ -14,9 +14,10 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
+import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
-    acceptSupplierOffer, ApiError, declineSupplierOffer, getSupplierOffer, supplierOfferFileUrl, supplierOfferPrices,
-    type OfferPrice, type SupplierOffer,
+    acceptSupplierOffer, ApiError, declineSupplierOffer, getSupplierOffer, supplierOfferFilePreviewUrl,
+    supplierOfferFileUrl, supplierOfferPrices, type OfferPrice, type SupplierOffer,
 } from '../../services'
 
 export function HallDetailPage() {
@@ -28,6 +29,7 @@ export function HallDetailPage() {
     const [missing, setMissing] = useState(false)
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
+    const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
 
     const load = useCallback(async () => {
         try {
@@ -75,7 +77,16 @@ export function HallDetailPage() {
             .finally(() => setBusy(false))
     }
 
-    const view = (lineId: string, fileId: string) => {
+    /** 看图是预览，不是下载；弹层里的「下载」才用带 attachment 的 URL。 */
+    const openPreview = (lineId: string, name: string, fileId: string) => {
+        const kind = previewKindOf(name)
+        if (!kind) return
+        supplierOfferFilePreviewUrl(offer.id, lineId, fileId)
+            .then((u) => setPreview({ name, url: u.url, kind, lineId, fileId }))
+            .catch((e) => setErr(errorText(t, e)))
+    }
+
+    const download = (lineId: string, fileId: string) => {
         supplierOfferFileUrl(offer.id, lineId, fileId)
             .then((u) => window.location.assign(u.url))
             .catch((e) => setErr(errorText(t, e)))
@@ -118,7 +129,12 @@ export function HallDetailPage() {
                                     <td>
                                         {l.files.length ? l.files.map((f) => (
                                             <div key={f.id}>
-                                                <button className="btn qui sm" type="button" onClick={() => view(l.id, f.id)}>{f.originalFilename}</button>
+                                                <button className="btn qui sm" type="button"
+                                                    disabled={!previewKindOf(f.originalFilename)}
+                                                    title={previewKindOf(f.originalFilename) ? undefined : t.customer.partForm.previewUnsupported}
+                                                    onClick={() => openPreview(l.id, f.originalFilename, f.id)}>
+                                                    {f.originalFilename}
+                                                </button>
                                             </div>
                                         )) : X}
                                     </td>
@@ -132,6 +148,11 @@ export function HallDetailPage() {
                     right={<button className="btn pri" type="button" disabled={busy} onClick={accept}>{t.supplier.hallDetail.accept}</button>}
                 />
             </Card>
+            {preview && (
+                <FilePreviewModal name={preview.name} url={preview.url} kind={preview.kind}
+                    onClose={() => setPreview(null)}
+                    onDownload={() => download(preview.lineId, preview.fileId)} />
+            )}
         </Page>
     )
 }
