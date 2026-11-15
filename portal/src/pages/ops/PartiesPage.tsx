@@ -9,9 +9,10 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
+    Banner, Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
+import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate, X } from '../../mock/format'
@@ -145,27 +146,25 @@ export function OpsPartiesPage() {
             </Card>
 
             {current && draft && (
-                <Card>
-                    <CardHead title={t.ops.parties.editTitle(current.name)} />
-                    <CardBody>
-                        <FieldRow cols={2}>
-                            <Field label={t.ops.parties.fldDiscount}>
-                                <Input value={draft.discount} onChange={set('discount')} placeholder={t.ops.parties.discountPlaceholder} />
-                            </Field>
-                            <Field label={t.ops.parties.fldProcess}><Input value={draft.processes} onChange={set('processes')} placeholder={t.ops.parties.freeText} /></Field>
-                        </FieldRow>
-                        <FieldRow cols={3}>
-                            <Field label={t.ops.parties.fldMaterial}><Input value={draft.materials} onChange={set('materials')} /></Field>
-                            <Field label={t.ops.parties.fldSize}><Input value={draft.sizeRange} onChange={set('sizeRange')} /></Field>
-                            <Field label={t.ops.parties.fldPrecision}><Input value={draft.precisionGrade} onChange={set('precisionGrade')} /></Field>
-                        </FieldRow>
-                        <div className="t2" style={{ marginTop: 6 }}>{t.ops.parties.discountHint}</div>
-                    </CardBody>
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setEditing(null)}>{t.common.cancel}</button>}
-                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{t.ops.parties.save}</button>}
-                    />
-                </Card>
+                <Modal title={t.ops.parties.editTitle(current.name)} width={420} busy={busy}
+                    onClose={() => setEditing(null)}
+                    footer={<>
+                        <button className="btn" type="button" onClick={() => setEditing(null)}>{t.common.cancel}</button>
+                        <button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{t.ops.parties.save}</button>
+                    </>}>
+                    <FieldRow cols={2}>
+                        <Field label={t.ops.parties.fldDiscount}>
+                            <Input value={draft.discount} onChange={set('discount')} placeholder={t.ops.parties.discountPlaceholder} />
+                        </Field>
+                        <Field label={t.ops.parties.fldProcess}><Input value={draft.processes} onChange={set('processes')} placeholder={t.ops.parties.freeText} /></Field>
+                    </FieldRow>
+                    <FieldRow cols={3}>
+                        <Field label={t.ops.parties.fldMaterial}><Input value={draft.materials} onChange={set('materials')} /></Field>
+                        <Field label={t.ops.parties.fldSize}><Input value={draft.sizeRange} onChange={set('sizeRange')} /></Field>
+                        <Field label={t.ops.parties.fldPrecision}><Input value={draft.precisionGrade} onChange={set('precisionGrade')} /></Field>
+                    </FieldRow>
+                    <div className="t2" style={{ marginTop: 6 }}>{t.ops.parties.discountHint}</div>
+                </Modal>
             )}
         </Page>
     )

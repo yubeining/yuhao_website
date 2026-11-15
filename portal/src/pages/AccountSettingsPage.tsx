@@ -10,11 +10,12 @@
  * ★ 保存后写回 session，顶栏昵称立刻变，不用重新登录。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Hello, Kv, KvRow, Page,
+    Banner, Card, CardBody, CardHead, Hello, Kv, KvRow, Page,
 } from '../components/ui'
-import { Field, FieldRow, Input } from '../components/form'
+import { Field, Input } from '../components/form'
+import { Modal } from '../components/Modal'
 import { CountrySelect } from '../components/CountrySelect'
 import { countryName } from '../i18n/countries'
 import { useMock } from '../mock/MockProvider'
@@ -50,7 +51,6 @@ export function AccountSettingsPage() {
     const [err, setErr] = useState<string | null>(null)
     const [saved, setSaved] = useState(false)
     const [busy, setBusy] = useState(false)
-    const nickRef = useRef<HTMLInputElement>(null)
 
     const load = useCallback(async (partyType: NonNullable<typeof session>['partyType']) => {
         try {
@@ -77,11 +77,6 @@ export function AccountSettingsPage() {
             })
             .catch(() => undefined)
     }, [session?.partyType])
-
-    // 进入编辑态自动聚焦，省一次点击
-    useEffect(() => {
-        if (editing) nickRef.current?.focus()
-    }, [editing])
 
     // 「已保存」两秒后自己消失，不用点关闭
     useEffect(() => {
@@ -150,72 +145,49 @@ export function AccountSettingsPage() {
             <Card style={{ maxWidth: 720 }}>
                 <CardHead
                     title={p.basic}
-                    right={!editing && (
-                        <button className="btn sm" type="button" onClick={startEdit}>{p.edit}</button>
-                    )}
+                    right={<button className="btn sm" type="button" onClick={startEdit}>{p.edit}</button>}
                 />
                 <CardBody>
-                    {editing ? (
-                        <>
-                            <FieldRow>
-                                <Field label={p.nickname}>
-                                    <Input id="nickname" value={nickname}
-                                        onChange={(v) => { setNickname(v); setErr(null) }} />
-                                </Field>
-                                {isCustomer && (
-                                    <Field label={p.company} required>
-                                        <Input value={orgName}
-                                            onChange={(v) => { setOrgName(v); setErr(null) }} />
-                                    </Field>
-                                )}
-                                {isCustomer && (
-                                    <Field label={p.country}>
-                                        <CountrySelect value={country} allowOther={false}
-                                            onChange={(v) => { setCountry(v); setErr(null) }} />
-                                    </Field>
-                                )}
-                            </FieldRow>
-                            <FieldRow>
-                                <Field label={p.email}>
-                                    <Input value={profile?.email ?? ''} onChange={() => undefined} disabled />
-                                </Field>
-                                <Field label={p.role}>
-                                    <Input value={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]}
-                                        onChange={() => undefined} disabled />
-                                </Field>
-                            </FieldRow>
-                            <Field label={p.joined}>
-                                <Input value={day(profile?.createdAt ?? '')} onChange={() => undefined} disabled />
-                            </Field>
-                        </>
-                    ) : (
-                        <Kv>
-                            <KvRow k={p.nickname} v={profile?.nickname ?? '—'} sans />
-                            {isCustomer && <KvRow k={p.company} v={savedOrg || '—'} sans />}
-                            {isCustomer && (
-                                <KvRow k={p.country}
-                                    v={savedCountry ? countryName(savedCountry, lang) : '—'} sans />
-                            )}
-                            <KvRow k={p.email} v={profile?.email ?? '—'} sans />
-                            <KvRow k={p.role} v={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]} sans />
-                            <KvRow k={p.joined} v={day(profile?.createdAt ?? '')} />
-                        </Kv>
-                    )}
-
-                    {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
-                    {saved && !editing && <Banner tone="ok" style={{ marginTop: 12 }}>{p.saved}</Banner>}
+                    <Kv>
+                        <KvRow k={p.nickname} v={profile?.nickname ?? '—'} sans />
+                        {isCustomer && <KvRow k={p.company} v={savedOrg || '—'} sans />}
+                        {isCustomer && (
+                            <KvRow k={p.country}
+                                v={savedCountry ? countryName(savedCountry, lang) : '—'} sans />
+                        )}
+                        <KvRow k={p.email} v={profile?.email ?? '—'} sans />
+                        <KvRow k={p.role} v={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]} sans />
+                        <KvRow k={p.joined} v={day(profile?.createdAt ?? '')} />
+                    </Kv>
+                    {saved && <Banner tone="ok" style={{ marginTop: 12 }}>{p.saved}</Banner>}
                 </CardBody>
-                {editing && (
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={cancel}>{p.cancel}</button>}
-                        right={
-                            <button className="btn pri" type="button" disabled={!canSave} onClick={() => void save()}>
-                                {busy ? '…' : p.save}
-                            </button>
-                        }
-                    />
-                )}
             </Card>
+
+            {editing && (
+                <Modal title={p.basic} width={400} busy={busy} onClose={cancel}
+                    footer={<>
+                        <button className="btn" type="button" onClick={cancel}>{p.cancel}</button>
+                        <button className="btn pri" type="button" disabled={!canSave} onClick={() => void save()}>
+                            {busy ? '…' : p.save}
+                        </button>
+                    </>}>
+                    <Field label={p.nickname}>
+                        <Input value={nickname} onChange={(v) => { setNickname(v); setErr(null) }} />
+                    </Field>
+                    {isCustomer && (
+                        <Field label={p.company} required>
+                            <Input value={orgName} onChange={(v) => { setOrgName(v); setErr(null) }} />
+                        </Field>
+                    )}
+                    {isCustomer && (
+                        <Field label={p.country}>
+                            <CountrySelect value={country} allowOther={false}
+                                onChange={(v) => { setCountry(v); setErr(null) }} />
+                        </Field>
+                    )}
+                    {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
+                </Modal>
+            )}
 
             {/* 偏好：点了就生效，不需要保存 */}
             <Card style={{ maxWidth: 720, marginTop: 18 }}>

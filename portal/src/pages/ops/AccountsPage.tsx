@@ -8,7 +8,7 @@
  * ★ 邮箱与所属公司不可改；组织类型不可改 —— 合同、权限都按这两样判定。
  *
  * ★ 2026-11-15 改：
- *   - 新建 / 编辑改成右侧抽屉，不再插进列表中间把页面挤乱；
+ *   - 新建 / 编辑走居中弹框（2026-11-15 统一：只读 → 编辑 → 弹框 → 取消/保存），不再插进列表中间；
  *   - 不再「代建外部用户」—— 客户/供应商都自助注册，运营只改姓名、禁用/启用；
  *   - 三个子页都接统一分页（每页 20 条），搜索栏对齐、回车可查。
  * ★ 文案全部走 t.ops.accounts（scripts/check-i18n-literals.py 是只减不增的棘轮）。
@@ -17,7 +17,7 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { CountrySelect } from '../../components/CountrySelect'
-import { Drawer } from '../../components/Drawer'
+import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { Field, Input } from '../../components/form'
 import {
@@ -202,7 +202,7 @@ function UsersTab() {
             </Card>
 
             {editing && (
-                <UserDrawer user={editing} busy={busy}
+                <UserModal user={editing} busy={busy}
                     onClose={() => setEditing(null)}
                     onSaved={() => { setEditing(null); void load(page) }} />
             )}
@@ -211,7 +211,7 @@ function UsersTab() {
 }
 
 /** 编辑外部用户：只有姓名可改，邮箱 / 公司只读。 */
-function UserDrawer({ user, busy, onClose, onSaved }: {
+function UserModal({ user, busy, onClose, onSaved }: {
     user: AccountView
     busy: boolean
     onClose: () => void
@@ -233,7 +233,7 @@ function UserDrawer({ user, busy, onClose, onSaved }: {
     }
 
     return (
-        <Drawer title={a.editUser} busy={busy}
+        <Modal title={a.editUser} busy={busy} width={400}
             onClose={onClose}
             footer={<>
                 <button className="btn" type="button" onClick={onClose}>{a.cancel}</button>
@@ -249,7 +249,7 @@ function UserDrawer({ user, busy, onClose, onSaved }: {
                 <Input value={name} onChange={setName} />
             </Field>
             {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
-        </Drawer>
+        </Modal>
     )
 }
 
@@ -437,7 +437,7 @@ function OrgsTab() {
             </Card>
 
             {form && (
-                <Drawer title={form.id ? a.editOrg : a.newOrg} busy={busy}
+                <Modal title={form.id ? a.editOrg : a.newOrg} busy={busy} width={400}
                     onClose={() => setForm(null)}
                     footer={<>
                         <button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>
@@ -474,7 +474,7 @@ function OrgsTab() {
                             </div>
                         </Field>
                     )}
-                </Drawer>
+                </Modal>
             )}
         </>
     )
@@ -635,7 +635,7 @@ function StaffTab() {
             </Card>
 
             {form && (
-                <Drawer title={form.id ? a.editStaff : a.newStaff} busy={busy}
+                <Modal title={form.id ? a.editStaff : a.newStaff} busy={busy} width={400}
                     onClose={() => setForm(null)}
                     footer={<>
                         <button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>
@@ -665,7 +665,7 @@ function StaffTab() {
                                 onChange={(v) => setForm({ ...form, password: v })} />
                         </Field>
                     )}
-                </Drawer>
+                </Modal>
             )}
         </>
     )

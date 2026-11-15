@@ -36,7 +36,7 @@ export interface Strings {
         actionFailed: string
         loading: string
         retry: string
-        cancel: string; save: string; close: string; openInNewTab: string; required: string
+        cancel: string; save: string; edit: string; close: string; openInNewTab: string; required: string
         /** 自动保存后的轻提示 */
         saved: string
         prevPage: string; nextPage: string
@@ -366,10 +366,11 @@ export interface Strings {
         }
         quoteSettings: {
             title: string; sub: string
-            defaultTitle: string; defaultHint: string; defaultSaved: string
+            defaultTitle: string; defaultHint: string; defaultSaved: string; defaultUnset: string
             companiesTitle: string; companyCount: (n: number) => string
-            colCompany: string; colOwn: string; colEffective: string
-            useDefault: string; unset: string; empty: string; emptySub: string
+            colCompany: string; colRate: string
+            usingDefault: string; ownValue: string; manageCompanies: string
+            empty: string; emptySub: string
         }
     /** 派单详情（生产订单） */
     prodDetail: {
@@ -417,7 +418,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', edit: '编辑', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
             prevPage: '上一页', nextPage: '下一页',
             pageTotal: (n) => `共 ${n} 条`, pageOf: (page, pages) => `第 ${page} / ${pages} 页`,
             untitledOrder: '未命名订单',
@@ -810,14 +811,14 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         quoteSettings: {
             title: '报价设置',
-            sub: '对客价 = 原价 × 汇率 × 报价系数。公司有自己的用公司的，没有用全局默认。',
+            sub: '对客价 = 原价 × 汇率 × 报价系数',
             defaultTitle: '全局默认报价系数',
             defaultHint: '没有单独配置的公司都用这个值',
-            defaultSaved: '全局默认已保存',
+            defaultSaved: '已保存', defaultUnset: '未设置',
             companiesTitle: '客户公司',
             companyCount: (n) => `共 ${n} 家`,
-            colCompany: '公司', colOwn: '公司系数', colEffective: '实际生效',
-            useDefault: '用默认', unset: '未设置',
+            colCompany: '公司', colRate: '报价系数',
+            usingDefault: '用默认', ownValue: '单独配置', manageCompanies: '管理公司 →',
             empty: '还没有客户公司', emptySub: '客户注册后会出现在这里',
         },
     prodDetail: {
@@ -952,7 +953,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
-            save: 'Save', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab', required: 'required',
+            save: 'Save', edit: 'Edit', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab', required: 'required',
             prevPage: 'Previous', nextPage: 'Next',
             pageTotal: (n) => `${n} item${n === 1 ? '' : 's'}`, pageOf: (page, pages) => `Page ${page} of ${pages}`,
             untitledOrder: 'Untitled order',
@@ -1346,14 +1347,14 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         quoteSettings: {
             title: 'Quote settings',
-            sub: 'Customer price = base price × FX rate × quote rate. A company value wins; otherwise the global default applies.',
+            sub: 'Customer price = base price × FX rate × quote rate',
             defaultTitle: 'Global default quote rate',
             defaultHint: 'Used by companies without their own value',
-            defaultSaved: 'Global default saved',
+            defaultSaved: 'Saved', defaultUnset: 'Not set',
             companiesTitle: 'Customer companies',
             companyCount: (n) => `${n} compan${n === 1 ? 'y' : 'ies'}`,
-            colCompany: 'Company', colOwn: 'Company rate', colEffective: 'Effective',
-            useDefault: 'Using default', unset: 'Not set',
+            colCompany: 'Company', colRate: 'Quote rate',
+            usingDefault: 'Using default', ownValue: 'Company value', manageCompanies: 'Manage companies →',
             empty: 'No customer companies yet', emptySub: 'They appear here after customers sign up',
         },
     prodDetail: {

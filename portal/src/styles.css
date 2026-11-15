@@ -802,17 +802,21 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .pg-ellipsis{color:var(--faint);padding:0 2px;}
 
 /* ═══════════════════════════════ 右侧抽屉 */
-.drawer-mask{position:fixed;inset:0;background:rgba(10,16,24,.45);z-index:70;display:flex;justify-content:flex-end;}
-.drawer{width:min(440px,94vw);height:100%;background:var(--panel);display:flex;flex-direction:column;
-  box-shadow:-24px 0 60px rgba(0,0,0,.3);animation:drawer-in .18s ease;}
-@keyframes drawer-in{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
-.drawer-h{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);}
-.drawer-title{flex:1;font-size:15px;font-weight:600;}
-.drawer-b{flex:1;overflow:auto;padding:16px 18px;}
-.drawer-f{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--line);}
+/* 居中弹框（编辑统一走这里） */
+.modal-mask{position:fixed;inset:0;background:rgba(10,16,24,.45);z-index:70;
+  display:grid;place-items:center;padding:20px;}
+.modal{max-width:94vw;max-height:86vh;background:var(--panel);border-radius:var(--r3);
+  display:flex;flex-direction:column;box-shadow:0 24px 60px rgba(0,0,0,.35);animation:modal-in .16s ease;}
+@keyframes modal-in{from{transform:translateY(8px);opacity:.5}to{transform:none;opacity:1}}
+.modal-h{padding:14px 16px 0;font-size:14px;font-weight:600;}
+.modal-b{padding:12px 16px 14px;overflow:auto;}
+.modal-f{display:flex;justify-content:flex-end;gap:8px;padding:10px 16px;border-top:1px solid var(--line);}
 
 /* ═══════════════════════════════ 搜索栏（标签在上、按钮同行对齐） */
 .fbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;}
 .fbar .btn{margin-bottom:1px;}
 .ff{display:flex;flex-direction:column;gap:6px;}
 .ff-k{font-size:12.5px;font-weight:600;color:var(--ink-2);}
+
+/* 单值只读展示（大号等宽） */
+.mono-lg{font-family:var(--mono);font-variant-numeric:tabular-nums;font-size:21px;font-weight:700;letter-spacing:-.02em;}
