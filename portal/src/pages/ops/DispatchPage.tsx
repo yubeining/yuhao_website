@@ -21,31 +21,43 @@ import {
     type OpsOrderSummary, type PoolLine,
 } from '../../services'
 import { DISPATCH_MODE, OPS_ORDER_ST, shortId } from './dispatchStatus'
+import { Pagination } from '../../components/Pagination'
 
 export function OpsDispatchPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [pool, setPool] = useState<PoolLine[] | null>(null)
+    const [poolTotal, setPoolTotal] = useState(0)
+    const [poolPage, setPoolPage] = useState(1)
     const [orders, setOrders] = useState<OpsOrderSummary[] | null>(null)
+    const [ordersTotal, setOrdersTotal] = useState(0)
+    const [ordersPage, setOrdersPage] = useState(1)
+    // 拆单时要把行分给「组装中」的生产订单 —— 这个列表要全量，不能被分页切掉
+    const [assembling, setAssembling] = useState<OpsOrderSummary[]>([])
     const [picking, setPicking] = useState<PoolLine | null>(null)
     const [split, setSplit] = useState<Record<string, string>>({})
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (poolPageNo: number, ordersPageNo: number) => {
         try {
-            const [p, o] = await Promise.all([dispatchPool(), listOpsDispatchOrders()])
-            setPool(p)
-            setOrders(o)
+            const [p, o, a] = await Promise.all([
+                dispatchPool(poolPageNo, 20),
+                listOpsDispatchOrders(undefined, ordersPageNo, 20),
+                listOpsDispatchOrders('ASSEMBLING', 1, 200),
+            ])
+            setPool(p.items)
+            setPoolTotal(p.total)
+            setOrders(o.items)
+            setOrdersTotal(o.total)
+            setAssembling(a.items)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
-
-    const assembling = orders?.filter((o) => o.status === 'ASSEMBLING') ?? []
+    useEffect(() => { void load(poolPage, ordersPage) }, [load, poolPage, ordersPage])
 
     const run = async (fn: () => Promise<void>) => {
         setBusy(true)
@@ -61,7 +73,7 @@ export function OpsDispatchPage() {
 
     const create = () => run(async () => {
         const o = await createOpsDispatchOrder()
-        await load()
+        await load(poolPage, ordersPage)
         setOk(t.ops.dispatchPage.created(shortId(o.id)))
     })
 
@@ -85,7 +97,7 @@ export function OpsDispatchPage() {
             await allocateLine(picking.customerOrderPartId, parts)
             setOk(t.ops.dispatchPage.allocated(picking.code, parts.length))
             setPicking(null)
-            await load()
+            await load(poolPage, ordersPage)
         })
     }
 
@@ -96,7 +108,7 @@ export function OpsDispatchPage() {
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={t.ops.dispatchPage.poolTitle} rid={pool ? t.ops.dispatchPage.poolCount(pool.length) : undefined} />
+                <CardHead title={t.ops.dispatchPage.poolTitle} rid={pool ? t.ops.dispatchPage.poolCount(poolTotal) : undefined} />
                 {pool === null ? (
                     <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : pool.length ? (
@@ -124,6 +136,8 @@ export function OpsDispatchPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={poolPage} pageSize={20} total={poolTotal}
+                            onChange={(p) => { setPoolPage(p); void load(p, ordersPage) }} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.dispatchPage.poolEmpty} sub={t.ops.dispatchPage.poolEmptySub} /></CardBody>
@@ -165,7 +179,7 @@ export function OpsDispatchPage() {
             )}
 
             <Card>
-                <CardHead title={t.ops.dispatchPage.ordersTitle} rid={orders ? t.ops.dispatchPage.orderCount(orders.length) : undefined} />
+                <CardHead title={t.ops.dispatchPage.ordersTitle} rid={orders ? t.ops.dispatchPage.orderCount(ordersTotal) : undefined} />
                 {orders === null ? (
                     <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : orders.length ? (
@@ -193,6 +207,8 @@ export function OpsDispatchPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={ordersPage} pageSize={20} total={ordersTotal}
+                            onChange={(p) => { setOrdersPage(p); void load(poolPage, p) }} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.dispatchPage.ordersEmpty} /></CardBody>

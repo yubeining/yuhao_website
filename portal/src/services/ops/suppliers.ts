@@ -5,6 +5,7 @@
  */
 
 import { http } from '../core/http'
+import type { PagedResponse } from '../customer/orders'
 
 export interface SupplierView {
     orgId: string
@@ -27,8 +28,8 @@ export interface CapabilityInput {
     precisionGrade: string | null
 }
 
-export function listSuppliers(): Promise<SupplierView[]> {
-    return http.get<SupplierView[]>('/ops/suppliers')
+export function listSuppliers(page = 1, pageSize = 20): Promise<PagedResponse<SupplierView>> {
+    return http.get<PagedResponse<SupplierView>>(`/ops/suppliers?page=${page}&pageSize=${pageSize}`)
 }
 
 export function setSupplierDiscount(orgId: string, discountRate: number): Promise<SupplierView> {

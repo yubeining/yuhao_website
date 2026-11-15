@@ -1,5 +1,7 @@
 package com.mfg.domain.supplier;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Digits;
@@ -37,8 +39,8 @@ class OpsSupplierController {
 
     /** 新入驻的在前。 */
     @GetMapping("/ops/suppliers")
-    List<SupplierView> list() {
-        return service.list();
+    PagedResponse<SupplierView> list(PageQuery page) {
+        return service.list(page);
     }
 
     @PutMapping("/ops/suppliers/{orgId}/discount")

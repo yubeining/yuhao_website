@@ -10,6 +10,7 @@ import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../compo
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
+import { Pagination } from '../../components/Pagination'
 import { listMyQuotes, listOrders, type CustomerQuoteSummaryView, type OrderSummaryView } from '../../services'
 import { quoteSt } from './status'
 
@@ -17,14 +18,18 @@ export function QuoteListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [quotes, setQuotes] = useState<CustomerQuoteSummaryView[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     // 等报价的订单：报价还没生成，但它们在这页也必须有位置，否则有报价时它们会被吞掉
     const [waiting, setWaiting] = useState<OrderSummaryView[]>([])
     const [err, setErr] = useState<string | null>(null)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            setQuotes((await listMyQuotes(1, 100)).items)
-            const orders = (await listOrders(1, 100)).items
+            const pg = await listMyQuotes(pageNo, 20)
+            setQuotes(pg.items)
+            setTotal(pg.total)
+            const orders = (await listOrders(1, 200)).items
             setWaiting(orders.filter((o) => o.status === 'SUBMITTED'))
             setErr(null)
         } catch (e) {
@@ -32,7 +37,7 @@ export function QuoteListPage() {
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     return (
         <Page>
@@ -41,7 +46,7 @@ export function QuoteListPage() {
                 {quotes === null ? (
                     <CardBody>
                         {err
-                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load(page)}>{t.common.retry}</button>} />
                             : <Empty text={t.common.loading} />}
                     </CardBody>
                 ) : quotes.length || waiting.length ? (
@@ -90,6 +95,10 @@ export function QuoteListPage() {
                                 ))}
                             </tbody>
                         </TableWrap>}
+                        {quotes.length > 0 && (
+                            <Pagination page={page} pageSize={20} total={total}
+                                onChange={(p) => { setPage(p); void load(p) }} />
+                        )}
                     </CardBody>
                 ) : (
                     <CardBody>

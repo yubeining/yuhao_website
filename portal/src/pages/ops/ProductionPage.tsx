@@ -14,6 +14,7 @@ import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, X } from '../../mock/format'
 import { listProduction, qcLine, remakeLine, type OpsLine, type OpsProductionOrder } from '../../services'
 import { lineSt, shortId, supplierOrderSt } from './dispatchStatus'
+import { Pagination } from '../../components/Pagination'
 
 /** 一行待质检的三个数，按行 id 存着。 */
 type Counts = { pass: string; rework: string; scrap: string }
@@ -24,25 +25,29 @@ const num = (v: string) => (v.trim() === '' ? 0 : Number(v))
 export function OpsProductionPage() {
     const { t } = useMock()
     const [orders, setOrders] = useState<OpsProductionOrder[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [counts, setCounts] = useState<Record<string, Counts>>({})
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            setOrders(await listProduction())
+            const pg = await listProduction(pageNo, 20)
+            setOrders(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     const act = (run: () => Promise<unknown>) => {
         setBusy(true)
         run()
-            .then(() => load())
+            .then(() => load(page))
             .catch((e) => setErr(errorText(t, e)))
             .finally(() => setBusy(false))
     }
@@ -73,7 +78,8 @@ export function OpsProductionPage() {
                 <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
             ) : orders.length === 0 ? (
                 <Card><CardBody><Empty text={t.ops.production.empty} sub={t.ops.production.emptySub} /></CardBody></Card>
-            ) : orders.map((o) => (
+            ) : <>
+            {orders.map((o) => (
                 <Card key={o.id} style={{ marginBottom: 16 }}>
                     <CardHead title={t.ops.production.cardTitle(shortId(o.id))} right={pill(supplierOrderSt(t)[o.status])} />
                     <CardBody>
@@ -127,6 +133,10 @@ export function OpsProductionPage() {
                     </CardBody>
                 </Card>
             ))}
+            <Card><Pagination page={page} pageSize={20} total={total}
+                onChange={(p) => { setPage(p); void load(p) }} /></Card>
+            </>
+        }
         </Page>
     )
 }

@@ -7,6 +7,7 @@
 
 import { http } from '../core/http'
 import type { OpsLine, SupplierOrderStatus } from './dispatch'
+import type { PagedResponse } from '../customer/orders'
 
 export interface OpsProductionOrder {
     id: string
@@ -20,8 +21,8 @@ export interface OpsProductionOrder {
     lines: OpsLine[]
 }
 
-export function listProduction(): Promise<OpsProductionOrder[]> {
-    return http.get<OpsProductionOrder[]>('/ops/production')
+export function listProduction(page = 1, pageSize = 20): Promise<PagedResponse<OpsProductionOrder>> {
+    return http.get<PagedResponse<OpsProductionOrder>>(`/ops/production?page=${page}&pageSize=${pageSize}`)
 }
 
 /** pass + rework + scrap 必须等于该行件数，否则后端 400。 */

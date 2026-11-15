@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
 import com.mfg.domain.supplier.SupplierDirectory;
@@ -65,20 +67,20 @@ class SupplierOfferService {
     // ---------- 看单 ----------
 
     @Transactional(readOnly = true)
-    public List<DispatchViews.SupplierOfferSummary> offers(UUID supplierOrgId) {
+    public PagedResponse<DispatchViews.SupplierOfferSummary> offers(UUID supplierOrgId, PageQuery page) {
         List<OpsOrder> open = visibility.openTo(supplierOrgId);
         if (open.isEmpty()) {
-            return List.of();
+            return PagedResponse.slice(List.of(), page.page(), page.size());
         }
         Map<UUID, List<OpsOrderPart>> partsByOrder = opsParts.findByOpsOrderIdIn(
                 open.stream().map(OpsOrder::getId).toList()).stream()
                 .collect(Collectors.groupingBy(OpsOrderPart::getOpsOrderId));
-        return open.stream().map(o -> {
+        return PagedResponse.slice(open.stream().map(o -> {
             List<OpsOrderPart> ps = partsByOrder.getOrDefault(o.getId(), List.of());
             return new DispatchViews.SupplierOfferSummary(o.getId(), o.getDispatchMode().name(),
                     o.getSupplierDueDate(), o.getDispatchedAt(), ps.size(),
                     ps.stream().mapToInt(OpsOrderPart::getQuantity).sum());
-        }).toList();
+        }).toList(), page.page(), page.size());
     }
 
     @Transactional(readOnly = true)
@@ -143,15 +145,17 @@ class SupplierOfferService {
     // ---------- 我的订单 ----------
 
     @Transactional(readOnly = true)
-    public List<DispatchViews.SupplierOrderView> orders(UUID supplierOrgId) {
+    public PagedResponse<DispatchViews.SupplierOrderView> orders(UUID supplierOrgId, PageQuery page) {
         List<SupplierOrder> list = supplierOrders.findBySupplierOrgIdOrderByAcceptedAtDesc(supplierOrgId);
         if (list.isEmpty()) {
-            return List.of();
+            return PagedResponse.slice(List.of(), page.page(), page.size());
         }
         Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
                 list.stream().map(SupplierOrder::getId).toList()).stream()
                 .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
-        return list.stream().map(so -> orderView(so, partsByOrder.getOrDefault(so.getId(), List.of()))).toList();
+        return PagedResponse.slice(list.stream()
+                .map(so -> orderView(so, partsByOrder.getOrDefault(so.getId(), List.of()))).toList(),
+                page.page(), page.size());
     }
 
     @Transactional(readOnly = true)

@@ -84,16 +84,15 @@ class OtpLoginFlowIT {
     }
 
     @Test
-    void sixthSendWithinAnHourIsRateLimited() throws Exception {
+    void twentyFirstSendWithinAnHourIsRateLimited() throws Exception {
         String email = newCustomer();
-        for (int i = 0; i < 5; i++) {
+        for (int i = 0; i < 20; i++) {
             assertThat(rawPost("/auth/otp/send", body("EMAIL", email)).getStatusCode().value())
                     .isEqualTo(200);
         }
         ResponseEntity<String> sixth = rawPost("/auth/otp/send", body("EMAIL", email));
+        // 每地址 20/小时 和 每 IP 20/小时 都是 20，第 21 次两条限流谁先触发不一定 —— 只断言 429，不锁消息
         assertThat(sixth.getStatusCode().value()).isEqualTo(429);
-        assertThat(json.readTree(sixth.getBody()).path("message").asText())
-                .isEqualTo("auth.otp_rate_limited");
     }
 
     // ---------- 校验 ----------

@@ -604,13 +604,13 @@ class DispatchFlowIT {
 
     private List<String> poolLineIds() throws Exception {
         List<String> ids = new ArrayList<>();
-        get("/ops/dispatch/pool", ops).forEach(n -> ids.add(n.path("customerOrderPartId").asText()));
+        get("/ops/dispatch/pool", ops).path("items").forEach(n -> ids.add(n.path("customerOrderPartId").asText()));
         return ids;
     }
 
     private List<String> offerIds(Supplier s) throws Exception {
         List<String> ids = new ArrayList<>();
-        get("/supplier/offers", s.token()).forEach(n -> ids.add(n.path("id").asText()));
+        get("/supplier/offers", s.token()).path("items").forEach(n -> ids.add(n.path("id").asText()));
         return ids;
     }
 

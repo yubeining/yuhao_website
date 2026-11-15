@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -25,8 +27,8 @@ class SupplierOfferController {
 
     /** 最近派出的在前。 */
     @GetMapping("/supplier/offers")
-    List<DispatchViews.SupplierOfferSummary> offers(@CurrentUser UserPrincipal user) {
-        return service.offers(user.partyId());
+    PagedResponse<DispatchViews.SupplierOfferSummary> offers(@CurrentUser UserPrincipal user, PageQuery page) {
+        return service.offers(user.partyId(), page);
     }
 
     @GetMapping("/supplier/offers/{id}")
@@ -52,8 +54,8 @@ class SupplierOfferController {
 
     /** 最近接的在前，含已取消的。 */
     @GetMapping("/supplier/orders")
-    List<DispatchViews.SupplierOrderView> orders(@CurrentUser UserPrincipal user) {
-        return service.orders(user.partyId());
+    PagedResponse<DispatchViews.SupplierOrderView> orders(@CurrentUser UserPrincipal user, PageQuery page) {
+        return service.orders(user.partyId(), page);
     }
 
     @GetMapping("/supplier/orders/{id}")

@@ -145,7 +145,7 @@ class SupplierDirectoryIT {
                     .getStatusCode().value()).isEqualTo(404);
         }
         List<String> names = new ArrayList<>();
-        get("/ops/suppliers", ops).path("data").forEach(n -> names.add(n.path("name").asText()));
+        get("/ops/suppliers", ops).path("data").path("items").forEach(n -> names.add(n.path("name").asText()));
         assertThat(names).contains("Strict Co").doesNotContain("Not A Supplier");
     }
 
@@ -216,7 +216,7 @@ class SupplierDirectoryIT {
     }
 
     private JsonNode findSupplier(String ops, UUID orgId) throws Exception {
-        for (JsonNode n : get("/ops/suppliers", ops).path("data")) {
+        for (JsonNode n : get("/ops/suppliers", ops).path("data").path("items")) {
             if (n.path("orgId").asText().equals(orgId.toString())) {
                 return n;
             }

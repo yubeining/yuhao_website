@@ -1,5 +1,7 @@
 package com.mfg.domain.supplier;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.platform.identity.Organization;
 import com.mfg.platform.identity.OrganizationRepository;
@@ -30,10 +32,11 @@ class SupplierProfileService implements SupplierDirectory {
     // ---------- 运营 ----------
 
     @Transactional(readOnly = true)
-    public List<SupplierView> list() {
+    public PagedResponse<SupplierView> list(PageQuery page) {
         List<Organization> suppliers = organizations.findByTypeOrderByCreatedAtDesc(Organization.Type.SUPPLIER);
         Map<UUID, SupplierProfile> byOrg = profilesOf(suppliers);
-        return suppliers.stream().map(o -> view(o, byOrg.get(o.getId()))).toList();
+        return PagedResponse.slice(suppliers.stream().map(o -> view(o, byOrg.get(o.getId()))).toList(),
+                page.page(), page.size());
     }
 
     @Transactional

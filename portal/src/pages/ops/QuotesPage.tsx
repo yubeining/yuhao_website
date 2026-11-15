@@ -14,6 +14,7 @@ import { Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '.
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, X } from '../../mock/format'
+import { Pagination } from '../../components/Pagination'
 import {
     listOpsOrders, listQuoteSummaries, type OpsOrderSummaryView, type OpsQuoteSummaryView, type OrderStatus,
 } from '../../services'
@@ -35,12 +36,13 @@ export function OpsQuotesPage() {
     /** 每张单最新一版报价。「待报价」里有这一项且是被拒的，说明是客户拒绝后退回来的，不是新单。 */
     const [latest, setLatest] = useState<Record<string, OpsQuoteSummaryView>>({})
     const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [err, setErr] = useState<string | null>(null)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         setOrders(null)
         try {
-            const page = await listOpsOrders(tab === 'ALL' ? undefined : tab, 1, 100)
+            const page = await listOpsOrders(tab === 'ALL' ? undefined : tab, pageNo, 20)
             const summaries = await listQuoteSummaries(page.items.map((o) => o.id))
             setLatest(Object.fromEntries(summaries.map((q) => [q.orderId, q])))
             setOrders(page.items)
@@ -51,7 +53,7 @@ export function OpsQuotesPage() {
         }
     }, [tab, t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     return (
         <Page>
@@ -61,7 +63,7 @@ export function OpsQuotesPage() {
                     <>
                         {filters(t).map(([st, label]) => (
                             <button key={st} type="button" className={`btn${tab === st ? ' pri' : ''}`}
-                                onClick={() => setTab(st)}>{label}</button>
+                                onClick={() => { setTab(st); setPage(1) }}>{label}</button>
                         ))}
                     </>
                 }
@@ -71,7 +73,7 @@ export function OpsQuotesPage() {
                 {orders === null ? (
                     <CardBody>
                         {err
-                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
+                            ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load(page)}>{t.common.retry}</button>} />
                             : <Empty text={t.common.loading} />}
                     </CardBody>
                 ) : orders.length ? (
@@ -102,6 +104,8 @@ export function OpsQuotesPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={page} pageSize={20} total={total}
+                            onChange={(p) => { setPage(p); void load(p) }} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.quotes.empty} /></CardBody>

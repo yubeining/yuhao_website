@@ -39,6 +39,8 @@ export interface Strings {
         cancel: string; save: string; close: string; openInNewTab: string; required: string
         /** 自动保存后的轻提示 */
         saved: string
+        prevPage: string; nextPage: string
+        pageTotal: (n: number) => string; pageOf: (page: number, pages: number) => string
         create: string
         untitledOrder: string
         /** 表格列头。同一列在多个页面出现，必须同一套说法。 */
@@ -409,6 +411,8 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
             loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
+            prevPage: '上一页', nextPage: '下一页',
+            pageTotal: (n) => `共 ${n} 条`, pageOf: (page, pages) => `第 ${page} / ${pages} 页`,
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -929,6 +933,8 @@ export const STRINGS: Record<Lang, Strings> = {
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
             save: 'Save', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab', required: 'required',
+            prevPage: 'Previous', nextPage: 'Next',
+            pageTotal: (n) => `${n} item${n === 1 ? '' : 's'}`, pageOf: (page, pages) => `Page ${page} of ${pages}`,
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',

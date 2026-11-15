@@ -6,28 +6,35 @@
  * ★ 「删除」= 禁用（status=DISABLED）。数据不会消失 —— 账号上挂着订单、报价、图纸，
  *   物理删会留下孤儿数据。界面上是「禁用 / 启用」两个按钮，数据上是同一个状态字段。
  * ★ 邮箱与所属公司不可改；组织类型不可改 —— 合同、权限都按这两样判定。
- * ★ 文案全部走 t.ops.accounts（scripts/check-i18n-literals.py 是只减不增的棘轮，
- *   新文件里出现中文字面量会直接让提交闸门失败）。
+ *
+ * ★ 2026-11-15 改：
+ *   - 新建 / 编辑改成右侧抽屉，不再插进列表中间把页面挤乱；
+ *   - 不再「代建外部用户」—— 客户/供应商都自助注册，运营只改姓名、禁用/启用；
+ *   - 三个子页都接统一分页（每页 20 条），搜索栏对齐、回车可查。
+ * ★ 文案全部走 t.ops.accounts（scripts/check-i18n-literals.py 是只减不增的棘轮）。
  */
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { CountrySelect } from '../../components/CountrySelect'
-import { Field, FieldRow, Input } from '../../components/form'
+import { Drawer } from '../../components/Drawer'
+import { Pagination } from '../../components/Pagination'
+import { Field, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, TableWrap,
+    Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { OTHER_COUNTRY, countryName } from '../../i18n/countries'
-import { useI18n } from '../../i18n/I18nProvider'
 import { useMock } from '../../mock/MockProvider'
 import {
-    createAccount, createOrganization, createStaff, disableAccount, disableOrganization, disableStaff,
+    createOrganization, createStaff, disableAccount, disableOrganization, disableStaff,
     listAccounts, listOrganizations, listStaff, updateAccount, updateOrganization, updateStaff,
     type AccountView, type OrganizationAdminView, type StaffView,
 } from '../../services/ops/accounts'
 
 type Tab = 'users' | 'orgs' | 'staff'
+
+const PAGE_SIZE = 20
 
 const day = (iso: string | null) => (iso ? iso.slice(0, 10) : '—')
 
@@ -50,6 +57,11 @@ function SelectId({ value, onChange, options, placeholder }: {
             {options.map((o) => <option key={o.id} value={o.id}>{o.label}</option>)}
         </select>
     )
+}
+
+/** 搜索栏里的一格：标签在输入框上方，和「查询」按钮同一行底部对齐。 */
+function FilterField({ label, children }: { label: string; children: ReactNode }) {
+    return <div className="ff"><span className="ff-k">{label}</span>{children}</div>
 }
 
 export function OpsAccountsPage() {
@@ -75,64 +87,27 @@ function UsersTab() {
     const a = t.ops.accounts
     const [rows, setRows] = useState<AccountView[] | null>(null)
     const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-    const [orgs, setOrgs] = useState<OrganizationAdminView[]>([])
-    const [form, setForm] = useState<{
-        id?: string; orgId: string; orgName: string; email: string; displayName: string; password: string
-    } | null>(null)
+    const [editing, setEditing] = useState<AccountView | null>(null)
 
-    const load = useCallback(async (keyword: string) => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            const page = await listAccounts(keyword)
-            setRows(page.items)
-            setTotal(page.total)
+            const pg = await listAccounts(q, pageNo, PAGE_SIZE)
+            setRows(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [t])
+    }, [q, t])
 
-    useEffect(() => {
-        void load('')
-        // 建用户时要选公司，这里先取一次（不含内部组织：外部用户不能挂在 INTERNAL 下）
-        listOrganizations('', '', 1, 200)
-            .then((p) => setOrgs(p.items.filter((o) => o.type !== 'INTERNAL')))
-            .catch(() => undefined)
-    }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
-    const typeLabel = (type: string | null) => {
-        if (type === 'CUSTOMER') return a.typeCustomer
-        if (type === 'SUPPLIER') return a.typeSupplier
-        if (type === 'INTERNAL') return a.typeInternal
-        return '—'
-    }
-
-    const save = async () => {
-        if (!form) return
-        setBusy(true)
-        setErr(null)
-        try {
-            if (form.id) {
-                await updateAccount(form.id, { displayName: form.displayName })
-                setOk(a.saved)
-            } else {
-                await createAccount({
-                    orgId: form.orgId, email: form.email,
-                    displayName: form.displayName, password: form.password,
-                })
-                setOk(a.created)
-            }
-            setForm(null)
-            await load(q)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
+    const search = () => { setPage(1); void load(1) }
 
     const disable = async (row: AccountView) => {
         if (!window.confirm(a.confirmDisableUser(row.email))) return
@@ -140,7 +115,7 @@ function UsersTab() {
         try {
             await disableAccount(row.id)
             setOk(a.disabledOk(row.email))
-            await load(q)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -153,7 +128,7 @@ function UsersTab() {
         try {
             await updateAccount(row.id, { status: 'ACTIVE' })
             setOk(a.enabledOk(row.email))
-            await load(q)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -167,79 +142,24 @@ function UsersTab() {
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={a.search} />
                 <CardBody>
-                    <FieldRow>
-                        <Field label={a.colEmail}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} />
-                        </Field>
-                        <Field label=" ">
-                            <button className="btn pri" type="button" disabled={busy}
-                                onClick={() => void load(q)}>{a.query}</button>
-                        </Field>
-                    </FieldRow>
+                    <div className="fbar">
+                        <FilterField label={a.colEmail}>
+                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 260 }} />
+                        </FilterField>
+                        <button className="btn pri" type="button" disabled={busy} onClick={search}>{a.query}</button>
+                    </div>
                 </CardBody>
             </Card>
 
-            {form && (
-                <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={form.id ? a.editUser : a.newUser} />
-                    <CardBody>
-                        <FieldRow>
-                            <Field label={a.fldOrg}>
-                                {form.id
-                                    ? <div style={{ padding: '10px 0' }}>
-                                        {form.orgName || '—'}<span className="fnote">{a.immutable}</span>
-                                    </div>
-                                    : <SelectId value={form.orgId} placeholder={a.selectPlaceholder}
-                                        options={orgs.map((o) => ({ id: o.id, label: `${o.name} (${typeLabel(o.type)})` }))}
-                                        onChange={(v) => setForm({ ...form, orgId: v })} />}
-                            </Field>
-                            <Field label={a.fldEmail}>
-                                {form.id
-                                    ? <div style={{ padding: '10px 0' }}>
-                                        {form.email}<span className="fnote">{a.immutable}</span>
-                                    </div>
-                                    : <Input value={form.email} placeholder="name@company.com"
-                                        onChange={(v) => setForm({ ...form, email: v })} />}
-                            </Field>
-                        </FieldRow>
-                        <FieldRow>
-                            <Field label={a.fldName}>
-                                <Input value={form.displayName}
-                                    onChange={(v) => setForm({ ...form, displayName: v })} />
-                            </Field>
-                            {!form.id && (
-                                <Field label={a.fldPassword}>
-                                    <Input type="password" value={form.password}
-                                        onChange={(v) => setForm({ ...form, password: v })} />
-                                </Field>
-                            )}
-                        </FieldRow>
-                    </CardBody>
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>}
-                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>
-                            {busy ? '…' : a.save}
-                        </button>}
-                    />
-                </Card>
-            )}
-
             <Card>
-                <CardHead title={a.tabUsers} rid={a.usersTotal(total)}
-                    right={!form && (
-                        <button className="btn sm pri" type="button"
-                            onClick={() => { setOk(null); setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' }) }}>
-                            {a.create}
-                        </button>
-                    )} />
+                <CardHead title={a.tabUsers} rid={a.usersTotal(total)} />
                 <CardBody flush>
                     {rows?.length ? (
                         <TableWrap>
                             <thead>
                                 <tr>
-                                    <th>{a.colEmail}</th><th>{a.colName}</th><th>{a.colOrg}</th><th>{a.colType}</th>
+                                    <th>{a.colEmail}</th><th>{a.colName}</th><th>{a.colOrg}</th>
                                     <th>{a.colStatus}</th><th>{a.colVerified}</th><th>{a.colCreated}</th><th />
                                 </tr>
                             </thead>
@@ -249,7 +169,6 @@ function UsersTab() {
                                         <td className="m">{r.email}</td>
                                         <td className="t1">{r.displayName}</td>
                                         <td>{r.orgName ?? '—'}</td>
-                                        <td>{typeLabel(r.orgType)}</td>
                                         <td>
                                             <StatusPill status={r.status}
                                                 label={r.status === 'ACTIVE' ? a.statusActive : a.statusDisabled} />
@@ -258,13 +177,7 @@ function UsersTab() {
                                         <td className="n">{day(r.createdAt)}</td>
                                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                             <button className="btn sm" type="button"
-                                                onClick={() => {
-                                                    setOk(null)
-                                                    setForm({
-                                                        id: r.id, orgId: r.orgId, orgName: r.orgName ?? '',
-                                                        email: r.email, displayName: r.displayName, password: '',
-                                                    })
-                                                }}>
+                                                onClick={() => { setOk(null); setEditing(r) }}>
                                                 {a.edit}
                                             </button>
                                             {r.status === 'ACTIVE'
@@ -277,66 +190,112 @@ function UsersTab() {
                                 ))}
                             </tbody>
                         </TableWrap>
-                    ) : <CardBody><Empty text={a.noUsers} sub={a.noUsersSub} /></CardBody>}
+                    ) : (
+                        <Empty text={a.noUsers} />
+                    )}
+                    <Pagination page={page} pageSize={PAGE_SIZE} total={total}
+                        onChange={(p) => { setPage(p); void load(p) }} />
                 </CardBody>
             </Card>
+
+            {editing && (
+                <UserDrawer user={editing} busy={busy}
+                    onClose={() => setEditing(null)}
+                    onSaved={() => { setEditing(null); void load(page) }} />
+            )}
         </>
+    )
+}
+
+/** 编辑外部用户：只有姓名可改，邮箱 / 公司只读。 */
+function UserDrawer({ user, busy, onClose, onSaved }: {
+    user: AccountView
+    busy: boolean
+    onClose: () => void
+    onSaved: () => void
+}) {
+    const { t } = useMock()
+    const a = t.ops.accounts
+    const [name, setName] = useState(user.displayName)
+    const [err, setErr] = useState<string | null>(null)
+
+    const save = async () => {
+        setErr(null)
+        try {
+            await updateAccount(user.id, { displayName: name.trim() })
+            onSaved()
+        } catch (e) {
+            setErr(errorText(t, e))
+        }
+    }
+
+    return (
+        <Drawer title={a.editUser} busy={busy}
+            onClose={onClose}
+            footer={<>
+                <button className="btn" type="button" onClick={onClose}>{a.cancel}</button>
+                <button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{a.save}</button>
+            </>}>
+            <Field label={a.colEmail}>
+                <div style={{ padding: '9px 0' }}>{user.email}<span className="fnote">{a.immutable}</span></div>
+            </Field>
+            <Field label={a.colOrg}>
+                <div style={{ padding: '9px 0' }}>{user.orgName ?? '—'}<span className="fnote">{a.immutable}</span></div>
+            </Field>
+            <Field label={a.fldName}>
+                <Input value={name} onChange={setName} />
+            </Field>
+            {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
+        </Drawer>
     )
 }
 
 /* ───────────────────────── 组织 ───────────────────────── */
 
 function OrgsTab() {
-    const { t } = useMock()
+    const { t, lang } = useMock()
     const a = t.ops.accounts
     const [rows, setRows] = useState<OrganizationAdminView[] | null>(null)
     const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
     const [type, setType] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [form, setForm] = useState<{ id?: string; type: string; name: string; country: string } | null>(null)
-    const { lang } = useI18n()
 
-    /** 下拉里的 OTHER 只是「列表里没有」，库里不存这个值。 */
-    const submitCountry = (v: string) => (v && v !== OTHER_COUNTRY ? v : null)
-
-    const load = useCallback(async (keyword: string, orgType: string) => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            const page = await listOrganizations(keyword, orgType)
-            setRows(page.items)
-            setTotal(page.total)
+            const pg = await listOrganizations(q, type, pageNo, PAGE_SIZE)
+            setRows(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [t])
+    }, [q, type, t])
 
-    useEffect(() => { void load('', '') }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
-    const typeLabel = (ty: string) => {
-        if (ty === 'CUSTOMER') return a.typeCustomer
-        if (ty === 'SUPPLIER') return a.typeSupplier
-        if (ty === 'INTERNAL') return a.typeInternal
-        return ty
-    }
+    const search = () => { setPage(1); void load(1) }
+
+    const typeLabel = (v: string) =>
+        v === 'CUSTOMER' ? a.typeCustomer : v === 'SUPPLIER' ? a.typeSupplier : v === 'INTERNAL' ? a.typeInternal : '—'
 
     const save = async () => {
-        if (!form) return
+        if (!form || !form.name.trim()) return
         setBusy(true)
-        setErr(null)
         try {
             if (form.id) {
-                // 国家/地区由客户自己在个人资料里填，运营改不了
-                await updateOrganization(form.id, { name: form.name })
+                await updateOrganization(form.id, { name: form.name.trim(), country: form.country || null })
                 setOk(a.saved)
             } else {
-                await createOrganization({ type: form.type, name: form.name, country: submitCountry(form.country) })
+                await createOrganization({ type: form.type, name: form.name.trim(), country: form.country || null })
                 setOk(a.created)
             }
             setForm(null)
-            await load(q, type)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -350,7 +309,7 @@ function OrgsTab() {
         try {
             await disableOrganization(row.id)
             setOk(a.disabledOk(row.name))
-            await load(q, type)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -363,7 +322,7 @@ function OrgsTab() {
         try {
             await updateOrganization(row.id, { status: 'ACTIVE' })
             setOk(a.enabledOk(row.name))
-            await load(q, type)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -377,64 +336,23 @@ function OrgsTab() {
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={a.search} />
                 <CardBody>
-                    <FieldRow>
-                        <Field label={a.colOrg}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} />
-                        </Field>
-                        <Field label={a.colType}>
-                            <select className="inp" value={type} onChange={(e) => setType(e.target.value)}>
+                    <div className="fbar">
+                        <FilterField label={a.colOrg}>
+                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 220 }} />
+                        </FilterField>
+                        <FilterField label={a.colType}>
+                            <select className="inp" value={type} onChange={(e) => setType(e.target.value)} style={{ width: 130 }}>
                                 <option value="">{a.all}</option>
                                 <option value="CUSTOMER">{a.typeCustomer}</option>
                                 <option value="SUPPLIER">{a.typeSupplier}</option>
                                 <option value="INTERNAL">{a.typeInternal}</option>
                             </select>
-                        </Field>
-                    </FieldRow>
-                    <button className="btn pri" type="button" style={{ marginTop: 10 }}
-                        disabled={busy} onClick={() => void load(q, type)}>{a.query}</button>
+                        </FilterField>
+                        <button className="btn pri" type="button" disabled={busy} onClick={search}>{a.query}</button>
+                    </div>
                 </CardBody>
             </Card>
-
-            {form && (
-                <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={form.id ? a.editOrg : a.newOrg} />
-                    <CardBody>
-                        <FieldRow>
-                            <Field label={a.fldType}>
-                                {form.id
-                                    ? <div style={{ padding: '10px 0' }}>
-                                        {typeLabel(form.type)}<span className="fnote">{a.immutableType}</span>
-                                    </div>
-                                    : <select className="inp" value={form.type}
-                                        onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                                        <option value="CUSTOMER">{a.typeCustomer}</option>
-                                        <option value="SUPPLIER">{a.typeSupplier}</option>
-                                        <option value="INTERNAL">{a.typeInternal}</option>
-                                    </select>}
-                            </Field>
-                            <Field label={a.colOrg}>
-                                <Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
-                            </Field>
-                        </FieldRow>
-                        {!form.id && (
-                            <FieldRow>
-                                <Field label={a.fldCountry}>
-                                    <CountrySelect value={form.country}
-                                        onChange={(v) => setForm({ ...form, country: v })} />
-                                </Field>
-                            </FieldRow>
-                        )}
-                    </CardBody>
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>}
-                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>
-                            {busy ? '…' : a.save}
-                        </button>}
-                    />
-                </Card>
-            )}
 
             <Card>
                 <CardHead title={a.tabOrgs} rid={a.orgsTotal(total)}
@@ -482,9 +400,40 @@ function OrgsTab() {
                                 ))}
                             </tbody>
                         </TableWrap>
-                    ) : <CardBody><Empty text={a.noOrgs} /></CardBody>}
+                    ) : (
+                        <Empty text={a.noOrgs} />
+                    )}
+                    <Pagination page={page} pageSize={PAGE_SIZE} total={total}
+                        onChange={(p) => { setPage(p); void load(p) }} />
                 </CardBody>
             </Card>
+
+            {form && (
+                <Drawer title={form.id ? a.editOrg : a.newOrg} busy={busy}
+                    onClose={() => setForm(null)}
+                    footer={<>
+                        <button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>
+                        <button className="btn pri" type="button" disabled={busy || !form.name.trim()}
+                            onClick={() => void save()}>{a.save}</button>
+                    </>}>
+                    <Field label={a.fldType}>
+                        {form.id
+                            ? <div style={{ padding: '9px 0' }}>{typeLabel(form.type)}<span className="fnote">{a.immutableType}</span></div>
+                            : <select className="inp" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                                <option value="CUSTOMER">{a.typeCustomer}</option>
+                                <option value="SUPPLIER">{a.typeSupplier}</option>
+                                <option value="INTERNAL">{a.typeInternal}</option>
+                            </select>}
+                    </Field>
+                    <Field label={a.colOrg}>
+                        <Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
+                    </Field>
+                    <Field label={a.fldCountry}>
+                        <CountrySelect value={form.country} allowOther={false}
+                            onChange={(v) => setForm({ ...form, country: v })} />
+                    </Field>
+                </Drawer>
+            )}
         </>
     )
 }
@@ -496,50 +445,49 @@ function StaffTab() {
     const a = t.ops.accounts
     const [rows, setRows] = useState<StaffView[] | null>(null)
     const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-    const [internalOrgs, setInternalOrgs] = useState<OrganizationAdminView[]>([])
-    const [form, setForm] = useState<{
-        id?: string; orgId: string; orgName: string; email: string; displayName: string; password: string
-    } | null>(null)
+    const [orgs, setOrgs] = useState<OrganizationAdminView[]>([])
+    const [form, setForm] = useState<{ id?: string; orgId: string; orgName: string; email: string; displayName: string; password: string } | null>(null)
 
-    const load = useCallback(async (keyword: string) => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            const page = await listStaff(keyword)
-            setRows(page.items)
-            setTotal(page.total)
+            const pg = await listStaff(q, pageNo, PAGE_SIZE)
+            setRows(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [t])
+    }, [q, t])
+
+    useEffect(() => { void load(page) }, [load, page])
 
     useEffect(() => {
-        void load('')
-        listOrganizations('', 'INTERNAL', 1, 100)
-            .then((p) => setInternalOrgs(p.items))
+        // 建运营账号时选内部组织
+        listOrganizations('', 'INTERNAL', 1, 200)
+            .then((p) => setOrgs(p.items))
             .catch(() => undefined)
-    }, [load])
+    }, [])
+
+    const search = () => { setPage(1); void load(1) }
 
     const save = async () => {
         if (!form) return
         setBusy(true)
-        setErr(null)
         try {
             if (form.id) {
-                await updateStaff(form.id, { displayName: form.displayName })
+                await updateStaff(form.id, { displayName: form.displayName.trim() })
                 setOk(a.saved)
             } else {
-                await createStaff({
-                    orgId: form.orgId, email: form.email,
-                    displayName: form.displayName, password: form.password,
-                })
+                await createStaff({ orgId: form.orgId, email: form.email.trim(), displayName: form.displayName.trim(), password: form.password })
                 setOk(a.created)
             }
             setForm(null)
-            await load(q)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -553,7 +501,7 @@ function StaffTab() {
         try {
             await disableStaff(row.id)
             setOk(a.disabledOk(row.email))
-            await load(q)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -566,7 +514,7 @@ function StaffTab() {
         try {
             await updateStaff(row.id, { status: 'ACTIVE' })
             setOk(a.enabledOk(row.email))
-            await load(q)
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -578,74 +526,23 @@ function StaffTab() {
         <>
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
-            <Banner tone="wa" style={{ marginBottom: 14 }}>{a.staffOrgHint}</Banner>
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={a.search} />
                 <CardBody>
-                    <FieldRow>
-                        <Field label={a.colEmail}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} />
-                        </Field>
-                        <Field label=" ">
-                            <button className="btn pri" type="button" disabled={busy}
-                                onClick={() => void load(q)}>{a.query}</button>
-                        </Field>
-                    </FieldRow>
+                    <div className="fbar">
+                        <FilterField label={a.colEmail}>
+                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 260 }} />
+                        </FilterField>
+                        <button className="btn pri" type="button" disabled={busy} onClick={search}>{a.query}</button>
+                    </div>
                 </CardBody>
             </Card>
-
-            {form && (
-                <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={form.id ? a.editStaff : a.newStaff} />
-                    <CardBody>
-                        <FieldRow>
-                            <Field label={a.colDept}>
-                                {form.id
-                                    ? <div style={{ padding: '10px 0' }}>{form.orgName || '—'}</div>
-                                    : <SelectId value={form.orgId} placeholder={a.selectPlaceholder}
-                                        options={internalOrgs.map((o) => ({ id: o.id, label: o.name }))}
-                                        onChange={(v) => setForm({ ...form, orgId: v })} />}
-                            </Field>
-                            <Field label={a.fldEmail}>
-                                {form.id
-                                    ? <div style={{ padding: '10px 0' }}>
-                                        {form.email}<span className="fnote">{a.immutable}</span>
-                                    </div>
-                                    : <Input value={form.email} placeholder="name@company.com"
-                                        onChange={(v) => setForm({ ...form, email: v })} />}
-                            </Field>
-                        </FieldRow>
-                        <FieldRow>
-                            <Field label={a.fldName}>
-                                <Input value={form.displayName}
-                                    onChange={(v) => setForm({ ...form, displayName: v })} />
-                            </Field>
-                            {!form.id && (
-                                <Field label={a.fldPassword}>
-                                    <Input type="password" value={form.password}
-                                        onChange={(v) => setForm({ ...form, password: v })} />
-                                </Field>
-                            )}
-                        </FieldRow>
-                    </CardBody>
-                    <CardFoot
-                        left={<button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>}
-                        right={<button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>
-                            {busy ? '…' : a.save}
-                        </button>}
-                    />
-                </Card>
-            )}
 
             <Card>
                 <CardHead title={a.tabStaff} rid={a.staffTotal(total)}
                     right={!form && (
                         <button className="btn sm pri" type="button"
-                            onClick={() => {
-                                setOk(null)
-                                setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' })
-                            }}>
+                            onClick={() => { setOk(null); setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' }) }}>
                             {a.create}
                         </button>
                     )} />
@@ -673,10 +570,7 @@ function StaffTab() {
                                             <button className="btn sm" type="button"
                                                 onClick={() => {
                                                     setOk(null)
-                                                    setForm({
-                                                        id: r.id, orgId: r.orgId, orgName: r.orgName ?? '',
-                                                        email: r.email, displayName: r.displayName, password: '',
-                                                    })
+                                                    setForm({ id: r.id, orgId: r.orgId, orgName: r.orgName ?? '', email: r.email, displayName: r.displayName, password: '' })
                                                 }}>
                                                 {a.edit}
                                             </button>
@@ -690,9 +584,47 @@ function StaffTab() {
                                 ))}
                             </tbody>
                         </TableWrap>
-                    ) : <CardBody><Empty text={a.noStaff} /></CardBody>}
+                    ) : (
+                        <Empty text={a.noStaff} />
+                    )}
+                    <Pagination page={page} pageSize={PAGE_SIZE} total={total}
+                        onChange={(p) => { setPage(p); void load(p) }} />
                 </CardBody>
             </Card>
+
+            {form && (
+                <Drawer title={form.id ? a.editStaff : a.newStaff} busy={busy}
+                    onClose={() => setForm(null)}
+                    footer={<>
+                        <button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>
+                        <button className="btn pri" type="button" disabled={busy}
+                            onClick={() => void save()}>{a.save}</button>
+                    </>}>
+                    <Field label={a.fldOrg}>
+                        {form.id
+                            ? <div style={{ padding: '9px 0' }}>{form.orgName || '—'}<span className="fnote">{a.immutable}</span></div>
+                            : <SelectId value={form.orgId} placeholder={a.selectPlaceholder}
+                                options={orgs.map((o) => ({ id: o.id, label: o.name }))}
+                                onChange={(v) => setForm({ ...form, orgId: v })} />}
+                    </Field>
+                    <Field label={a.fldEmail}>
+                        {form.id
+                            ? <div style={{ padding: '9px 0' }}>{form.email}<span className="fnote">{a.immutable}</span></div>
+                            : <Input value={form.email} placeholder="name@company.com"
+                                onChange={(v) => setForm({ ...form, email: v })} />}
+                    </Field>
+                    <Field label={a.fldName}>
+                        <Input value={form.displayName}
+                            onChange={(v) => setForm({ ...form, displayName: v })} />
+                    </Field>
+                    {!form.id && (
+                        <Field label={a.fldPassword}>
+                            <Input type="password" value={form.password}
+                                onChange={(v) => setForm({ ...form, password: v })} />
+                        </Field>
+                    )}
+                </Drawer>
+            )}
         </>
     )
 }

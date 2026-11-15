@@ -12,6 +12,7 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
+import { Pagination } from '../../components/Pagination'
 import { createOrder, deleteOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 
@@ -19,18 +20,22 @@ export function OrderListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [creating, setCreating] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            setOrders((await listOrders(1, 100)).items)
+            const pg = await listOrders(pageNo, 20)
+            setOrders(pg.items)
+            setTotal(pg.total)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     const createDraft = async () => {
         if (creating) return
@@ -48,7 +53,7 @@ export function OrderListPage() {
     const remove = async (id: string) => {
         try {
             await deleteOrder(id)
-            await load()
+            await load(page)
         } catch (e) {
             setErr(errorText(t, e))
         }
@@ -114,6 +119,8 @@ export function OrderListPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={page} pageSize={20} total={total}
+                            onChange={(p) => { setPage(p); void load(p) }} />
                     </CardBody>
                 ) : (
                     <CardBody>

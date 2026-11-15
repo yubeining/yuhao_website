@@ -34,4 +34,16 @@ public record PagedResponse<T>(
                 page.getTotalElements(),
                 page.getTotalPages());
     }
+
+    /**
+     * 内存分页：视图本来就要把整份数据都取出来拼（跨表、按内存聚合），
+     * 拿到最终列表后统一在这里切页，比给每个仓库加 Pageable 更省事也更容易对。
+     */
+    public static <T> PagedResponse<T> slice(List<T> all, int page, int size) {
+        int total = all.size();
+        int totalPages = total == 0 ? 0 : (int) Math.ceil((double) total / size);
+        int from = Math.min((page - 1) * size, total);
+        int to = Math.min(from + size, total);
+        return new PagedResponse<>(all.subList(from, to), page, size, total, totalPages);
+    }
 }

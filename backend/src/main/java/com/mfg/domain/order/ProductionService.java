@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -113,19 +115,19 @@ class ProductionService {
 
     /** 已签字之后的供应商订单（生产中 / 待质检 / 已完成），最近接单的在前。 */
     @Transactional(readOnly = true)
-    public List<DispatchViews.OpsProductionOrder> list() {
+    public PagedResponse<DispatchViews.OpsProductionOrder> list(PageQuery page) {
         List<SupplierOrder> orders = supplierOrders.findByStatusInOrderByAcceptedAtDesc(
                 Set.of(SupplierOrder.Status.CONTRACTED, SupplierOrder.Status.IN_PRODUCTION,
                         SupplierOrder.Status.SHIPPED, SupplierOrder.Status.FULFILLED));
         if (orders.isEmpty()) {
-            return List.of();
+            return PagedResponse.slice(List.of(), page.page(), page.size());
         }
         Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
                         orders.stream().map(SupplierOrder::getId).toList()).stream()
                 .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
-        return orders.stream()
+        return PagedResponse.slice(orders.stream()
                 .map(so -> views.forOps(so, sorted(partsByOrder.getOrDefault(so.getId(), List.of()))))
-                .toList();
+                .toList(), page.page(), page.size());
     }
 
     /**

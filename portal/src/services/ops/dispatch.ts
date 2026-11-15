@@ -6,6 +6,7 @@
  */
 
 import { http } from '../core/http'
+import type { PagedResponse } from '../customer/orders'
 // 叶子零件行的状态是供应侧的词汇，定义在供应商 service 里，这里只引用，不再定义一份
 import type { LineStatus } from '../supplier/offers'
 
@@ -106,8 +107,8 @@ export interface OpsSupplierPrice {
     lines: { opsOrderLineId: string; quantity: number; baseUnitPriceCny: number; unitPriceCny: number; lineTotalCny: number }[]
 }
 
-export function dispatchPool(): Promise<PoolLine[]> {
-    return http.get<PoolLine[]>('/ops/dispatch/pool')
+export function dispatchPool(page = 1, pageSize = 20): Promise<PagedResponse<PoolLine>> {
+    return http.get<PagedResponse<PoolLine>>(`/ops/dispatch/pool?page=${page}&pageSize=${pageSize}`)
 }
 
 /** 各份数量之和必须等于该行数量。 */
@@ -120,8 +121,9 @@ export function unallocateLine(customerOrderPartId: string): Promise<unknown> {
     return http.post('/ops/dispatch/unallocate', { customerOrderPartId })
 }
 
-export function listOpsDispatchOrders(status?: OpsOrderStatus): Promise<OpsOrderSummary[]> {
-    return http.get<OpsOrderSummary[]>(`/ops/ops-orders${status ? `?status=${status}` : ''}`)
+export function listOpsDispatchOrders(status?: OpsOrderStatus, page = 1, pageSize = 20): Promise<PagedResponse<OpsOrderSummary>> {
+    const q = `page=${page}&pageSize=${pageSize}${status ? `&status=${status}` : ''}`
+    return http.get<PagedResponse<OpsOrderSummary>>(`/ops/ops-orders?${q}`)
 }
 
 export function createOpsDispatchOrder(): Promise<OpsOrderDetail> {

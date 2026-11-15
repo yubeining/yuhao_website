@@ -12,6 +12,7 @@ import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
+import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate, X } from '../../mock/format'
 import { listSuppliers, setSupplierCapability, setSupplierDiscount, type SupplierView } from '../../services'
@@ -37,21 +38,25 @@ const draftOf = (s: SupplierView): Draft => ({
 export function OpsPartiesPage() {
     const { t } = useMock()
     const [suppliers, setSuppliers] = useState<SupplierView[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [editing, setEditing] = useState<string | null>(null)
     const [draft, setDraft] = useState<Draft | null>(null)
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            setSuppliers(await listSuppliers())
+            const pg = await listSuppliers(pageNo, 20)
+            setSuppliers(pg.items)
+            setTotal(pg.total)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     const current = suppliers?.find((s) => s.orgId === editing) ?? null
 
@@ -81,7 +86,7 @@ export function OpsPartiesPage() {
                 || cap.sizeRange !== (current.sizeRange ?? null) || cap.precisionGrade !== (current.precisionGrade ?? null)) {
                 await setSupplierCapability(current.orgId, cap)
             }
-            await load()
+            await load(page)
             setOk(t.ops.parties.saved(current.name))
             setErr(null)
             setEditing(null)
@@ -101,7 +106,7 @@ export function OpsPartiesPage() {
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={t.ops.parties.suppliers} rid={suppliers ? t.ops.parties.supplierCount(suppliers.length) : undefined} />
+                <CardHead title={t.ops.parties.suppliers} rid={suppliers ? t.ops.parties.supplierCount(total) : undefined} />
                 {suppliers === null ? (
                     <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : suppliers.length ? (
@@ -131,6 +136,8 @@ export function OpsPartiesPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={page} pageSize={20} total={total}
+                            onChange={(p) => { setPage(p); void load(p) }} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.parties.empty} sub={t.ops.parties.emptySub} /></CardBody>

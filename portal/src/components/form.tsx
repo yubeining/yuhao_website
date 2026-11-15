@@ -9,11 +9,13 @@
 import type { CSSProperties, ReactNode } from 'react'
 import { useI18n } from '../i18n/I18nProvider'
 
-export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, disabled, style, id, autoComplete }: {
+export function Input({ value, onChange, onBlur, onEnter, placeholder, type = 'text', bad, disabled, style, id, autoComplete }: {
     value: string
     onChange: (v: string) => void
     /** 离开输入框时触发（比如失焦保存、失焦查询） */
     onBlur?: () => void
+    /** 回车触发（搜索框用） */
+    onEnter?: () => void
     placeholder?: string
     type?: string
     /** 校验不过时描红 */
@@ -36,6 +38,7 @@ export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad
             disabled={disabled}
             onChange={(e) => onChange(e.target.value)}
             onBlur={onBlur}
+            onKeyDown={(e) => { if (e.key === 'Enter' && onEnter) onEnter() }}
         />
     )
 }

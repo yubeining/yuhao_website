@@ -10,6 +10,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
+import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
 import { listSupplierOffers, supplierOfferPrices, type OfferPrice, type SupplierOfferSummary } from '../../services'
@@ -18,29 +19,32 @@ export function HallPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [offers, setOffers] = useState<SupplierOfferSummary[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [prices, setPrices] = useState<Record<string, OfferPrice>>({})
     const [err, setErr] = useState<string | null>(null)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            const list = await listSupplierOffers()
-            const ps = await supplierOfferPrices(list.map((o) => o.id))
+            const pg = await listSupplierOffers(pageNo, 20)
+            const ps = await supplierOfferPrices(pg.items.map((o) => o.id))
             setPrices(Object.fromEntries(ps.map((p) => [p.opsOrderId, p])))
-            setOffers(list)
+            setOffers(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     return (
         <Page>
             <Hello title={t.supplier.hall.title} />
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             <Card>
-                <CardHead title={t.supplier.hall.availableTitle} rid={offers ? t.supplier.hall.available(offers.length) : undefined} />
+                <CardHead title={t.supplier.hall.availableTitle} rid={offers ? t.supplier.hall.available(total) : undefined} />
                 {offers === null ? (
                     <CardBody><Empty text={t.common.loading} /></CardBody>
                 ) : offers.length ? (
@@ -65,6 +69,8 @@ export function HallPage() {
                                 ))}
                             </tbody>
                         </TableWrap>
+                        <Pagination page={page} pageSize={20} total={total}
+                            onChange={(p) => { setPage(p); void load(p) }} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.supplier.hall.empty} sub={t.supplier.hall.emptySub} /></CardBody>

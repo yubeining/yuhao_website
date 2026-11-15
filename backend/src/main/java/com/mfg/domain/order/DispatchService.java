@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.domain.supplier.SupplierDirectory;
 import com.mfg.platform.identity.OrganizationRepository;
@@ -71,10 +73,10 @@ class DispatchService implements OrderDispatching {
 
     /** 已确认报价的客户订单里、还没拆进任何生产订单的行。先提交的在前。 */
     @Transactional(readOnly = true)
-    public List<DispatchViews.PoolLine> pool() {
+    public PagedResponse<DispatchViews.PoolLine> pool(PageQuery page) {
         List<CustomerOrder> confirmed = customerOrders.findByStatusOrderBySubmittedAtAsc(CustomerOrder.Status.CONFIRMED);
         if (confirmed.isEmpty()) {
-            return List.of();
+            return PagedResponse.slice(List.of(), page.page(), page.size());
         }
         Map<UUID, CustomerOrder> orderById = confirmed.stream()
                 .collect(Collectors.toMap(CustomerOrder::getId, o -> o));
@@ -85,12 +87,12 @@ class DispatchService implements OrderDispatching {
         Map<UUID, DispatchViews.OpsLine> view = details.forOps(open.stream()
                         .map(l -> DispatchLineDetails.Row.plain(l.getId(), l.getId(), l.getQuantity())).toList())
                 .stream().collect(Collectors.toMap(DispatchViews.OpsLine::id, v -> v));
-        return open.stream().map(l -> {
+        return PagedResponse.slice(open.stream().map(l -> {
             DispatchViews.OpsLine v = view.get(l.getId());
             return new DispatchViews.PoolLine(l.getId(), l.getCustomerOrderId(), l.getCustomerOrgId(), v.customerName(),
                     v.orderTitle(), v.code(), v.partName(), l.getQuantity(), v.material(), v.surfaceTreatment(),
                     orderById.get(l.getCustomerOrderId()).getSubmittedAt());
-        }).toList();
+        }).toList(), page.page(), page.size());
     }
 
     // ---------- 生产订单 ----------
@@ -112,11 +114,11 @@ class DispatchService implements OrderDispatching {
     }
 
     @Transactional(readOnly = true)
-    public List<DispatchViews.OpsOrderSummary> list(OpsOrder.Status status) {
+    public PagedResponse<DispatchViews.OpsOrderSummary> list(OpsOrder.Status status, PageQuery page) {
         List<OpsOrder> list = status == null ? opsOrders.findAllByOrderByCreatedAtDesc()
                 : opsOrders.findByStatusOrderByCreatedAtDesc(status);
         if (list.isEmpty()) {
-            return List.of();
+            return PagedResponse.slice(List.of(), page.page(), page.size());
         }
         List<UUID> ids = list.stream().map(OpsOrder::getId).toList();
         Map<UUID, List<OpsOrderPart>> partsByOrder = opsParts.findByOpsOrderIdIn(ids).stream()
@@ -124,7 +126,7 @@ class DispatchService implements OrderDispatching {
         Map<UUID, UUID> acceptedSupplier = supplierOrders.findByOpsOrderIdInAndStatusIn(ids, ACTIVE_SUPPLIER_ORDER)
                 .stream().collect(Collectors.toMap(SupplierOrder::getOpsOrderId, SupplierOrder::getSupplierOrgId));
         Map<UUID, String> names = orgNames(acceptedSupplier.values());
-        return list.stream().map(o -> {
+        return PagedResponse.slice(list.stream().map(o -> {
             List<OpsOrderPart> ps = partsByOrder.getOrDefault(o.getId(), List.of());
             UUID sup = acceptedSupplier.get(o.getId());
             return new DispatchViews.OpsOrderSummary(o.getId(), o.getStatus().name(), name(o.getDispatchMode()),
@@ -132,7 +134,7 @@ class DispatchService implements OrderDispatching {
                     ps.stream().mapToInt(OpsOrderPart::getQuantity).sum(),
                     (int) ps.stream().map(OpsOrderPart::getSourceCustomerId).distinct().count(),
                     sup == null ? null : names.get(sup), o.getCreatedAt());
-        }).toList();
+        }).toList(), page.page(), page.size());
     }
 
     @Transactional(readOnly = true)

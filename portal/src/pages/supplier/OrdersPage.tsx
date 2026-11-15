@@ -12,6 +12,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
+import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, M, X } from '../../mock/format'
 import {
@@ -27,28 +28,31 @@ const IN_PRODUCTION_FLOW = ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED
 export function SupplierOrdersPage() {
     const { t } = useMock()
     const [orders, setOrders] = useState<SupplierOrderView[] | null>(null)
+    const [total, setTotal] = useState(0)
+    const [page, setPage] = useState(1)
     const [prices, setPrices] = useState<Record<string, OrderPrice>>({})
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
 
-    const load = useCallback(async () => {
+    const load = useCallback(async (pageNo: number) => {
         try {
-            const [os, ps] = await Promise.all([listSupplierOrders(), supplierOrderPrices()])
+            const [pg, ps] = await Promise.all([listSupplierOrders(pageNo, 20), supplierOrderPrices()])
             setPrices(Object.fromEntries(ps.map((p) => [p.supplierOrderId, p])))
-            setOrders(os)
+            setOrders(pg.items)
+            setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
     }, [t])
 
-    useEffect(() => { void load() }, [load])
+    useEffect(() => { void load(page) }, [load, page])
 
     const sign = (o: SupplierOrderView) => {
         if (!window.confirm(t.supplier.orders.waitingSignConfirm(M(prices[o.id]?.total ?? 0), o.supplierDueDate))) return
         setBusy(true)
         signSupplierOrder(o.id)
-            .then(() => load())
+            .then(() => load(page))
             .catch((e) => setErr(errorText(t, e)))
             .finally(() => setBusy(false))
     }
@@ -57,7 +61,7 @@ export function SupplierOrdersPage() {
         if (!window.confirm(t.supplier.orders.withdrawConfirm)) return
         setBusy(true)
         withdrawSupplierOrder(o.id)
-            .then(() => load())
+            .then(() => load(page))
             .catch((e) => setErr(errorText(t, e)))
             .finally(() => setBusy(false))
     }
@@ -66,7 +70,7 @@ export function SupplierOrdersPage() {
     const act = (run: () => Promise<unknown>) => {
         setBusy(true)
         run()
-            .then(() => load())
+            .then(() => load(page))
             .catch((e) => setErr(errorText(t, e)))
             .finally(() => setBusy(false))
     }
@@ -90,7 +94,8 @@ export function SupplierOrdersPage() {
                 <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
             ) : orders.length === 0 ? (
                 <Card><CardBody><Empty text={t.supplier.orders.empty} sub={t.supplier.orders.emptySub} /></CardBody></Card>
-            ) : orders.map((o) => {
+            ) : <>
+            {orders.map((o) => {
                 const p = prices[o.id]
                 const lp = (lineId: string) => p?.lines.find((l) => l.lineId === lineId)
                 const inFlow = IN_PRODUCTION_FLOW.includes(o.status)
@@ -192,6 +197,10 @@ export function SupplierOrdersPage() {
                     </Card>
                 )
             })}
+            <Card><Pagination page={page} pageSize={20} total={total}
+                onChange={(p) => { setPage(p); void load(p) }} /></Card>
+            </>
+        }
         </Page>
     )
 }

@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
@@ -51,8 +53,8 @@ class OpsDispatchController {
     }
 
     @GetMapping("/ops/dispatch/pool")
-    List<DispatchViews.PoolLine> pool() {
-        return service.pool();
+    PagedResponse<DispatchViews.PoolLine> pool(PageQuery page) {
+        return service.pool(page);
     }
 
     @PostMapping("/ops/dispatch/allocate")
@@ -70,8 +72,9 @@ class OpsDispatchController {
 
     /** 新建的在前。{@code status} 不传 = 全部。 */
     @GetMapping("/ops/ops-orders")
-    List<DispatchViews.OpsOrderSummary> list(@RequestParam(required = false) OpsOrder.Status status) {
-        return service.list(status);
+    PagedResponse<DispatchViews.OpsOrderSummary> list(@RequestParam(required = false) OpsOrder.Status status,
+                                                      PageQuery page) {
+        return service.list(status, page);
     }
 
     @PostMapping("/ops/ops-orders")

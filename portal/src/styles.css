@@ -789,3 +789,30 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .appnav .it.sub{padding-left:44px;font-size:12.5px;color:var(--muted);}
 .appnav .it.sub:hover{color:var(--ink);}
 .appnav .it.sub.active{color:var(--ink);}
+
+/* ═══════════════════════════════ 统一分页 */
+.pager{display:flex;align-items:center;gap:6px;justify-content:flex-end;
+  padding:12px 18px;border-top:1px solid var(--line);}
+.pager .pg-total{margin-right:auto;font-size:12.5px;color:var(--muted);}
+.pager .pg-of{margin-left:6px;font-size:12.5px;color:var(--muted);}
+.pg-btn,.pg-num{border:1px solid var(--line-2);background:var(--panel);color:var(--ink);
+  border-radius:var(--r2);padding:5px 10px;font-size:12.5px;cursor:pointer;}
+.pg-btn:disabled,.pg-num:disabled{color:var(--faint);cursor:not-allowed;}
+.pg-num.on{background:var(--acc);border-color:var(--acc);color:#fff;}
+.pg-ellipsis{color:var(--faint);padding:0 2px;}
+
+/* ═══════════════════════════════ 右侧抽屉 */
+.drawer-mask{position:fixed;inset:0;background:rgba(10,16,24,.45);z-index:70;display:flex;justify-content:flex-end;}
+.drawer{width:min(440px,94vw);height:100%;background:var(--panel);display:flex;flex-direction:column;
+  box-shadow:-24px 0 60px rgba(0,0,0,.3);animation:drawer-in .18s ease;}
+@keyframes drawer-in{from{transform:translateX(40px);opacity:.4}to{transform:none;opacity:1}}
+.drawer-h{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line);}
+.drawer-title{flex:1;font-size:15px;font-weight:600;}
+.drawer-b{flex:1;overflow:auto;padding:16px 18px;}
+.drawer-f{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--line);}
+
+/* ═══════════════════════════════ 搜索栏（标签在上、按钮同行对齐） */
+.fbar{display:flex;gap:14px;align-items:flex-end;flex-wrap:wrap;}
+.fbar .btn{margin-bottom:1px;}
+.ff{display:flex;flex-direction:column;gap:6px;}
+.ff-k{font-size:12.5px;font-weight:600;color:var(--ink-2);}

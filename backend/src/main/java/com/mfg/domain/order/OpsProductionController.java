@@ -1,5 +1,7 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.dto.PageQuery;
+import com.mfg.common.dto.PagedResponse;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.PositiveOrZero;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -27,8 +29,8 @@ class OpsProductionController {
 
     /** 已签字之后的供应商订单：生产中 / 待质检 / 已完成。 */
     @GetMapping("/ops/production")
-    List<DispatchViews.OpsProductionOrder> list() {
-        return service.list();
+    PagedResponse<DispatchViews.OpsProductionOrder> list(PageQuery page) {
+        return service.list(page);
     }
 
     @PostMapping("/ops/supplier-orders/{id}/lines/{lineId}/qc")

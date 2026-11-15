@@ -7,6 +7,7 @@
 
 import { http } from '../core/http'
 import type { FileView, ViewUrl } from '../customer/parts'
+import type { PagedResponse } from '../customer/orders'
 
 export interface SupplierOfferSummary {
     id: string
@@ -76,8 +77,8 @@ export interface OrderPrice {
     lines: LinePrice[]
 }
 
-export function listSupplierOffers(): Promise<SupplierOfferSummary[]> {
-    return http.get<SupplierOfferSummary[]>('/supplier/offers')
+export function listSupplierOffers(page = 1, pageSize = 20): Promise<PagedResponse<SupplierOfferSummary>> {
+    return http.get<PagedResponse<SupplierOfferSummary>>(`/supplier/offers?page=${page}&pageSize=${pageSize}`)
 }
 
 export function getSupplierOffer(id: string): Promise<SupplierOffer> {
@@ -96,8 +97,8 @@ export function supplierOfferFileUrl(id: string, lineId: string, fileId: string)
     return http.get<ViewUrl>(`/supplier/offers/${id}/lines/${lineId}/files/${fileId}/view-url`)
 }
 
-export function listSupplierOrders(): Promise<SupplierOrderView[]> {
-    return http.get<SupplierOrderView[]>('/supplier/orders')
+export function listSupplierOrders(page = 1, pageSize = 20): Promise<PagedResponse<SupplierOrderView>> {
+    return http.get<PagedResponse<SupplierOrderView>>(`/supplier/orders?page=${page}&pageSize=${pageSize}`)
 }
 
 /** 签字 = 锁定：签完退不了也改不了。 */
