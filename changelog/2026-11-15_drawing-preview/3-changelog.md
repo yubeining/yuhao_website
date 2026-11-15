@@ -39,3 +39,32 @@ rows = 2，preview 按钮 = 2，其中 disabled = 1（STEP）
 
 - 运营端 / 供应商端的附件区仍是旧 chip 样式（本次只改客户端），后续可复用同一套行式组件
 - STEP / DWG 的 3D 预览需要转换服务（OCCT / ODA），不在本次范围
+
+## 补充（同日）：预览变成"下载"且渲染空白
+
+现场反馈：点「预览」直接下载、弹层一片空白。
+
+### 根因
+
+对象存储里的文件 Content-Type 是 `application/octet-stream` —— 上传时前端传的
+`file.type` 是空串（从网盘/微信下载来的 PDF 很常见），后端就落了个八位字节流类型。
+浏览器见到未知类型 + 没有 inline 声明，只会下载，iframe 自然空白。
+
+### 修法
+
+1. 新增 `StorageService.presignedPreview(key, ttl, contentType)`：
+   签名时显式带 `response-content-disposition: inline` 与 `response-content-type`，
+   **覆盖对象自身元数据** —— 已经传错类型的老文件也能正常预览，不用重传。
+2. 上传时按扩展名补类型：`file.type` 为空时用 `previewContentType(filename)`
+   （pdf/png/jpg/jpeg/webp/gif），不再一律 octet-stream。
+3. 弹层顶部加「新窗口打开」作为兜底（少数浏览器不支持内嵌 PDF）。
+
+### 验证
+
+```
+preview response: 200 content-type= application/pdf disposition= undefined
+```
+（无 `content-disposition: attachment` 即为内嵌）
+
+注：无头 Chrome 没有 PDF 查看器，截图里弹层仍是空白 —— 这是无头环境的限制，
+不代表真实浏览器。真实浏览器里该 URL 会被内置查看器接管。

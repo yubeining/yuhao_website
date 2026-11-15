@@ -36,7 +36,7 @@ export interface Strings {
         actionFailed: string
         loading: string
         retry: string
-        cancel: string; save: string; close: string
+        cancel: string; save: string; close: string; openInNewTab: string
         /** 自动保存后的轻提示 */
         saved: string
         create: string
@@ -408,7 +408,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开',
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -926,7 +926,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
-            save: 'Save', saved: 'Saved', close: 'Close',
+            save: 'Save', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab',
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',

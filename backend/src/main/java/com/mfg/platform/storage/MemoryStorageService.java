@@ -112,6 +112,12 @@ public class MemoryStorageService implements StorageService {
     }
 
     @Override
+    public URI presignedPreview(String key, Duration ttl, String contentType) {
+        // 本地内存存储由 DevStorageController 直接回写对象字节，默认就是 inline
+        return presignedGet(key, ttl);
+    }
+
+    @Override
     public String provider() {
         return "memory";
     }

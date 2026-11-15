@@ -79,6 +79,16 @@ public interface StorageService {
     URI presignedGet(String key, Duration ttl, String downloadFilename);
 
     /**
+     * 签发<b>内嵌预览</b>用 URL：带 {@code response-content-disposition: inline} 与
+     * {@code response-content-type}，让浏览器直接渲染而不是下载。
+     *
+     * <p>必须显式覆盖 Content-Type：上传时客户端给的 {@code file.type} 可能是空的
+     * （下载来的 PDF 很常见），对象类型就落成 {@code application/octet-stream}，
+     * 浏览器见到未知类型只会下载 —— 表现为"点预览却下载了、弹层一片空白"。
+     */
+    URI presignedPreview(String key, Duration ttl, String contentType);
+
+    /**
      * 签发一个短期的上传 URL（PUT）—— 让浏览器直传，字节不经过后端。
      *
      * @param contentType 允许上传的类型；客户端 PUT 时的 Content-Type 必须与此一致
