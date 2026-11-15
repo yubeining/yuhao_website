@@ -348,14 +348,13 @@ export interface Strings {
             confirmResend: string; confirmSend: string
             sentVersion: (n: number) => string
             lockedBanner: string; cancelledBanner: string
-            quoteTitle: string; requoteTitle: string; fillQuote: string
+            quoteTitle: string; requoteTitle: string
             colPart: string; colMaterial: string; colSurface: string; colBasePrice: string
-            colUnit: string
-            context: (parts: number, qty: number, wanted: string, submitted: string) => string
+            context: (customer: string, wanted: string, qty: number) => string
             viewDrawing: string; viewDrawings: (n: number) => string
-            lblMarkup: string; lblCurrency: string; lblCommitDate: string; commitDateHint: string
-            markupUnset: string; markupFromCompany: string; markupFromDefault: string
-            customerRev: (v: string) => string; pricePlaceholder: string
+            lblMarkup: string; lblCurrency: string; lblCommitDate: string
+            markupUnset: string
+            customerRev: (v: string) => string
             needMarkup: string
             resendBtn: string; sendBtn: string
             historyTitle: string; versionCount: (n: number) => string
@@ -791,23 +790,20 @@ export const STRINGS: Record<Lang, Strings> = {
             sentVersion: (n) => `第 ${n} 版报价已发出`,
             lockedBanner: '客户已确认报价，价格和汇率已锁定，这一页只读。',
             cancelledBanner: '订单已取消，不能报价。',
-            quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价',
+            quoteTitle: '零件', requoteTitle: '重新报价',
             needMarkup: '还没有报价系数，请先在「报价设置」里填全局默认值',
             resendBtn: '重新发出', sendBtn: '发出报价',
             colPart: '零件', colMaterial: '材料', colSurface: '表面处理', colBasePrice: '原价 ¥/件',
-            colUnit: '对客单价',
-            context: (parts, qty, wanted, submitted) =>
-                `${parts} 个零件 · 共 ${qty} 件${wanted ? ` · 期望交期 ${wanted}` : ''} · 提交于 ${submitted}`,
+            context: (customer, wanted, qty) => `客户 ${customer} · 期望交期 ${wanted} · 共 ${qty} 件`,
             viewDrawing: '查看', viewDrawings: (n) => `查看 (${n})`,
             lblMarkup: '报价系数', lblCurrency: '币种', lblCommitDate: '承诺交期',
-            commitDateHint: '默认取客户期望交期，可改',
-            markupUnset: '未设置', markupFromCompany: '公司配置', markupFromDefault: '全局默认',
-            customerRev: (v) => ` · 客户标记 ${v}`, pricePlaceholder: '¥ / 件',
+            markupUnset: '未设置',
+            customerRev: (v) => ` · 客户标记 ${v}`,
             historyTitle: '报价记录', versionCount: (n) => `${n} 版`,
             colVersion: '版本', colCurrency: '币种', colLead: '承诺交期', colMarkup: '报价系数',
             colTotal: '对客总计', colRate: '汇率', colSentAt: '发出时间',
             markupTimes: (v) => `× ${v}`,
-            rateLocked: '（确认时锁定）', rateUnlocked: '（最新，未锁定）', empty: '还没有报价',
+            rateLocked: '已锁定', rateUnlocked: '未锁定', empty: '还没有报价',
         },
         quoteSettings: {
             title: '报价设置',
@@ -1327,23 +1323,20 @@ export const STRINGS: Record<Lang, Strings> = {
             sentVersion: (n) => `Quote v${n} sent`,
             lockedBanner: 'The customer confirmed this quote. Prices and FX are locked; this page is read-only.',
             cancelledBanner: 'The order was cancelled and cannot be quoted.',
-            quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote',
+            quoteTitle: 'Parts', requoteTitle: 'Re-quote',
             colPart: 'Part', colMaterial: 'Material', colSurface: 'Finishing', colBasePrice: 'Base ¥/pc',
-            context: (parts, qty, wanted, submitted) =>
-                `${parts} part${parts === 1 ? '' : 's'} · ${qty} pc${qty === 1 ? '' : 's'}${wanted ? ` · wanted ${wanted}` : ''} · submitted ${submitted}`,
+            context: (customer, wanted, qty) => `Customer ${customer} · wanted ${wanted} · ${qty} pc${qty === 1 ? '' : 's'}`,
             viewDrawing: 'View', viewDrawings: (n) => `View (${n})`,
             lblMarkup: 'Quote rate', lblCurrency: 'Currency', lblCommitDate: 'Delivery date',
-            commitDateHint: "Defaults to the customer's requested date",
-            markupUnset: 'Not set', markupFromCompany: 'Company override', markupFromDefault: 'Global default',
-            colUnit: 'Customer unit price',
-            customerRev: (v) => ` · customer mark ${v}`, pricePlaceholder: '¥ / pc',
+            markupUnset: 'Not set',
+            customerRev: (v) => ` · customer mark ${v}`,
             needMarkup: 'No quote rate yet — set the global default in Quote settings',
             resendBtn: 'Send again', sendBtn: 'Send quote',
             historyTitle: 'Quote history', versionCount: (n) => `${n} version${n === 1 ? '' : 's'}`,
             colVersion: 'Version', colCurrency: 'Currency', colLead: 'Delivery date', colMarkup: 'Quote rate',
             colTotal: 'Customer total', colRate: 'FX rate', colSentAt: 'Sent at',
             markupTimes: (v) => `× ${v}`,
-            rateLocked: ' (locked at confirmation)', rateUnlocked: ' (latest, not locked)', empty: 'No quotes yet',
+            rateLocked: 'locked', rateUnlocked: 'not locked', empty: 'No quotes yet',
         },
         quoteSettings: {
             title: 'Quote settings',

@@ -50,6 +50,8 @@ export function OpsQuoteWorkPage() {
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
+    /** 点过「发出报价」才提示缺什么，输入过程中不实时报错 */
+    const [tried, setTried] = useState(false)
 
     /** prefill = true：用最近一版报价填输入框（首次加载、发出之后）。 */
     const load = useCallback(async (prefill: boolean) => {
@@ -99,8 +101,6 @@ export function OpsQuoteWorkPage() {
 
     const editable = order.status === 'SUBMITTED' || order.status === 'QUOTED'
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
-    // 上一版报价的逐行对客单价：重报时给个参照，没有就显示 —
-    const lastByLine = new Map(quotes[0]?.lines.map((l) => [l.lineId, l]) ?? [])
 
     /** 输入齐了且格式对才返回请求体，否则返回缺什么。 */
     const buildInput = (): SendQuoteInput | string => {
@@ -135,7 +135,7 @@ export function OpsQuoteWorkPage() {
     }
 
     const doSend = () => {
-        if (typeof input === 'string') return
+        if (typeof input === 'string') { setTried(true); return }
         const replacing = order.status === 'QUOTED'
         const msg = replacing
             ? t.quoteWork.confirmResend
@@ -143,6 +143,7 @@ export function OpsQuoteWorkPage() {
         if (!window.confirm(msg)) return
         void run(async () => {
             const q = await sendQuote(order.id, input)
+            setTried(false)
             setOk(t.quoteWork.sentVersion(q.versionNo))
             await load(false)
         })
@@ -166,15 +167,11 @@ export function OpsQuoteWorkPage() {
             <Hello
                 back={back}
                 title={order.title || t.common.untitledOrder}
-                sub={order.customerName ?? X}
                 right={pill(ORDER_ST[order.status])}
             />
 
-            {/* 订单上下文压成一行：原来那张「订单信息」卡里的字段全在这里 */}
             <div className="t2" style={{ marginTop: -6, marginBottom: 14 }}>
-                {t.quoteWork.context(order.lines.length, totalQty,
-                    order.wantedDate || '',
-                    order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X)}
+                {t.quoteWork.context(order.customerName ?? X, order.wantedDate || X, totalQty)}
             </div>
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
@@ -187,7 +184,9 @@ export function OpsQuoteWorkPage() {
             )}
 
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={editable ? (order.status === 'QUOTED' ? t.quoteWork.requoteTitle : t.quoteWork.fillQuote) : t.quoteWork.quoteTitle} />
+                {(order.status === 'QUOTED' || !editable) && (
+                    <CardHead title={editable ? t.quoteWork.requoteTitle : t.quoteWork.quoteTitle} />
+                )}
                 <CardBody flush>
                     <TableWrap>
                         <thead>
@@ -195,14 +194,13 @@ export function OpsQuoteWorkPage() {
                                 <th className="n">#</th><th>{t.customer.orderDetail.colCode}</th><th>{t.quoteWork.colPart}</th>
                                 <th>{t.quoteWork.colMaterial}</th><th>{t.quoteWork.colSurface}</th>
                                 <th className="n">{t.customer.quotes.colQty}</th><th>{t.customer.orderDetail.colDrawing}</th>
-                                <th>{t.quoteWork.colBasePrice}</th><th className="n">{t.quoteWork.colUnit}</th>
+                                <th>{t.quoteWork.colBasePrice}</th>
                             </tr>
                         </thead>
                         <tbody>
                             {order.lines.map((l, i) => {
                                 const raw = prices[l.id] ?? ''
                                 const bad = raw.trim() !== '' && (!PRICE_RE.test(raw.trim()) || Number(raw.trim()) <= 0)
-                                const last = lastByLine.get(l.id)
                                 return (
                                     <tr key={l.id}>
                                         <td className="n">{i + 1}</td>
@@ -230,11 +228,10 @@ export function OpsQuoteWorkPage() {
                                         </td>
                                         <td>
                                             {editable
-                                                ? <Input value={raw} bad={bad} placeholder={t.quoteWork.pricePlaceholder} style={{ width: 110 }}
+                                                ? <Input value={raw} bad={bad} style={{ width: 110 }}
                                                     onChange={(v) => edit(() => setPrices((st) => ({ ...st, [l.id]: v })))} />
                                                 : X}
                                         </td>
-                                        <td className="n">{last ? fmtMoney(last.unitPrice, quotes[0].currency) : X}</td>
                                     </tr>
                                 )
                             })}
@@ -247,9 +244,6 @@ export function OpsQuoteWorkPage() {
                         {/* 报价系数是客户级配置，在「报价设置 / 组织」里维护，这里只看生效值 */}
                         <span className="lbl">{t.quoteWork.lblMarkup}
                             <b>{markup?.effectiveRate != null ? `× ${markup.effectiveRate}` : t.quoteWork.markupUnset}</b>
-                            <span className="tip">
-                                {markup?.markupRate != null ? t.quoteWork.markupFromCompany : t.quoteWork.markupFromDefault}
-                            </span>
                         </span>
                         <span className="lbl">{t.quoteWork.lblCurrency}
                             <Select value={currency} options={['', ...QUOTE_CURRENCIES]} style={{ width: 96 }}
@@ -257,17 +251,16 @@ export function OpsQuoteWorkPage() {
                         </span>
                         <span className="lbl">{t.quoteWork.lblCommitDate}
                             <DatePicker value={commitDate} onChange={(v) => edit(() => setCommitDate(v))} />
-                            <span className="tip">{t.quoteWork.commitDateHint}</span>
                         </span>
                     </div>
                 )}
 
                 {editable && (
                     <CardFoot
-                        left={<span className="t2">{inputProblem ?? (markup?.effectiveRate == null ? t.quoteWork.needMarkup : '')}</span>}
+                        left={<span className="t2">{(tried && inputProblem) || (markup?.effectiveRate == null ? t.quoteWork.needMarkup : '')}</span>}
                         right={
                             <button className="btn pri" type="button" onClick={doSend}
-                                disabled={busy || !!inputProblem || markup?.effectiveRate == null}>
+                                disabled={busy || markup?.effectiveRate == null}>
                                 {order.status === 'QUOTED' ? t.quoteWork.resendBtn : t.quoteWork.sendBtn}
                             </button>
                         }
@@ -296,10 +289,11 @@ export function OpsQuoteWorkPage() {
                                         <td className="n">{q.commitDate}</td>
                                         <td className="n">{t.quoteWork.markupTimes(q.markupRate)}</td>
                                         <td className="n">{fmtMoney(q.total, q.currency)}</td>
-                                        <td className="t2">
-                                            {q.rateDate
-                                                ? `${q.rateDate}${q.priceLocked ? t.quoteWork.rateLocked : t.quoteWork.rateUnlocked}`
-                                                : X}
+                                        <td className="n" style={{ fontFamily: 'var(--mono)' }}>
+                                            {q.rateDate ?? X}
+                                            <div className="t2">
+                                                {q.priceLocked ? t.quoteWork.rateLocked : t.quoteWork.rateUnlocked}
+                                            </div>
                                         </td>
                                         <td className="n">{fmtDateTime(new Date(q.sentAt))}</td>
                                     </tr>
