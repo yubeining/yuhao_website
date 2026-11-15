@@ -46,6 +46,8 @@ interface Props {
     nav?: NavItem[]
     /** 设置页的路径。给了就在侧栏底部固定一个「设置」。 */
     settingsTo?: string
+    /** 全应用提示条（公司信息未完善等），显示在页面内容之上 */
+    notice?: ReactNode
     /** 顶栏右上的徽标文字，和 areas 二选一 */
     badge?: string
     areas?: AreaTab[]
@@ -54,10 +56,11 @@ interface Props {
     sub: string
 }
 
-export function AppShell({ children, nav, settingsTo, badge, areas, currentPath, sub }: Props) {
+export function AppShell({ children, nav, settingsTo, badge, areas, currentPath, sub, notice }: Props) {
     return (
         <div className="appwrap">
             <GlobalNav badge={badge} areas={areas} currentPath={currentPath} sub={sub} settingsTo={settingsTo} />
+            {notice}
             <div className="appshell">
                 {nav && <SideNav items={nav} settingsTo={settingsTo} />}
                 <main className="appmain">{children}</main>
@@ -189,13 +192,35 @@ const customerNav = (t: Strings): NavItem[] => [
 
 export function CustomerShell({ children }: { children: ReactNode }) {
     const { t } = useI18n()
+    const navigate = useNavigate()
     // ★ 公司名读后端：真实登录不会写假数据里的「当前公司」，读假数据只会是空
     const [sub, setSub] = useState('')
+    // null = 还没读到；读到了才知道要不要提示，避免闪一下
+    const [orgName, setOrgName] = useState<string | null>(null)
+
     useEffect(() => {
-        getMyOrganization().then((o) => setSub(o.name)).catch(() => setSub(''))
+        const load = () => getMyOrganization()
+            .then((o) => { setSub(o.name); setOrgName(o.name ?? '') })
+            .catch(() => setOrgName(''))
+        void load()
+        // 资料页补完公司名后通知这里，提示条立即消失
+        const onUpdated = () => void load()
+        window.addEventListener('org-updated', onUpdated)
+        return () => window.removeEventListener('org-updated', onUpdated)
     }, [])
+
+    // 公司信息未完善只在「账号层面」提示，不塞进订单流程
+    const notice = orgName === '' ? (
+        <div className="appnotice">
+            <span>{t.profile.companyMissing}</span>
+            <button className="linkbtn" type="button" onClick={() => navigate('/customer/profile')}>
+                {t.profile.companyFill}
+            </button>
+        </div>
+    ) : undefined
+
     return (
-        <AppShell nav={customerNav(t)} settingsTo="/customer/settings" badge="CUSTOMER" sub={sub}>
+        <AppShell nav={customerNav(t)} settingsTo="/customer/settings" badge="CUSTOMER" sub={sub} notice={notice}>
             {children}
         </AppShell>
     )

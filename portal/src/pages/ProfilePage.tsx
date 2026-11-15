@@ -17,6 +17,7 @@ import { useMock } from '../mock/MockProvider'
 import { useSession } from '../auth/useSession'
 import { setSession } from '../auth/session'
 import { getMyProfile, updateMyNickname, type MyProfile } from '../services/auth'
+import { getMyOrganization, renameMyOrganization } from '../services/customer/organization'
 import { errorText } from '../i18n/errorText'
 
 const PARTY_LABEL = (t: ReturnType<typeof useMock>['t']) => ({
@@ -36,6 +37,8 @@ export function ProfilePage() {
     const [profile, setProfile] = useState<MyProfile | null>(null)
     const [editing, setEditing] = useState(false)
     const [nickname, setNickname] = useState('')
+    const [orgName, setOrgName] = useState('')
+    const [savedOrg, setSavedOrg] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [saved, setSaved] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -56,6 +59,14 @@ export function ProfilePage() {
         if (session) void load(session.partyType)
     }, [session, load])
 
+    // 公司名是账号资料的一部分，和个人信息放同一页
+    useEffect(() => {
+        if (session?.partyType !== 'CUSTOMER') return
+        getMyOrganization()
+            .then((o) => { setOrgName(o.name ?? ''); setSavedOrg(o.name ?? '') })
+            .catch(() => undefined)
+    }, [session?.partyType])
+
     // 进入编辑态自动聚焦，省一次点击
     useEffect(() => {
         if (editing) nickRef.current?.focus()
@@ -71,11 +82,14 @@ export function ProfilePage() {
     if (!session) return null
 
     const trimmed = nickname.trim()
-    const dirty = !!profile && trimmed !== profile.nickname
-    const canSave = dirty && !busy
+    const companyTrimmed = orgName.trim()
+    const isCustomer = session?.partyType === 'CUSTOMER'
+    const dirty = !!profile && (trimmed !== profile.nickname || (isCustomer && companyTrimmed !== savedOrg))
+    const canSave = dirty && !busy && (!isCustomer || !!companyTrimmed)
 
     const startEdit = () => {
         setNickname(profile?.nickname ?? '')
+        setOrgName(savedOrg)
         setErr(null)
         setSaved(false)
         setEditing(true)
@@ -83,6 +97,7 @@ export function ProfilePage() {
 
     const cancel = () => {
         setNickname(profile?.nickname ?? '')
+        setOrgName(savedOrg)
         setErr(null)
         setEditing(false)
     }
@@ -92,9 +107,17 @@ export function ProfilePage() {
         setBusy(true)
         setErr(null)
         try {
-            await updateMyNickname(session.partyType, trimmed)
-            setProfile((prev) => (prev ? { ...prev, nickname: trimmed } : prev))
-            setSession({ ...session, displayName: trimmed })
+            if (trimmed !== profile?.nickname) {
+                await updateMyNickname(session.partyType, trimmed)
+                setProfile((prev) => (prev ? { ...prev, nickname: trimmed } : prev))
+                setSession({ ...session, displayName: trimmed })
+            }
+            if (isCustomer && companyTrimmed !== savedOrg) {
+                await renameMyOrganization(companyTrimmed)
+                setSavedOrg(companyTrimmed)
+                // 顶栏提示条据此刷新
+                window.dispatchEvent(new Event('org-updated'))
+            }
             setEditing(false)
             setSaved(true)
         } catch (e) {
@@ -119,10 +142,18 @@ export function ProfilePage() {
                 <CardBody>
                     {editing ? (
                         <>
-                            <Field label={p.nickname}>
-                                <Input id="nickname" value={nickname}
-                                    onChange={(v) => { setNickname(v); setErr(null) }} />
-                            </Field>
+                            <FieldRow>
+                                <Field label={p.nickname}>
+                                    <Input id="nickname" value={nickname}
+                                        onChange={(v) => { setNickname(v); setErr(null) }} />
+                                </Field>
+                                {isCustomer && (
+                                    <Field label={p.company} required>
+                                        <Input value={orgName}
+                                            onChange={(v) => { setOrgName(v); setErr(null) }} />
+                                    </Field>
+                                )}
+                            </FieldRow>
                             <FieldRow>
                                 <Field label={p.email}>
                                     <Input value={profile?.email ?? ''} onChange={() => undefined} disabled />
@@ -139,6 +170,7 @@ export function ProfilePage() {
                     ) : (
                         <Kv>
                             <KvRow k={p.nickname} v={profile?.nickname ?? '—'} sans />
+                            {isCustomer && <KvRow k={p.company} v={savedOrg || '—'} sans />}
                             <KvRow k={p.email} v={profile?.email ?? '—'} sans />
                             <KvRow k={p.role} v={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]} sans />
                             <KvRow k={p.joined} v={day(profile?.createdAt ?? '')} />
