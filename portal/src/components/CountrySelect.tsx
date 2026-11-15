@@ -9,10 +9,12 @@ import { useMemo, type CSSProperties } from 'react'
 import { useI18n } from '../i18n/I18nProvider'
 import { COUNTRY_CODES, OTHER_COUNTRY, countryName } from '../i18n/countries'
 
-export function CountrySelect({ value, onChange, style }: {
+export function CountrySelect({ value, onChange, style, allowOther = true }: {
     value: string
     onChange: (v: string) => void
     style?: CSSProperties
+    /** 客户资料页传 false：库里不存 OTHER，选了会显示成「—」，看起来像没保存 */
+    allowOther?: boolean
 }) {
     const { lang, t } = useI18n()
 
@@ -27,7 +29,7 @@ export function CountrySelect({ value, onChange, style }: {
         <select className="inp" value={value} style={style} onChange={(e) => onChange(e.target.value)}>
             <option value="">—</option>
             {options.map((o) => <option key={o.code} value={o.code}>{o.label}</option>)}
-            <option value={OTHER_COUNTRY}>{t.reg.otherCountry}</option>
+            {allowOther && <option value={OTHER_COUNTRY}>{t.reg.otherCountry}</option>}
         </select>
     )
 }

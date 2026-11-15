@@ -112,7 +112,7 @@ public class IdentityService {
      * 都不是「补个名字」该顺带改的东西。
      */
     @Transactional
-    public Organization renameOwnOrganization(UUID orgId, String name) {
+    public Organization renameOwnOrganization(UUID orgId, String name, String country) {
         Organization org = organizations.findById(orgId)
                 .orElseThrow(() -> new BusinessException(404, "organization.not_found"));
         String trimmed = trimToNull(name);
@@ -121,6 +121,12 @@ public class IdentityService {
             throw new BusinessException(400, "organization.name_required");
         }
         org.setName(trimmed);
+        // 国家/地区：选填。只收 ISO 3166-1 两位代码，空串等于清空；名称不入库
+        String code = trimToNull(country);
+        if (code != null && !code.matches("[A-Za-z]{2}")) {
+            throw new BusinessException(400, "organization.country_invalid");
+        }
+        org.setCountry(code == null ? null : code.toUpperCase(java.util.Locale.ROOT));
         return organizations.save(org);
     }
 

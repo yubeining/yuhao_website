@@ -50,7 +50,6 @@ public class OpsOrganizationController {
 
     /** 类型刻意不在这里 —— 它不可改。 */
     public record UpdateOrganization(@Size(max = 200) String name,
-                                     @Size(max = 2) String country,
                                      @Size(max = 20) String status) {
     }
 
@@ -73,7 +72,7 @@ public class OpsOrganizationController {
 
     @PatchMapping("/{id}")
     public OrganizationAdminView update(@PathVariable UUID id, @RequestBody UpdateOrganization request) {
-        return accountAdmin.updateOrganization(id, request.name(), request.country(), request.status());
+        return accountAdmin.updateOrganization(id, request.name(), request.status());
     }
 
     @DeleteMapping("/{id}")

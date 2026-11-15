@@ -7,6 +7,7 @@ import com.mfg.platform.identity.dto.OrganizationView;
 import com.mfg.platform.identity.dto.UserView;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
@@ -43,10 +44,15 @@ public class ExternalOrgController {
     @PatchMapping("/customer/organization")
     public OrganizationView rename(@CurrentParty UUID orgId,
                                    @Valid @RequestBody RenameRequest request) {
-        return OrganizationView.of(identityService.renameOwnOrganization(orgId, request.name()));
+        return OrganizationView.of(identityService.renameOwnOrganization(orgId, request.name(), request.country()));
     }
 
-    public record RenameRequest(@NotBlank @Size(max = 200) String name) {
+    /**
+     * 公司资料。{@code country} 是 ISO 3166-1 两位代码，选填（null = 清空）。
+     * 传空串按"格式不对"拒掉，避免「清空」和「没填」在库里产生两种空值。
+     */
+    public record RenameRequest(@NotBlank @Size(max = 200) String name,
+                                @Pattern(regexp = "^[A-Za-z]{2}$") String country) {
     }
 
     @GetMapping({"/customer/organization/members", "/supplier/organization/members"})

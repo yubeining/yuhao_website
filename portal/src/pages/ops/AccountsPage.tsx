@@ -334,7 +334,8 @@ function OrgsTab() {
         setErr(null)
         try {
             if (form.id) {
-                await updateOrganization(form.id, { name: form.name, country: submitCountry(form.country) })
+                // 国家/地区由客户自己在个人资料里填，运营改不了
+                await updateOrganization(form.id, { name: form.name })
                 setOk(a.saved)
             } else {
                 await createOrganization({ type: form.type, name: form.name, country: submitCountry(form.country) })
@@ -423,12 +424,14 @@ function OrgsTab() {
                                 <Input value={form.name} onChange={(v) => setForm({ ...form, name: v })} />
                             </Field>
                         </FieldRow>
-                        <FieldRow>
-                            <Field label={a.fldCountry}>
-                                <CountrySelect value={form.country}
-                                    onChange={(v) => setForm({ ...form, country: v })} />
-                            </Field>
-                        </FieldRow>
+                        {!form.id && (
+                            <FieldRow>
+                                <Field label={a.fldCountry}>
+                                    <CountrySelect value={form.country}
+                                        onChange={(v) => setForm({ ...form, country: v })} />
+                                </Field>
+                            </FieldRow>
+                        )}
                     </CardBody>
                     <CardFoot
                         left={<button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>}

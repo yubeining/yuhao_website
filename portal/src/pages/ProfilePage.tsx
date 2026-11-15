@@ -13,6 +13,8 @@ import {
     Banner, Card, CardBody, CardFoot, CardHead, Hello, Kv, KvRow, Page,
 } from '../components/ui'
 import { Field, FieldRow, Input } from '../components/form'
+import { CountrySelect } from '../components/CountrySelect'
+import { countryName } from '../i18n/countries'
 import { useMock } from '../mock/MockProvider'
 import { useSession } from '../auth/useSession'
 import { setSession } from '../auth/session'
@@ -30,7 +32,7 @@ const PARTY_LABEL = (t: ReturnType<typeof useMock>['t']) => ({
 const day = (iso: string) => (iso ? iso.slice(0, 10) : '—')
 
 export function ProfilePage() {
-    const { t } = useMock()
+    const { t, lang } = useMock()
     const session = useSession()
     const p = t.profile
 
@@ -39,6 +41,8 @@ export function ProfilePage() {
     const [nickname, setNickname] = useState('')
     const [orgName, setOrgName] = useState('')
     const [savedOrg, setSavedOrg] = useState('')
+    const [country, setCountry] = useState('')
+    const [savedCountry, setSavedCountry] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [saved, setSaved] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -63,7 +67,10 @@ export function ProfilePage() {
     useEffect(() => {
         if (session?.partyType !== 'CUSTOMER') return
         getMyOrganization()
-            .then((o) => { setOrgName(o.name ?? ''); setSavedOrg(o.name ?? '') })
+            .then((o) => {
+                setOrgName(o.name ?? ''); setSavedOrg(o.name ?? '')
+                setCountry(o.country ?? ''); setSavedCountry(o.country ?? '')
+            })
             .catch(() => undefined)
     }, [session?.partyType])
 
@@ -84,12 +91,14 @@ export function ProfilePage() {
     const trimmed = nickname.trim()
     const companyTrimmed = orgName.trim()
     const isCustomer = session?.partyType === 'CUSTOMER'
-    const dirty = !!profile && (trimmed !== profile.nickname || (isCustomer && companyTrimmed !== savedOrg))
+    const dirty = !!profile && (trimmed !== profile.nickname
+        || (isCustomer && (companyTrimmed !== savedOrg || country !== savedCountry)))
     const canSave = dirty && !busy && (!isCustomer || !!companyTrimmed)
 
     const startEdit = () => {
         setNickname(profile?.nickname ?? '')
         setOrgName(savedOrg)
+        setCountry(savedCountry)
         setErr(null)
         setSaved(false)
         setEditing(true)
@@ -98,6 +107,7 @@ export function ProfilePage() {
     const cancel = () => {
         setNickname(profile?.nickname ?? '')
         setOrgName(savedOrg)
+        setCountry(savedCountry)
         setErr(null)
         setEditing(false)
     }
@@ -112,9 +122,10 @@ export function ProfilePage() {
                 setProfile((prev) => (prev ? { ...prev, nickname: trimmed } : prev))
                 setSession({ ...session, displayName: trimmed })
             }
-            if (isCustomer && companyTrimmed !== savedOrg) {
-                await renameMyOrganization(companyTrimmed)
+            if (isCustomer && (companyTrimmed !== savedOrg || country !== savedCountry)) {
+                await renameMyOrganization(companyTrimmed, country || null)
                 setSavedOrg(companyTrimmed)
+                setSavedCountry(country)
                 // 顶栏提示条据此刷新
                 window.dispatchEvent(new Event('org-updated'))
             }
@@ -153,6 +164,12 @@ export function ProfilePage() {
                                             onChange={(v) => { setOrgName(v); setErr(null) }} />
                                     </Field>
                                 )}
+                                {isCustomer && (
+                                    <Field label={p.country}>
+                                        <CountrySelect value={country} allowOther={false}
+                                            onChange={(v) => { setCountry(v); setErr(null) }} />
+                                    </Field>
+                                )}
                             </FieldRow>
                             <FieldRow>
                                 <Field label={p.email}>
@@ -171,6 +188,10 @@ export function ProfilePage() {
                         <Kv>
                             <KvRow k={p.nickname} v={profile?.nickname ?? '—'} sans />
                             {isCustomer && <KvRow k={p.company} v={savedOrg || '—'} sans />}
+                            {isCustomer && (
+                                <KvRow k={p.country}
+                                    v={savedCountry ? countryName(savedCountry, lang) : '—'} sans />
+                            )}
                             <KvRow k={p.email} v={profile?.email ?? '—'} sans />
                             <KvRow k={p.role} v={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]} sans />
                             <KvRow k={p.joined} v={day(profile?.createdAt ?? '')} />

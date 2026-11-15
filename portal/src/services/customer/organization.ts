@@ -5,13 +5,19 @@ import { http } from '../core/http'
 export interface OrganizationView {
     id: string
     name: string
+    /** ISO 3166-1 两位代码；没填为 null */
+    country?: string | null
 }
 
 export function getMyOrganization(): Promise<OrganizationView> {
     return http.get<OrganizationView>('/customer/organization')
 }
 
-/** 补公司名。注册时不收，提交订单前必须补（docs/design/14 §4）。 */
-export function renameMyOrganization(name: string): Promise<OrganizationView> {
-    return http.patch<OrganizationView>('/customer/organization', { name })
+/**
+ * 改公司资料（名称 + 国家/地区）。
+ *
+ * ★ country 传 null = 清空；传空串会被后端按"格式不对"拒掉，所以这里统一转成 null。
+ */
+export function renameMyOrganization(name: string, country?: string | null): Promise<OrganizationView> {
+    return http.patch<OrganizationView>('/customer/organization', { name, country: country || null })
 }
