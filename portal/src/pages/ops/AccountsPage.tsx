@@ -11,6 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import { CountrySelect } from '../../components/CountrySelect'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
@@ -54,19 +55,12 @@ function SelectId({ value, onChange, options, placeholder }: {
 export function OpsAccountsPage() {
     const { t } = useMock()
     const a = t.ops.accounts
-    const [tab, setTab] = useState<Tab>('users')
+    // tab 来自 URL：/ops/accounts/users|orgs|staff —— 可收藏、可分享、刷新不丢
+    const { pathname } = useLocation()
+    const tab: Tab = pathname.endsWith('/orgs') ? 'orgs' : pathname.endsWith('/staff') ? 'staff' : 'users'
     return (
         <Page>
             <Hello title={a.title} />
-            <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-                {([['users', a.tabUsers], ['orgs', a.tabOrgs], ['staff', a.tabStaff]] as [Tab, string][])
-                    .map(([k, label]) => (
-                        <button key={k} type="button" className={`btn sm${tab === k ? ' pri' : ''}`}
-                            onClick={() => setTab(k)}>
-                            {label}
-                        </button>
-                    ))}
-            </div>
             {tab === 'users' && <UsersTab />}
             {tab === 'orgs' && <OrgsTab />}
             {tab === 'staff' && <StaffTab />}

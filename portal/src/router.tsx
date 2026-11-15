@@ -131,7 +131,11 @@ export const router = createBrowserRouter([
             { path: 'production', element: <OpsProductionPage /> },
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
-            { path: 'accounts', element: <OpsAccountsPage /> },
+            // 账号管理的三个 tab 现在是可深链的子页
+            { path: 'accounts', element: <Navigate to="/ops/accounts/users" replace /> },
+            { path: 'accounts/users', element: <OpsAccountsPage /> },
+            { path: 'accounts/orgs', element: <OpsAccountsPage /> },
+            { path: 'accounts/staff', element: <OpsAccountsPage /> },
             { path: 'profile', element: <Navigate to="/ops/settings" replace /> },
             { path: 'settings', element: <AccountSettingsPage /> },
         ],

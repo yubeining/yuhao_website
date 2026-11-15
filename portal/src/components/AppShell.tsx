@@ -30,6 +30,8 @@ export interface NavItem {
     cnt?: number
     /** 计数标红，用于「需要马上处理」 */
     hot?: boolean
+    /** 二级目录。父项本身也能点（进第一个子页），子项缩进显示 */
+    children?: { to: string; n: string }[]
 }
 
 /** 顶栏中部的大区切换（供应商端的「订单市场 / 我的工作台」）。 */
@@ -156,11 +158,20 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
                 it.sec ? (
                     <div className="sec" key={`sec-${i}`}>{it.sec}</div>
                 ) : (
-                    <NavLink key={it.to} to={it.to!} end={it.to === '/customer'} className="it">
-                        <span className="ic">{it.ic}</span>
-                        {it.n}
-                        {it.cnt ? <span className={`cnt${it.hot ? ' hot' : ''}`}>{it.cnt}</span> : null}
-                    </NavLink>
+                    <div key={it.to}>
+                        <NavLink to={it.to!} end={it.to === '/customer'} className="it">
+                            <span className="ic">{it.ic}</span>
+                            {it.n}
+                            {it.cnt ? <span className={`cnt${it.hot ? ' hot' : ''}`}>{it.cnt}</span> : null}
+                        </NavLink>
+                        {it.children && (
+                            <div className="subnav">
+                                {it.children.map((c) => (
+                                    <NavLink key={c.to} to={c.to} className="it sub">{c.n}</NavLink>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 ),
             )}
             {settingsTo && (
@@ -254,16 +265,24 @@ export function SupplierShell({ children, full, path }: {
     )
 }
 
+// 按活儿发生的顺序排：报价 → 派单 → 生产 → 客户订单；主数据和账号单独成组。
+// 账号管理原来是一个页面里切三个 tab（没有 URL、刷新就丢），现在是二级目录。
 const opsNav = (t: Strings): NavItem[] => [
-    { sec: t.nav.ops.quoting },
+    { sec: t.nav.ops.business },
     { to: '/ops/quotes', ic: '€', n: t.nav.ops.quotes },
     { to: '/ops/dispatch', ic: '⇉', n: t.nav.ops.dispatch },
-    { sec: t.nav.ops.execution },
     { to: '/ops/production', ic: '⚙', n: t.nav.ops.production },
-    { to: '/ops/orders', ic: '▣', n: t.nav.ops.orders },
+    { to: '/ops/orders', ic: '▣', n: t.nav.ops.customerOrders },
     { sec: t.nav.ops.masterData },
-    { to: '/ops/parties', ic: '⌂', n: t.nav.ops.parties },
-    { to: '/ops/accounts', ic: '☰', n: t.nav.ops.accounts },
+    { to: '/ops/parties', ic: '⌂', n: t.nav.ops.suppliers },
+    {
+        to: '/ops/accounts/users', ic: '☰', n: t.nav.ops.accounts,
+        children: [
+            { to: '/ops/accounts/users', n: t.ops.accounts.tabUsers },
+            { to: '/ops/accounts/orgs', n: t.ops.accounts.tabOrgs },
+            { to: '/ops/accounts/staff', n: t.ops.accounts.tabStaff },
+        ],
+    },
 ]
 
 export function OpsShell({ children }: { children: ReactNode }) {

@@ -249,9 +249,9 @@ export interface Strings {
             company: string; profile: string; hall: string; workspace: string
         }
         ops: {
-            quoting: string; quotes: string
-            dispatch: string; execution: string; production: string; orders: string
-            masterData: string; parties: string; accounts: string; internalOps: string
+            business: string; quotes: string; customerOrders: string; suppliers: string
+            dispatch: string; production: string
+            masterData: string; accounts: string; internalOps: string
         }
     }
     /** 运营后台 */
@@ -665,9 +665,9 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: '企业', profile: '企业资料', hall: '订单市场', workspace: '我的工作台',
             },
             ops: {
-                quoting: '询价与报价', quotes: '报价',
-                dispatch: '派单管理', execution: '执行', production: '生产与质检', orders: '订单',
-                masterData: '主数据', parties: '交易方', accounts: '账号管理', internalOps: '内部 · 运营',
+                business: '业务', quotes: '报价', customerOrders: '客户订单', suppliers: '供应商',
+                dispatch: '派单管理', production: '生产与质检',
+                masterData: '主数据', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
         ops: {
@@ -1187,9 +1187,9 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: 'Company', profile: 'Company profile', hall: 'Order market', workspace: 'My workspace',
             },
             ops: {
-                quoting: 'Quoting', quotes: 'Quotes',
-                dispatch: 'Dispatch', execution: 'Execution', production: 'Production & QC', orders: 'Orders',
-                masterData: 'Master data', parties: 'Parties', accounts: 'Accounts', internalOps: 'Internal · Operations',
+                business: 'Business', quotes: 'Quotes', customerOrders: 'Customer orders', suppliers: 'Suppliers',
+                dispatch: 'Dispatch', production: 'Production & QC',
+                masterData: 'Master data', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
         ops: {
