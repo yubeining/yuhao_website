@@ -249,7 +249,7 @@ export interface Strings {
             company: string; profile: string; hall: string; workspace: string
         }
         ops: {
-            business: string; quotes: string; customerOrders: string; suppliers: string
+            business: string; quotes: string; suppliers: string
             dispatch: string; production: string
             masterData: string; accounts: string; internalOps: string
         }
@@ -665,7 +665,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: '企业', profile: '企业资料', hall: '订单市场', workspace: '我的工作台',
             },
             ops: {
-                business: '业务', quotes: '报价', customerOrders: '客户订单', suppliers: '供应商',
+                business: '业务', quotes: '报价', suppliers: '供应商',
                 dispatch: '派单管理', production: '生产与质检',
                 masterData: '主数据', accounts: '账号管理', internalOps: '内部 · 运营',
             },
@@ -1187,7 +1187,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: 'Company', profile: 'Company profile', hall: 'Order market', workspace: 'My workspace',
             },
             ops: {
-                business: 'Business', quotes: 'Quotes', customerOrders: 'Customer orders', suppliers: 'Suppliers',
+                business: 'Business', quotes: 'Quotes', suppliers: 'Suppliers',
                 dispatch: 'Dispatch', production: 'Production & QC',
                 masterData: 'Master data', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },

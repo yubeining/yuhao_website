@@ -272,7 +272,6 @@ const opsNav = (t: Strings): NavItem[] => [
     { to: '/ops/quotes', ic: '€', n: t.nav.ops.quotes },
     { to: '/ops/dispatch', ic: '⇉', n: t.nav.ops.dispatch },
     { to: '/ops/production', ic: '⚙', n: t.nav.ops.production },
-    { to: '/ops/orders', ic: '▣', n: t.nav.ops.customerOrders },
     { sec: t.nav.ops.masterData },
     { to: '/ops/parties', ic: '⌂', n: t.nav.ops.suppliers },
     {
