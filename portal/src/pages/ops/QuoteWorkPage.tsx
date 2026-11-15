@@ -1,12 +1,14 @@
 /**
- * 报价工作台 —— 运营看单、看图，逐行填原价（¥/件），选币种、填交期，发给客户。路由参数是订单 id。
+ * 报价工作台 —— 运营看单、看图，逐行填原价（¥/件），选币种、确认承诺交期，发给客户。路由参数是订单 id。
  *
  * ★ 对客价 = 原价 × 汇率 × 客户加成率（设计文档 13 §2）。计算全在后端：
  *   这一页<b>不显示汇率、也不做试算</b>（2026-11-15 拍板）—— 运营只填原价，
  *   汇率在发出那一刻由后端取。少一个按钮，也少一段没人看的计算说明。
  * ★ 汇率在客户确认那一刻才锁（13 §3.1）。发出后、确认前，客户看到的价格随每天汇率变；
  *   历史版本里未确认的那一版，对客价也是按最新汇率现算的，不是发出时的数。
- * ★ 加成率每个客户一个数（13 §2.1），1.2 = 加价 20%；发出时快照进报价，之后改不影响已发出的。
+ * ★ 报价系数（2026-11-15 改名）是客户级配置：公司有自己的用公司的，没有用「报价设置」里的全局默认；
+ *   这一页只只读展示生效值，不再就地编辑。发出时快照进报价，之后改不影响已发出的。
+ * ★ 交期从「确认后天数」改成「承诺日期」：默认取客户的期望交期，运营可改，客户确认即接受该日期。
  * ★ 以前这一页是原型（AI 估价是模拟输出、利润率 / 议价空间是编的公式），第 3 步只做人工报价，已全部换掉。
  *   价格护栏（偏离多少提醒）的百分比还没给，这一页不做提醒。
  */
@@ -14,6 +16,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { Input, Select } from '../../components/form'
+import { DatePicker } from '../../components/DatePicker'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
@@ -22,14 +25,13 @@ import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
 import {
     ApiError, getCustomerMarkup, getOpsOrder, listOrderQuotes, opsLineFileViewUrl,
-    QUOTE_CURRENCIES, sendQuote, setCustomerMarkup,
+    QUOTE_CURRENCIES, sendQuote,
     type FileView, type MarkupView, type OpsOrderView, type OpsQuoteView, type QuoteCurrency,
     type SendQuoteInput,
 } from '../../services'
 import { ORDER_ST, QUOTE_ST } from '../customer/status'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
-const MARKUP_RE = /^\d+(\.\d{1,4})?$/
 
 export function OpsQuoteWorkPage() {
     const { t } = useMock()
@@ -42,8 +44,7 @@ export function OpsQuoteWorkPage() {
 
     const [prices, setPrices] = useState<Record<string, string>>({})
     const [currency, setCurrency] = useState<QuoteCurrency | ''>('')
-    const [lead, setLead] = useState('')
-    const [markupInput, setMarkupInput] = useState('')
+    const [commitDate, setCommitDate] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -56,12 +57,14 @@ export function OpsQuoteWorkPage() {
             setOrder(o)
             setQuotes(qs)
             setMarkup(mk)
-            setMarkupInput(mk.markupRate != null ? String(mk.markupRate) : '')
             if (prefill && qs.length) {
                 const latest = qs[0]
                 setPrices(Object.fromEntries(latest.lines.map((l) => [l.lineId, String(l.unitPriceCny)])))
                 setCurrency(latest.currency)
-                setLead(String(latest.leadDays))
+                setCommitDate(latest.commitDate)
+            } else if (prefill) {
+                // 还没报过价：承诺交期从客户的期望交期起（运营可改）
+                setCommitDate(o.wantedDate ?? '')
             }
             setLoadErr(null)
         } catch (e) {
@@ -100,15 +103,14 @@ export function OpsQuoteWorkPage() {
     /** 输入齐了且格式对才返回请求体，否则返回缺什么。 */
     const buildInput = (): SendQuoteInput | string => {
         if (!currency) return t.quoteWork.errCurrency
-        const days = Number(lead.trim())
-        if (!lead.trim() || !Number.isInteger(days) || days <= 0) return t.quoteWork.errLead
+        if (!commitDate) return t.quoteWork.errCommitDate
         const lines: SendQuoteInput['lines'] = []
         for (const l of order.lines) {
             const raw = (prices[l.id] ?? '').trim()
             if (!PRICE_RE.test(raw) || Number(raw) <= 0) return t.quoteWork.errPrice(l.code)
             lines.push({ lineId: l.id, unitPriceCny: Number(raw) })
         }
-        return { currency, leadDays: days, lines }
+        return { currency, commitDate, lines }
     }
     const input = buildInput()
     const inputProblem = typeof input === 'string' ? input : null
@@ -128,16 +130,6 @@ export function OpsQuoteWorkPage() {
         } finally {
             setBusy(false)
         }
-    }
-
-    const markupBad = markupInput.trim() !== '' && (!MARKUP_RE.test(markupInput.trim()) || Number(markupInput.trim()) <= 0)
-
-    const saveMarkup = () => {
-        if (markupBad || !markupInput.trim()) return
-        void run(async () => {
-            setMarkup(await setCustomerMarkup(order.customerOrgId, Number(markupInput.trim())))
-            setOk(t.quoteWork.savedMarkup)
-        })
     }
 
     const doSend = () => {
@@ -236,33 +228,30 @@ export function OpsQuoteWorkPage() {
 
                 {editable && (
                     <div className="qset">
+                        {/* 报价系数是客户级配置，在「报价设置 / 组织」里维护，这里只看生效值 */}
                         <span className="lbl">{t.quoteWork.lblMarkup}
-                            <Input value={markupInput} style={{ width: 84 }} bad={markupBad}
-                                onChange={(v) => { setMarkupInput(v); setOk(null) }} />
-                            <span className="tip">{t.quoteWork.markupHint}</span>
-                            <button className="linkbtn" type="button"
-                                disabled={busy || markupBad || !markupInput.trim()
-                                    || markupInput.trim() === String(markup?.markupRate ?? '')}
-                                onClick={saveMarkup}>{t.common.save}</button>
+                            <b>{markup?.effectiveRate != null ? `× ${markup.effectiveRate}` : t.quoteWork.markupUnset}</b>
+                            <span className="tip">
+                                {markup?.markupRate != null ? t.quoteWork.markupFromCompany : t.quoteWork.markupFromDefault}
+                            </span>
                         </span>
                         <span className="lbl">{t.quoteWork.lblCurrency}
                             <Select value={currency} options={['', ...QUOTE_CURRENCIES]} style={{ width: 96 }}
                                 onChange={(v) => edit(() => setCurrency(v as QuoteCurrency | ''))} />
                         </span>
-                        <span className="lbl">{t.quoteWork.lblLead}
-                            <Input value={lead} style={{ width: 72 }}
-                                onChange={(v) => edit(() => setLead(v))} />
-                            {t.quoteWork.dayUnit}
+                        <span className="lbl">{t.quoteWork.lblCommitDate}
+                            <DatePicker value={commitDate} onChange={(v) => edit(() => setCommitDate(v))} />
+                            <span className="tip">{t.quoteWork.commitDateHint}</span>
                         </span>
                     </div>
                 )}
 
                 {editable && (
                     <CardFoot
-                        left={<span className="t2">{inputProblem ?? (markup?.markupRate == null ? t.quoteWork.needMarkup : '')}</span>}
+                        left={<span className="t2">{inputProblem ?? (markup?.effectiveRate == null ? t.quoteWork.needMarkup : '')}</span>}
                         right={
                             <button className="btn pri" type="button" onClick={doSend}
-                                disabled={busy || !!inputProblem || markup?.markupRate == null}>
+                                disabled={busy || !!inputProblem || markup?.effectiveRate == null}>
                                 {order.status === 'QUOTED' ? t.quoteWork.resendBtn : t.quoteWork.sendBtn}
                             </button>
                         }
@@ -288,7 +277,7 @@ export function OpsQuoteWorkPage() {
                                         <td className="n">v{q.versionNo}</td>
                                         <td>{pill(QUOTE_ST[q.status])}</td>
                                         <td className="m">{q.currency}</td>
-                                        <td className="n">{t.quoteWork.leadDays(q.leadDays)}</td>
+                                        <td className="n">{q.commitDate}</td>
                                         <td className="n">{t.quoteWork.markupTimes(q.markupRate)}</td>
                                         <td className="n">{fmtMoney(q.total, q.currency)}</td>
                                         <td className="t2">

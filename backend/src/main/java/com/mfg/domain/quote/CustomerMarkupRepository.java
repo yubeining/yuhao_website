@@ -14,6 +14,9 @@ interface CustomerMarkupRepository extends JpaRepository<CustomerMarkup, UUID> {
 
     Optional<CustomerMarkup> findByCustomerOrgId(UUID customerOrgId);
 
+    /** 清掉公司自己的值 → 回落到全局默认。 */
+    void deleteByCustomerOrgId(UUID customerOrgId);
+
     /**
      * 有就改、没有就建，一条语句完成。
      *

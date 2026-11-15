@@ -31,6 +31,9 @@ import {
     listAccounts, listOrganizations, listStaff, updateAccount, updateOrganization, updateStaff,
     type AccountView, type OrganizationAdminView, type StaffView,
 } from '../../services/ops/accounts'
+import {
+    clearCustomerMarkup, getCustomerMarkup, setCustomerMarkup, type MarkupView,
+} from '../../services/ops/quotes'
 
 type Tab = 'users' | 'orgs' | 'staff'
 
@@ -263,7 +266,8 @@ function OrgsTab() {
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-    const [form, setForm] = useState<{ id?: string; type: string; name: string; country: string } | null>(null)
+    const [form, setForm] = useState<{ id?: string; type: string; name: string; country: string; markup: string } | null>(null)
+    const [markupView, setMarkupView] = useState<MarkupView | null>(null)
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -283,12 +287,39 @@ function OrgsTab() {
     const typeLabel = (v: string) =>
         v === 'CUSTOMER' ? a.typeCustomer : v === 'SUPPLIER' ? a.typeSupplier : v === 'INTERNAL' ? a.typeInternal : '—'
 
+    /** 打开编辑时读这个客户自己的报价系数（留空 = 用全局默认）。 */
+    const openEdit = (row: OrganizationAdminView) => {
+        setOk(null)
+        setMarkupView(null)
+        setForm({ id: row.id, type: row.type, name: row.name, country: row.country ?? '', markup: '' })
+        if (row.type === 'CUSTOMER') {
+            getCustomerMarkup(row.id)
+                .then((view) => {
+                    setMarkupView(view)
+                    setForm((f) => (f && f.id === row.id
+                        ? { ...f, markup: view.markupRate != null ? String(view.markupRate) : '' }
+                        : f))
+                })
+                .catch(() => undefined)
+        }
+    }
+
     const save = async () => {
         if (!form || !form.name.trim()) return
         setBusy(true)
         try {
             if (form.id) {
                 await updateOrganization(form.id, { name: form.name.trim(), country: form.country || null })
+                // 报价系数：留空 = 用默认；只在这家是客户、且值真的变了时才写
+                if (form.type === 'CUSTOMER') {
+                    const raw = form.markup.trim()
+                    const current = markupView?.markupRate ?? null
+                    if (raw === '') {
+                        if (current != null) await clearCustomerMarkup(form.id)
+                    } else if (Number(raw) !== current) {
+                        await setCustomerMarkup(form.id, Number(raw))
+                    }
+                }
                 setOk(a.saved)
             } else {
                 await createOrganization({ type: form.type, name: form.name.trim(), country: form.country || null })
@@ -358,7 +389,7 @@ function OrgsTab() {
                 <CardHead title={a.tabOrgs} rid={a.orgsTotal(total)}
                     right={!form && (
                         <button className="btn sm pri" type="button"
-                            onClick={() => { setOk(null); setForm({ type: 'CUSTOMER', name: '', country: '' }) }}>
+                            onClick={() => { setOk(null); setMarkupView(null); setForm({ type: 'CUSTOMER', name: '', country: '', markup: '' }) }}>
                             {a.create}
                         </button>
                     )} />
@@ -384,10 +415,7 @@ function OrgsTab() {
                                         <td className="n">{day(r.createdAt)}</td>
                                         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                             <button className="btn sm" type="button"
-                                                onClick={() => {
-                                                    setOk(null)
-                                                    setForm({ id: r.id, type: r.type, name: r.name, country: r.country ?? '' })
-                                                }}>
+                                                onClick={() => openEdit(r)}>
                                                 {a.edit}
                                             </button>
                                             {r.status === 'ACTIVE'
@@ -432,6 +460,20 @@ function OrgsTab() {
                         <CountrySelect value={form.country} allowOther={false}
                             onChange={(v) => setForm({ ...form, country: v })} />
                     </Field>
+                    {form.id && form.type === 'CUSTOMER' && (
+                        <Field label={a.fldMarkup}>
+                            <Input value={form.markup} onChange={(v) => setForm({ ...form, markup: v })} />
+                            <div className="t2" style={{ marginTop: 6 }}>
+                                {a.fldMarkupHint} ·
+                                {' '}
+                                {markupView?.markupRate != null
+                                    ? a.markupOwn(markupView.markupRate)
+                                    : markupView?.defaultRate != null
+                                        ? a.markupDefault(markupView.defaultRate)
+                                        : a.markupUnset}
+                            </div>
+                        </Field>
+                    )}
                 </Drawer>
             )}
         </>

@@ -106,7 +106,9 @@ export function OrderDetailPage() {
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const missingCompany = !orgName?.trim()
-    const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany
+    // 期望交期必填（2026-11-15）：报价的承诺交期从它起，提交前必须有
+    const missingWantedDate = !order.wantedDate
+    const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany && !missingWantedDate
 
     const saveDraftInfo = async (nextDate?: string) => {
         const date = (nextDate ?? wantedDate).trim() || null
@@ -160,6 +162,11 @@ export function OrderDetailPage() {
                                         {t.customer.orderDetail.needParts}
                                     </span>
                                 )}
+                                {!canSubmit && missingWantedDate && order.lines.length > 0 && (
+                                    <span className="t2" style={{ color: 'var(--muted)' }}>
+                                        {t.customer.orderDetail.needWantedDate}
+                                    </span>
+                                )}
                                 <button className="btn pri" type="button" onClick={() => setConfirmSubmit(true)} disabled={!canSubmit || busy}>
                                     {t.customer.orderDetail.submit}
                                 </button>
@@ -198,7 +205,7 @@ export function OrderDetailPage() {
                     <span className="bnr-row">
                         <span>{quote
                             ? t.customer.orderDetail.statusQuoted(
-                                `${quote.currency === 'EUR' ? '€' : '¥'}${quote.total ?? 0}`, quote.leadDays)
+                                `${quote.currency === 'EUR' ? '€' : '¥'}${quote.total ?? 0}`, quote.commitDate)
                             : t.customer.orderDetail.quotedBanner}</span>
                         <Link className="btn sm" to={`/customer/quotes/${order.id}`}>
                             {t.customer.orderDetail.statusConfirmQuote}
@@ -233,7 +240,7 @@ export function OrderDetailPage() {
                                 ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
                                 : <div className="ro">{order.title || X}</div>}
                         </Field>
-                        <Field label={t.customer.orderDetail.fldLead}>
+                        <Field label={t.customer.orderDetail.fldLead} required>
                             {draft
                                 ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
                                 : <div className="ro">{order.wantedDate || X}</div>}

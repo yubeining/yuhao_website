@@ -12,7 +12,7 @@ import java.util.UUID;
  * <p>{@code priceLocked = true}：汇率和对客价是客户确认时的快照；否则是按 {@code rateDate} 那批汇率现算的，
  * 只对 {@code SENT} 算，作废 / 被拒的版本不算（价格字段为空）。
  */
-public record OpsQuoteView(UUID id, int versionNo, String status, String currency, int leadDays,
+public record OpsQuoteView(UUID id, int versionNo, String status, String currency, LocalDate commitDate,
                            BigDecimal markupRate, Instant sentAt, Instant confirmedAt, Instant rejectedAt,
                            boolean priceLocked, LocalDate rateDate, BigDecimal fxEurCny, BigDecimal fxEurQuote,
                            BigDecimal total, List<OpsQuoteLineView> lines) {

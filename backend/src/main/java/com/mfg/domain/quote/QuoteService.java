@@ -8,6 +8,7 @@ import com.mfg.domain.order.QuotableOrder;
 import com.mfg.platform.fx.FxRateService;
 import com.mfg.platform.fx.FxRateView;
 import com.mfg.platform.identity.Organization;
+import com.mfg.platform.config.AppConfigService;
 import com.mfg.platform.identity.ExternalUserRepository;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.notification.NotificationRequest;
@@ -60,11 +61,12 @@ class QuoteService {
     private final ExternalUserRepository externalUsers;
     private final NotificationService notifications;
     private final QuoteEmailTemplate emailTemplate;
+    private final AppConfigService appConfig;
 
     QuoteService(QuoteRepository quotes, QuoteLineRepository quoteLines, CustomerMarkupRepository markups,
                  OrderQuoting orders, FxRateService fxRates, OrganizationRepository organizations,
                  ExternalUserRepository externalUsers, NotificationService notifications,
-                 QuoteEmailTemplate emailTemplate) {
+                 QuoteEmailTemplate emailTemplate, AppConfigService appConfig) {
         this.quotes = quotes;
         this.quoteLines = quoteLines;
         this.markups = markups;
@@ -74,6 +76,7 @@ class QuoteService {
         this.externalUsers = externalUsers;
         this.notifications = notifications;
         this.emailTemplate = emailTemplate;
+        this.appConfig = appConfig;
     }
 
     /** 运营填的一行原价。 */
@@ -85,16 +88,50 @@ class QuoteService {
     @Transactional(readOnly = true)
     public MarkupView getMarkup(UUID customerOrgId) {
         requireCustomer(customerOrgId);
-        return markups.findByCustomerOrgId(customerOrgId)
-                .map(QuoteService::markupView)
-                .orElseGet(() -> new MarkupView(customerOrgId, null, null));
+        return markupView(customerOrgId);
     }
 
     @Transactional
     public MarkupView setMarkup(UUID customerOrgId, BigDecimal markupRate) {
         requireCustomer(customerOrgId);
         markups.upsert(UUID.randomUUID(), customerOrgId, markupRate, Instant.now());
-        return markups.findByCustomerOrgId(customerOrgId).map(QuoteService::markupView).orElseThrow();
+        return markupView(customerOrgId);
+    }
+
+    /** 清掉公司自己的系数 → 回落到全局默认。 */
+    @Transactional
+    public MarkupView clearMarkup(UUID customerOrgId) {
+        requireCustomer(customerOrgId);
+        markups.deleteByCustomerOrgId(customerOrgId);
+        return markupView(customerOrgId);
+    }
+
+    // ---------- 运营：报价设置（全局默认 + 公司概览）----------
+
+    @Transactional(readOnly = true)
+    public QuoteSettingsView settings(Pageable pageable) {
+        BigDecimal defaultRate = appConfig.quoteDefaultMarkupRate().orElse(null);
+        Page<Organization> page = organizations.findByTypeOrderByCreatedAtDesc(Organization.Type.CUSTOMER, pageable);
+        Map<UUID, BigDecimal> own = markups.findAll().stream()
+                .collect(Collectors.toMap(CustomerMarkup::getCustomerOrgId, CustomerMarkup::getMarkupRate));
+        return new QuoteSettingsView(defaultRate, PagedResponse.of(page, org -> {
+            BigDecimal rate = own.get(org.getId());
+            return new QuoteCompanyRate(org.getId(), org.getName(), rate,
+                    rate != null ? rate : defaultRate);
+        }));
+    }
+
+    @Transactional
+    public BigDecimal setDefaultMarkup(BigDecimal markupRate) {
+        return appConfig.setQuoteDefaultMarkupRate(markupRate);
+    }
+
+    private MarkupView markupView(UUID customerOrgId) {
+        BigDecimal defaultRate = appConfig.quoteDefaultMarkupRate().orElse(null);
+        return markups.findByCustomerOrgId(customerOrgId)
+                .map(m -> new MarkupView(customerOrgId, m.getMarkupRate(), m.getUpdatedAt(), defaultRate,
+                        m.getMarkupRate()))
+                .orElseGet(() -> new MarkupView(customerOrgId, null, null, defaultRate, defaultRate));
     }
 
     // ---------- 运营：报价 ----------
@@ -105,11 +142,17 @@ class QuoteService {
      * <p>★ 旧版先作废并 flush，再插新版：库里「每单最多一条 SENT」的唯一索引按语句检查。
      */
     @Transactional
-    public OpsQuoteView send(UUID opsUserId, UUID orderId, Quote.Currency currency, int leadDays,
+    public OpsQuoteView send(UUID opsUserId, UUID orderId, Quote.Currency currency, LocalDate commitDate,
                              List<LineInput> inputs) {
         QuotableOrder order = orders.lockForQuoting(orderId);
         List<LineInput> ordered = matchLines(order, inputs);
-        BigDecimal markupRate = requireMarkup(order.customerOrgId());
+        BigDecimal markupRate = effectiveMarkup(order.customerOrgId());
+        // 承诺交期必须晚于今天；lead_days 由它反推（旧列仍非空且 >0，下个版本再删）
+        LocalDate sentDate = LocalDate.now(java.time.ZoneOffset.UTC);
+        if (commitDate == null || !commitDate.isAfter(sentDate)) {
+            throw BusinessException.badRequest("quote.commit_date_invalid");
+        }
+        int leadDays = (int) java.time.temporal.ChronoUnit.DAYS.between(sentDate, commitDate);
 
         quotes.findByCustomerOrderIdAndStatus(orderId, Quote.Status.SENT).ifPresent(previous -> {
             previous.supersede();
@@ -117,7 +160,7 @@ class QuoteService {
         });
         Instant now = Instant.now();
         Quote quote = quotes.saveAndFlush(new Quote(orderId, order.customerOrgId(),
-                quotes.maxVersionNo(orderId) + 1, currency, leadDays, markupRate, opsUserId, now));
+                quotes.maxVersionNo(orderId) + 1, currency, commitDate, leadDays, markupRate, opsUserId, now));
         List<QuoteLine> lines = new ArrayList<>();
         for (int i = 0; i < order.lines().size(); i++) {
             QuotableLine line = order.lines().get(i);
@@ -126,7 +169,7 @@ class QuoteService {
         }
         quoteLines.saveAllAndFlush(lines);
         orders.markQuoted(order.customerOrgId(), orderId);
-        notifyQuoteSent(order.customerOrgId(), orderId, leadDays, currency);
+        notifyQuoteSent(order.customerOrgId(), orderId, commitDate, currency);
         return opsView(quote, lines, latestFx().orElse(null));
     }
 
@@ -137,7 +180,7 @@ class QuoteService {
      * 也不该在事务里等外部服务。收件人取该组织第一个可用成员 —— 现在没有"主联系人"这个概念。
      * ★ 金额这里不写死：SENT 状态的价是按最新汇率现算的，邮件里就写当时的试算价，正文里注明以门户为准。
      */
-    private void notifyQuoteSent(UUID customerOrgId, UUID orderId, int leadDays, Quote.Currency currency) {
+    private void notifyQuoteSent(UUID customerOrgId, UUID orderId, LocalDate commitDate, Quote.Currency currency) {
         externalUsers.findByOrgId(customerOrgId, PageRequest.of(0, 1)).stream()
                 .filter(u -> u.getStatus() == com.mfg.platform.identity.ExternalUser.Status.ACTIVE)
                 .findFirst()
@@ -145,7 +188,7 @@ class QuoteService {
                     String amount = customerViewAmount(orderId, currency);
                     String orderTitle = orderTitleOf(customerOrgId, orderId);
                     String[] mail = emailTemplate.render(user.getLocale(), orderTitle, amount,
-                            currency.name(), leadDays);
+                            currency.name(), commitDate.toString());
                     notifications.notify(NotificationRequest.email(user.getEmail(), mail[0], mail[1]));
                 });
     }
@@ -166,7 +209,7 @@ class QuoteService {
     public QuotePreviewView preview(UUID orderId, Quote.Currency currency, List<LineInput> inputs) {
         QuotableOrder order = orders.findSubmitted(orderId);
         List<LineInput> ordered = matchLines(order, inputs);
-        BigDecimal markupRate = requireMarkup(order.customerOrgId());
+        BigDecimal markupRate = effectiveMarkup(order.customerOrgId());
         LatestFx fx = requireFx();
         PriceCalculator.Rates rates = fx.ratesFor(currency).orElseThrow(QuoteService::fxUnavailable);
         List<PriceCalculator.Line> calcLines = new ArrayList<>();
@@ -242,7 +285,7 @@ class QuoteService {
         return PagedResponse.of(page, q -> {
             CustomerQuoteView v = customerView(q, linesByQuote.getOrDefault(q.getId(), List.of()), fx);
             return new CustomerQuoteSummaryView(v.id(), v.orderId(), titles.get(v.orderId()), v.status(),
-                    v.currency(), v.leadDays(), v.priceLocked(), v.rateDate(), v.total(), v.sentAt(),
+                    v.currency(), v.commitDate(), v.priceLocked(), v.rateDate(), v.total(), v.sentAt(),
                     v.confirmedAt());
         });
     }
@@ -298,10 +341,15 @@ class QuoteService {
         return order.lines().stream().map(l -> byId.get(l.id())).toList();
     }
 
-    private BigDecimal requireMarkup(UUID customerOrgId) {
+    /**
+     * 实际生效的报价系数：公司有自己的值就用它，否则用全局默认；两者都没有 → 明确报错，
+     * 不自己编一个数（CLAUDE.md §10 C5）。
+     */
+    private BigDecimal effectiveMarkup(UUID customerOrgId) {
         return markups.findByCustomerOrgId(customerOrgId)
                 .map(CustomerMarkup::getMarkupRate)
-                .orElseThrow(() -> BusinessException.conflict("quote.markup_missing"));
+                .or(() -> appConfig.quoteDefaultMarkupRate())
+                .orElseThrow(() -> BusinessException.conflict("quote.default_markup_missing"));
     }
 
     private void requireCustomer(UUID orgId) {
@@ -359,7 +407,7 @@ class QuoteService {
                     pl == null ? null : pl.unitPrice(), pl == null ? null : pl.lineTotal()));
         }
         return new OpsQuoteView(quote.getId(), quote.getVersionNo(), quote.getStatus().name(),
-                quote.getCurrency().name(), quote.getLeadDays(), quote.getMarkupRate(), quote.getSentAt(),
+                quote.getCurrency().name(), quote.getCommitDate(), quote.getMarkupRate(), quote.getSentAt(),
                 quote.getConfirmedAt(), quote.getRejectedAt(), p != null && p.locked(),
                 p == null ? null : p.rateDate(),
                 p == null ? null : p.rates().eurCny(), p == null ? null : p.rates().eurQuote(),
@@ -377,13 +425,9 @@ class QuoteService {
                     l.getQuantity(), pl == null ? null : pl.unitPrice(), pl == null ? null : pl.lineTotal()));
         }
         return new CustomerQuoteView(quote.getId(), quote.getCustomerOrderId(), quote.getStatus().name(),
-                quote.getCurrency().name(), quote.getLeadDays(), p != null && p.locked(),
+                quote.getCurrency().name(), quote.getCommitDate(), p != null && p.locked(),
                 p == null ? null : p.rateDate(), p == null ? null : p.priced().total(),
                 quote.getSentAt(), quote.getConfirmedAt(), views);
-    }
-
-    private static MarkupView markupView(CustomerMarkup m) {
-        return new MarkupView(m.getCustomerOrgId(), m.getMarkupRate(), m.getUpdatedAt());
     }
 
     private record Pricing(boolean locked, LocalDate rateDate, PriceCalculator.Rates rates,

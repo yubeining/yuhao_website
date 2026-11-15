@@ -1,5 +1,6 @@
 package com.mfg.domain.quote;
 
+import com.mfg.common.dto.PageQuery;
 import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
@@ -9,6 +10,7 @@ import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -18,7 +20,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /** 运营端：客户加成率、报价。{@code /ops/**} 端级闸门只放 OPERATOR 进来。 */
@@ -44,7 +48,7 @@ class OpsQuoteController {
 
     /** {@code leadDays}：交期，客户确认后多少天。{@code lines} 必须和订单行一一对应。 */
     public record SendQuoteRequest(@NotNull @Pattern(regexp = "EUR|USD|GBP|CNY") String currency,
-                                   @NotNull @Positive Integer leadDays,
+                                   @NotNull LocalDate commitDate,
                                    @NotEmpty List<@NotNull @Valid QuoteLineRequest> lines) {
 
         List<QuoteService.LineInput> inputs() {
@@ -66,10 +70,32 @@ class OpsQuoteController {
         return service.setMarkup(orgId, request.markupRate());
     }
 
+    /** 清掉公司自己的系数，回落到全局默认。 */
+    @DeleteMapping("/ops/customers/{orgId}/markup")
+    MarkupView clearMarkup(@PathVariable UUID orgId) {
+        return service.clearMarkup(orgId);
+    }
+
+    // ---------- 报价设置：全局默认 + 公司概览 ----------
+
+    public record DefaultMarkupRequest(@NotNull @DecimalMin(value = "0", inclusive = false)
+                                       @Digits(integer = 4, fraction = 4) BigDecimal markupRate) {
+    }
+
+    @GetMapping("/ops/quote-settings")
+    QuoteSettingsView settings(PageQuery page) {
+        return service.settings(page.toPageable());
+    }
+
+    @PutMapping("/ops/quote-settings/default-markup")
+    Map<String, Object> setDefaultMarkup(@Valid @RequestBody DefaultMarkupRequest request) {
+        return Map.of("markupRate", service.setDefaultMarkup(request.markupRate()));
+    }
+
     @PostMapping("/ops/customer-orders/{orderId}/quotes")
     OpsQuoteView send(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                       @Valid @RequestBody SendQuoteRequest request) {
-        return service.send(user.id(), orderId, request.quoteCurrency(), request.leadDays(), request.inputs());
+        return service.send(user.id(), orderId, request.quoteCurrency(), request.commitDate(), request.inputs());
     }
 
     @PostMapping("/ops/customer-orders/{orderId}/quotes/preview")

@@ -13,16 +13,16 @@ class QuoteEmailTemplateTest {
 
     @Test
     void chineseTemplateReplacesPlaceholders() {
-        String[] mail = template.render("zh-CN", "法兰盘 500 件", "12,340.00", "EUR", 30);
+        String[] mail = template.render("zh-CN", "法兰盘 500 件", "12,340.00", "EUR", "2026-12-15");
         assertThat(mail[0]).contains("法兰盘 500 件");
-        assertThat(mail[1]).contains("12,340.00", "EUR", "30");
-        assertThat(mail[1]).doesNotContain("{order}", "{amount}", "{currency}", "{days}");
+        assertThat(mail[1]).contains("12,340.00", "EUR", "2026-12-15");
+        assertThat(mail[1]).doesNotContain("{order}", "{amount}", "{currency}", "{date}");
     }
 
     @Test
     void unknownLocaleFallsBackToEnglish() {
-        String[] mail = template.render("fr", "Bracket 200", "8,900.00", "EUR", 25);
+        String[] mail = template.render("fr", "Bracket 200", "8,900.00", "EUR", "2026-12-10");
         assertThat(mail[0]).contains("Your quotation is ready");
-        assertThat(mail[1]).contains("8,900.00", "25");
+        assertThat(mail[1]).contains("8,900.00", "2026-12-10");
     }
 }

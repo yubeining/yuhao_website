@@ -322,6 +322,7 @@ CREATE TABLE public.quote (
     status text NOT NULL,
     currency text NOT NULL,
     lead_days integer NOT NULL,
+    commit_date date,
     markup_rate numeric(8,4) NOT NULL,
     sent_at timestamp with time zone NOT NULL,
     sent_by_user_id uuid NOT NULL,

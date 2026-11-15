@@ -552,7 +552,7 @@ class DispatchFlowIT {
     private record Supplier(String token, String orgId) {
     }
 
-    private record OrderDraftBody(String title, Integer wantedLeadDays) {
+    private record OrderDraftBody(String title, LocalDate wantedDate) {
     }
 
     private record AddLineBody(String code, String name, int quantity, String material, String surfaceTreatment) {
@@ -564,7 +564,7 @@ class DispatchFlowIT {
     private record QuoteLineBody(UUID lineId, BigDecimal unitPriceCny) {
     }
 
-    private record SendQuoteBody(String currency, Integer leadDays, List<QuoteLineBody> lines) {
+    private record SendQuoteBody(String currency, String commitDate, List<QuoteLineBody> lines) {
     }
 
     private record MarkupBody(BigDecimal markupRate) {
@@ -649,7 +649,7 @@ class DispatchFlowIT {
         for (int i = 0; i < o.lineIds().size(); i++) {
             lines.add(new QuoteLineBody(o.lineIds().get(i), new BigDecimal(unitPricesCny[i])));
         }
-        ok(rawPost("/ops/customer-orders/" + o.id() + "/quotes", new SendQuoteBody("EUR", 20, lines), ops));
+        ok(rawPost("/ops/customer-orders/" + o.id() + "/quotes", new SendQuoteBody("EUR", LocalDate.now().plusDays(20).toString(), lines), ops));
     }
 
     private Supplier supplier(String tag, String discount) throws Exception {
@@ -685,7 +685,7 @@ class DispatchFlowIT {
     }
 
     private SubmittedOrder submittedOrder(Customer c, int... quantities) throws Exception {
-        String orderId = post("/customer/orders", new OrderDraftBody(null, null), c.token()).path("id").asText();
+        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("id").asText();
         List<UUID> lineIds = new ArrayList<>();
         List<UUID> fileIds = new ArrayList<>();
         for (int q : quantities) {

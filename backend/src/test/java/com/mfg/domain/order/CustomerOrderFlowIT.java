@@ -524,7 +524,8 @@ class CustomerOrderFlowIT {
     }
 
     private String createOrder(Customer c) throws Exception {
-        return post("/customer/orders", new CustomerOrderController.OrderDraftRequest(null, null), c.token())
+        return post("/customer/orders",
+                new CustomerOrderController.OrderDraftRequest(null, LocalDate.now().plusDays(30)), c.token())
                 .path("data").path("id").asText();
     }
 

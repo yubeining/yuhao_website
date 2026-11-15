@@ -331,7 +331,7 @@ class ProductionFlowIT {
                           String opsOrderId, String supplierOrderId) {
     }
 
-    private record OrderDraftBody(String title, Integer wantedLeadDays) {
+    private record OrderDraftBody(String title, LocalDate wantedDate) {
     }
 
     private record AddLineBody(String code, String name, int quantity, String material, String surfaceTreatment) {
@@ -343,7 +343,7 @@ class ProductionFlowIT {
     private record QuoteLineBody(UUID lineId, BigDecimal unitPriceCny) {
     }
 
-    private record SendQuoteBody(String currency, Integer leadDays, List<QuoteLineBody> lines) {
+    private record SendQuoteBody(String currency, String commitDate, List<QuoteLineBody> lines) {
     }
 
     private record MarkupBody(BigDecimal markupRate) {
@@ -378,14 +378,14 @@ class ProductionFlowIT {
     /** 客户下单 → 报价 → 确认 → 运营组单挂市场 → 供应商接单。 */
     private Accepted accepted(String tag, int quantity) throws Exception {
         Customer c = register(tag);
-        String orderId = post("/customer/orders", new OrderDraftBody(null, null), c.token()).path("id").asText();
+        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("id").asText();
         String code = "PR-" + UUID.randomUUID().toString().substring(0, 8);
         JsonNode line = post("/customer/orders/" + orderId + "/lines",
                 new AddLineBody(code, "Part " + code, quantity, "AL6061", null), c.token());
         uploadPdf(c, line);
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         ok(exchange("/ops/customers/" + c.orgId() + "/markup", HttpMethod.PUT, new MarkupBody(BigDecimal.ONE), ops));
-        ok(rawPost("/ops/customer-orders/" + orderId + "/quotes", new SendQuoteBody("EUR", 20,
+        ok(rawPost("/ops/customer-orders/" + orderId + "/quotes", new SendQuoteBody("EUR", LocalDate.now().plusDays(20).toString(),
                 List.of(new QuoteLineBody(UUID.fromString(line.path("id").asText()), new BigDecimal("50.00")))), ops));
         JsonNode quote = get("/customer/orders/" + orderId + "/quote", c.token());
         ok(rawPost("/customer/orders/" + orderId + "/quote/confirm", new ConfirmBody(

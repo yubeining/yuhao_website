@@ -129,7 +129,7 @@ export function QuoteDetailPage() {
                 <CardBody>
                     <Fields>
                         <Fld k={t.customer.quotes.fldCurrency} v={quote.currency} mono />
-                        <Fld k={t.customer.quotes.fldLeadTime} v={t.customer.quotes.afterConfirm(quote.leadDays)} />
+                        <Fld k={t.customer.quotes.fldLeadTime} v={quote.commitDate} />
                         <Fld k={t.customer.quotes.fldQuotedAt} v={fmtDateTime(new Date(quote.sentAt))} mono />
                         {!rejected && <Fld k={t.customer.quotes.fldRateDate} v={quote.rateDate ?? X} mono />}
                     </Fields>

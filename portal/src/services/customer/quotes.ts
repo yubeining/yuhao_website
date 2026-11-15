@@ -26,8 +26,8 @@ export interface CustomerQuoteView {
     orderId: string
     status: QuoteStatus
     currency: QuoteCurrency
-    /** 交期：确认后多少天 */
-    leadDays: number
+    /** 承诺交期（YYYY-MM-DD）：运营在报价时确认、客户确认即接受 */
+    commitDate: string
     /** true = 已确认，价格是确认时锁下的 */
     priceLocked: boolean
     /** 价格所用汇率的日期（YYYY-MM-DD，ECB 发布日） */
@@ -44,7 +44,7 @@ export interface CustomerQuoteSummaryView {
     orderTitle?: string | null
     status: QuoteStatus
     currency: QuoteCurrency
-    leadDays: number
+    commitDate: string
     priceLocked: boolean
     rateDate?: string | null
     total?: number | null

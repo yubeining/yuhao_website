@@ -28,7 +28,7 @@ public class AppSetting extends BaseEntity {
         STRING, NUMBER, BOOL, JSON
     }
 
-    @Column(name = "config_key", nullable = false)
+    @Column(name = "config_key", nullable = false, unique = true)
     private String configKey;
 
     @JdbcTypeCode(SqlTypes.JSON)
@@ -57,12 +57,12 @@ public class AppSetting extends BaseEntity {
         return configKey;
     }
 
-    public JsonNode getConfigValue() {
-        return configValue;
-    }
-
     public void setConfigValue(JsonNode configValue) {
         this.configValue = configValue;
+    }
+
+    public JsonNode getConfigValue() {
+        return configValue;
     }
 
     public ValueType getValueType() {

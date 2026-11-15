@@ -61,10 +61,10 @@ export interface Strings {
             notFound: string; backToOrders: string; addPart: string; addFirstPart: string
             missingDrawingBanner: (n: number) => string; submittedBanner: string
             quotedBanner: string; cancelledBanner: string
-            statusSubmitted: string; statusQuoted: (amount: string, days: number) => string
+            statusSubmitted: string; statusQuoted: (amount: string, commitDate: string) => string
             statusConfirmed: string; statusReady: string
             statusViewQuotes: string; statusConfirmQuote: string; statusQuoteDetail: string
-            infoTitle: string; fldName: string; fldLead: string; titlePlaceholder: string
+            infoTitle: string; fldName: string; fldLead: string; needWantedDate: string; titlePlaceholder: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
             partsTitle: (n: number) => string; missingDrawingPill: (n: number) => string
             colRevision: string; colMaterial: string; colDrawing: string; colProgress: string
@@ -108,7 +108,6 @@ export interface Strings {
             locked: (rateDate: string) => string
             floating: (rateDate: string) => string
             noRate: string
-            afterConfirm: (days: number) => string
             rejectConfirm: string
             rateNote: (rateDate: string) => string
             rejected: string
@@ -252,7 +251,7 @@ export interface Strings {
         }
         ops: {
             business: string; quotes: string; suppliers: string
-            dispatch: string; production: string
+            dispatch: string; production: string; quoteSettings: string
             masterData: string; accounts: string; internalOps: string
         }
     }
@@ -308,6 +307,8 @@ export interface Strings {
             newStaff: string; editStaff: string
             fldOrg: string; fldEmail: string; fldName: string; fldPassword: string
             fldCountry: string; fldType: string
+            fldMarkup: string; fldMarkupHint: string; markupUnset: string
+            markupOwn: (rate: number) => string; markupDefault: (rate: number) => string
             immutable: string; immutableType: string; passwordRule: string
             all: string; selectPlaceholder: string
             usersTotal: (n: number) => string
@@ -343,19 +344,18 @@ export interface Strings {
     }
         quoteWork: {
             back: string; title: string; notFound: string; notFoundSub: string
-            errCurrency: string; errLead: string; errPrice: (code: string) => string
-            savedMarkup: string; confirmResend: string; confirmSend: string
+            errCurrency: string; errCommitDate: string; errPrice: (code: string) => string
+            confirmResend: string; confirmSend: string
             sentVersion: (n: number) => string
             lockedBanner: string; cancelledBanner: string
-            leadDays: (n: number) => string
             quoteTitle: string; requoteTitle: string; fillQuote: string
             colPart: string; colMaterial: string; colSurface: string; colBasePrice: string
             colUnit: string
             context: (parts: number, qty: number, wanted: string, submitted: string) => string
             viewDrawing: string; viewDrawings: (n: number) => string
-            lblMarkup: string; lblCurrency: string; lblLead: string; markupHint: string
+            lblMarkup: string; lblCurrency: string; lblCommitDate: string; commitDateHint: string
+            markupUnset: string; markupFromCompany: string; markupFromDefault: string
             customerRev: (v: string) => string; pricePlaceholder: string
-            dayUnit: string
             needMarkup: string
             resendBtn: string; sendBtn: string
             historyTitle: string; versionCount: (n: number) => string
@@ -363,6 +363,13 @@ export interface Strings {
             colTotal: string; colRate: string; colSentAt: string
             markupTimes: (v: number) => string
             rateLocked: string; rateUnlocked: string; empty: string
+        }
+        quoteSettings: {
+            title: string; sub: string
+            defaultTitle: string; defaultHint: string; defaultSaved: string
+            companiesTitle: string; companyCount: (n: number) => string
+            colCompany: string; colOwn: string; colEffective: string
+            useDefault: string; unset: string; empty: string; emptySub: string
         }
     /** 派单详情（生产订单） */
     prodDetail: {
@@ -438,12 +445,12 @@ export const STRINGS: Record<Lang, Strings> = {
             submittedBanner: '订单已提交，各零件的图纸版本已锁定，不能再修改。',
             quotedBanner: '平台已报价，等你确认。', cancelledBanner: '订单已取消。',
             statusSubmitted: '运营正在核价，报价出来后可在「我的报价」确认。',
-            statusQuoted: (amount, days) => `报价已出 ${amount}（按确认当日汇率锁价）· 交期 ${days} 天`,
+            statusQuoted: (amount, commitDate) => `报价已出 ${amount}（按确认当日汇率锁价）· 承诺交期 ${commitDate}`,
             statusConfirmed: '已确认报价，正在生产。',
             statusReady: '全部零件已完工。',
             statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
-            fldName: '名称', fldLead: '期望交货日期',
+            fldName: '名称', fldLead: '期望交货日期', needWantedDate: '请先填期望交货日期',
             titlePlaceholder: '订单名称',
             fldParts: '零件数', fldTotalQty: '总件数', fldCreated: '建单日期', fldSubmitted: '提交时间',
             partsTitle: (n) => `零件 ${n} 个`, missingDrawingPill: (n) => `${n} 缺图纸`,
@@ -503,7 +510,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 locked: (d) => `已锁定（汇率日期 ${d}）`,
                 floating: (d) => `按 ${d} 汇率，确认前会变`,
                 noRate: '暂时取不到汇率，价格稍后显示',
-                afterConfirm: (days) => `确认后 ${days} 天`,
                 rejectConfirm: '拒绝这份报价？订单会退回，等平台重新报价。',
                 rateNote: (d) => `价格按 ${d} 的汇率计算，确认前会随汇率变动；点「确认价格」时按当时显示的价格锁定。`,
                 rejected: '你已拒绝这份报价，订单已退回，等平台重新报价。新报价出来后会显示在这里。',
@@ -670,7 +676,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
             ops: {
                 business: '业务', quotes: '报价', suppliers: '供应商',
-                dispatch: '派单管理', production: '生产与质检',
+                dispatch: '派单管理', production: '生产与质检', quoteSettings: '报价设置',
                 masterData: '主数据', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
@@ -731,8 +737,11 @@ export const STRINGS: Record<Lang, Strings> = {
                 newOrg: '新建组织', editOrg: '编辑组织',
                 newStaff: '新建运营账号', editStaff: '编辑运营账号',
                 fldOrg: '所属公司', fldEmail: '登录邮箱', fldName: '姓名',
-                fldPassword: '初始密码（至少 8 位）', fldCountry: '国家（两位代码，可选）',
+                fldPassword: '初始密码（至少 8 位）', fldCountry: '国家/地区',
                 fldType: '类型',
+                fldMarkup: '报价系数', fldMarkupHint: '留空 = 用全局默认',
+                markupUnset: '全局默认未设置',
+                markupOwn: (rate) => `公司单独配置 × ${rate}`, markupDefault: (rate) => `全局默认 × ${rate}`,
                 immutable: '（不可改）', immutableType: '（不可改：改类型等于改受众）',
                 passwordRule: '至少 8 位',
                 all: '全部', selectPlaceholder: '（请选择）',
@@ -774,31 +783,42 @@ export const STRINGS: Record<Lang, Strings> = {
         quoteWork: {
             back: '← 报价', title: '报价工作台',
             notFound: '订单不存在', notFoundSub: '草稿订单对运营不可见',
-            errCurrency: '请选择币种', errLead: '交期请填正整数天数',
+            errCurrency: '请选择币种', errCommitDate: '请选择承诺交期',
             errPrice: (code) => `「${code}」的原价请填大于 0、最多两位小数的数字`,
-            savedMarkup: '加成率已保存，只影响之后发出的报价',
             confirmResend: '重新发出报价？客户手上待确认的那一版会作废。',
             confirmSend: '发出报价？客户会看到按最新汇率计算的价格，确认前随汇率变动。',
             sentVersion: (n) => `第 ${n} 版报价已发出`,
             lockedBanner: '客户已确认报价，价格和汇率已锁定，这一页只读。',
             cancelledBanner: '订单已取消，不能报价。',
-            leadDays: (n) => `${n} 天（仅参考）`,
             quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价',
-            needMarkup: '这个客户还没设加成率',
+            needMarkup: '还没有报价系数，请先在「报价设置」里填全局默认值',
             resendBtn: '重新发出', sendBtn: '发出报价',
             colPart: '零件', colMaterial: '材料', colSurface: '表面处理', colBasePrice: '原价 ¥/件',
             colUnit: '对客单价',
             context: (parts, qty, wanted, submitted) =>
                 `${parts} 个零件 · 共 ${qty} 件${wanted ? ` · 期望交期 ${wanted}` : ''} · 提交于 ${submitted}`,
             viewDrawing: '查看', viewDrawings: (n) => `查看 (${n})`,
-            lblMarkup: '加成率', lblCurrency: '币种', lblLead: '交期', markupHint: '1.2 = 加价 20%',
+            lblMarkup: '报价系数', lblCurrency: '币种', lblCommitDate: '承诺交期',
+            commitDateHint: '默认取客户期望交期，可改',
+            markupUnset: '未设置', markupFromCompany: '公司配置', markupFromDefault: '全局默认',
             customerRev: (v) => ` · 客户标记 ${v}`, pricePlaceholder: '¥ / 件',
-            dayUnit: '天',
             historyTitle: '报价记录', versionCount: (n) => `${n} 版`,
-            colVersion: '版本', colCurrency: '币种', colLead: '交期', colMarkup: '加成率',
+            colVersion: '版本', colCurrency: '币种', colLead: '承诺交期', colMarkup: '报价系数',
             colTotal: '对客总计', colRate: '汇率', colSentAt: '发出时间',
             markupTimes: (v) => `× ${v}`,
             rateLocked: '（确认时锁定）', rateUnlocked: '（最新，未锁定）', empty: '还没有报价',
+        },
+        quoteSettings: {
+            title: '报价设置',
+            sub: '对客价 = 原价 × 汇率 × 报价系数。公司有自己的用公司的，没有用全局默认。',
+            defaultTitle: '全局默认报价系数',
+            defaultHint: '没有单独配置的公司都用这个值',
+            defaultSaved: '全局默认已保存',
+            companiesTitle: '客户公司',
+            companyCount: (n) => `共 ${n} 家`,
+            colCompany: '公司', colOwn: '公司系数', colEffective: '实际生效',
+            useDefault: '用默认', unset: '未设置',
+            empty: '还没有客户公司', emptySub: '客户注册后会出现在这里',
         },
     prodDetail: {
         back: '← 派单管理', title: '生产订单', notFound: '生产订单不存在',
@@ -960,12 +980,12 @@ export const STRINGS: Record<Lang, Strings> = {
             submittedBanner: 'Order submitted. Drawing revisions are locked and can no longer be changed.',
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', cancelledBanner: 'Order cancelled.',
             statusSubmitted: 'We are pricing your order. The quote will appear in "My quotes" for you to confirm.',
-            statusQuoted: (amount, days) => `Quote ready: ${amount} (locked at the rate on the day you confirm) · ${days} days lead time`,
+            statusQuoted: (amount, commitDate) => `Quote ready: ${amount} (locked at the rate on the day you confirm) · delivery ${commitDate}`,
             statusConfirmed: 'Quote confirmed. Production has started.',
             statusReady: 'All parts are finished.',
             statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
-            fldName: 'Name', fldLead: 'Requested delivery date',
+            fldName: 'Name', fldLead: 'Requested delivery date', needWantedDate: 'Please fill in the requested delivery date',
             titlePlaceholder: 'Order name',
             fldParts: 'Parts', fldTotalQty: 'Total quantity', fldCreated: 'Created', fldSubmitted: 'Submitted',
             partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, missingDrawingPill: (n) => `${n} missing drawing`,
@@ -1025,7 +1045,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 locked: (d) => `Locked (FX date ${d})`,
                 floating: (d) => `At the ${d} FX rate — subject to change until confirmed`,
                 noRate: 'FX rate unavailable; the price will appear shortly',
-                afterConfirm: (days) => `${days} days after confirmation`,
                 rejectConfirm: 'Reject this quote? The order goes back and we will re-quote.',
                 rateNote: (d) => `The price uses the FX rate of ${d} and may change until you confirm. Clicking "Confirm price" locks the price shown at that moment.`,
                 rejected: 'You rejected this quote. The order has gone back and we will re-quote; the new quote will appear here.',
@@ -1194,7 +1213,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
             ops: {
                 business: 'Business', quotes: 'Quotes', suppliers: 'Suppliers',
-                dispatch: 'Dispatch', production: 'Production & QC',
+                dispatch: 'Dispatch', production: 'Production & QC', quoteSettings: 'Quote settings',
                 masterData: 'Master data', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
@@ -1255,8 +1274,11 @@ export const STRINGS: Record<Lang, Strings> = {
                 newOrg: 'New organization', editOrg: 'Edit organization',
                 newStaff: 'New staff account', editStaff: 'Edit staff account',
                 fldOrg: 'Company', fldEmail: 'Login email', fldName: 'Name',
-                fldPassword: 'Initial password (min 8 chars)', fldCountry: 'Country (2-letter code, optional)',
+                fldPassword: 'Initial password (min 8 chars)', fldCountry: 'Country / region',
                 fldType: 'Type',
+                fldMarkup: 'Quote rate', fldMarkupHint: 'Leave blank to use the global default',
+                markupUnset: 'Global default not set',
+                markupOwn: (rate) => `Company override × ${rate}`, markupDefault: (rate) => `Global default × ${rate}`,
                 immutable: ' (cannot be changed)', immutableType: ' (cannot be changed: type defines the audience)',
                 passwordRule: 'Min 8 characters',
                 all: 'All', selectPlaceholder: '(select)',
@@ -1297,31 +1319,42 @@ export const STRINGS: Record<Lang, Strings> = {
         quoteWork: {
             back: '← Quotes', title: 'Quote workbench',
             notFound: 'Order not found', notFoundSub: 'Draft orders are not visible to operations',
-            errCurrency: 'Please choose a currency', errLead: 'Lead time must be a whole number of days',
+            errCurrency: 'Please choose a currency', errCommitDate: 'Please choose a delivery date',
             errPrice: (code) => `Enter a base price above 0 with at most 2 decimals for ${code}`,
-            savedMarkup: 'Markup rate saved. It only affects quotes sent from now on.',
             confirmResend: 'Send the quote again? The version awaiting the customer will be superseded.',
             confirmSend: 'Send this quote? The customer sees prices at the latest FX rate; they may change until confirmed.',
             sentVersion: (n) => `Quote v${n} sent`,
             lockedBanner: 'The customer confirmed this quote. Prices and FX are locked; this page is read-only.',
             cancelledBanner: 'The order was cancelled and cannot be quoted.',
-            leadDays: (n) => `${n} days (reference)`,
             quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote',
             colPart: 'Part', colMaterial: 'Material', colSurface: 'Finishing', colBasePrice: 'Base ¥/pc',
             context: (parts, qty, wanted, submitted) =>
                 `${parts} part${parts === 1 ? '' : 's'} · ${qty} pc${qty === 1 ? '' : 's'}${wanted ? ` · wanted ${wanted}` : ''} · submitted ${submitted}`,
             viewDrawing: 'View', viewDrawings: (n) => `View (${n})`,
-            lblMarkup: 'Markup', lblCurrency: 'Currency', lblLead: 'Lead time', markupHint: '1.2 = +20%',
+            lblMarkup: 'Quote rate', lblCurrency: 'Currency', lblCommitDate: 'Delivery date',
+            commitDateHint: "Defaults to the customer's requested date",
+            markupUnset: 'Not set', markupFromCompany: 'Company override', markupFromDefault: 'Global default',
             colUnit: 'Customer unit price',
             customerRev: (v) => ` · customer mark ${v}`, pricePlaceholder: '¥ / pc',
-            dayUnit: 'days',
-            needMarkup: 'No markup rate set for this customer yet',
+            needMarkup: 'No quote rate yet — set the global default in Quote settings',
             resendBtn: 'Send again', sendBtn: 'Send quote',
             historyTitle: 'Quote history', versionCount: (n) => `${n} version${n === 1 ? '' : 's'}`,
-            colVersion: 'Version', colCurrency: 'Currency', colLead: 'Lead time', colMarkup: 'Markup',
+            colVersion: 'Version', colCurrency: 'Currency', colLead: 'Delivery date', colMarkup: 'Quote rate',
             colTotal: 'Customer total', colRate: 'FX rate', colSentAt: 'Sent at',
             markupTimes: (v) => `× ${v}`,
             rateLocked: ' (locked at confirmation)', rateUnlocked: ' (latest, not locked)', empty: 'No quotes yet',
+        },
+        quoteSettings: {
+            title: 'Quote settings',
+            sub: 'Customer price = base price × FX rate × quote rate. A company value wins; otherwise the global default applies.',
+            defaultTitle: 'Global default quote rate',
+            defaultHint: 'Used by companies without their own value',
+            defaultSaved: 'Global default saved',
+            companiesTitle: 'Customer companies',
+            companyCount: (n) => `${n} compan${n === 1 ? 'y' : 'ies'}`,
+            colCompany: 'Company', colOwn: 'Company rate', colEffective: 'Effective',
+            useDefault: 'Using default', unset: 'Not set',
+            empty: 'No customer companies yet', emptySub: 'They appear here after customers sign up',
         },
     prodDetail: {
         back: '← Dispatch', title: 'Production order', notFound: 'Production order not found',

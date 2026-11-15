@@ -59,7 +59,16 @@ class Quote extends BaseEntity {
     @Column(name = "currency", nullable = false, updatable = false)
     private Currency currency;
 
-    /** 交期：客户确认后多少天（运营填，整单一个）。 */
+    /**
+     * 承诺交期：运营在报价时确认/调整的交付日期，客户确认报价即接受这个日期。
+     *
+     * <p>★ 2026-11-15 起以这一列为准；{@link #leadDays} 保留只为兼容旧代码与回滚，
+     * 下次发布再删（CLAUDE.md §5 扩展-收缩）。
+     */
+    @Column(name = "commit_date", updatable = false)
+    private LocalDate commitDate;
+
+    /** 旧口径：客户确认后多少天。由 {@link #commitDate} 反推，仅为兼容保留。 */
     @Column(name = "lead_days", nullable = false, updatable = false)
     private int leadDays;
 
@@ -105,12 +114,13 @@ class Quote extends BaseEntity {
     protected Quote() {
     }
 
-    Quote(UUID customerOrderId, UUID customerOrgId, int versionNo, Currency currency, int leadDays,
-          BigDecimal markupRate, UUID sentByUserId, Instant sentAt) {
+    Quote(UUID customerOrderId, UUID customerOrgId, int versionNo, Currency currency, LocalDate commitDate,
+          int leadDays, BigDecimal markupRate, UUID sentByUserId, Instant sentAt) {
         this.customerOrderId = customerOrderId;
         this.customerOrgId = customerOrgId;
         this.versionNo = versionNo;
         this.currency = currency;
+        this.commitDate = commitDate;
         this.leadDays = leadDays;
         this.markupRate = markupRate;
         this.sentByUserId = sentByUserId;
@@ -161,6 +171,10 @@ class Quote extends BaseEntity {
 
     Currency getCurrency() {
         return currency;
+    }
+
+    LocalDate getCommitDate() {
+        return commitDate;
     }
 
     int getLeadDays() {

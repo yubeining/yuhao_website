@@ -14,7 +14,7 @@ import java.util.UUID;
  * 确认时要把 {@code rateDate} 带回来，和服务端当时的不一致就拒绝（客户没看过那个价）。
  * 被拒绝的报价没有价格字段。
  */
-public record CustomerQuoteView(UUID id, UUID orderId, String status, String currency, int leadDays,
+public record CustomerQuoteView(UUID id, UUID orderId, String status, String currency, LocalDate commitDate,
                                 boolean priceLocked, LocalDate rateDate, BigDecimal total,
                                 Instant sentAt, Instant confirmedAt, List<CustomerQuoteLineView> lines) {
 }

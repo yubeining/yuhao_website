@@ -124,7 +124,7 @@ class QuoteFlowIT {
         JsonNode q = json.readTree(raw.getBody()).path("data");
         assertThat(q.path("status").asText()).isEqualTo("SENT");
         assertThat(q.path("currency").asText()).isEqualTo("EUR");
-        assertThat(q.path("leadDays").asInt()).isEqualTo(25);
+        assertThat(q.path("commitDate").asText()).isEqualTo(LocalDate.now().plusDays(25).toString());
         assertThat(q.path("rateDate").asText()).isEqualTo("2026-09-16");
         assertThat(q.path("priceLocked").asBoolean()).isFalse();
         // 100 × 1.2 / 7.738 = 15.5078 → 15.51；1000 × 1.2 / 7.738 = 155.0788 → 155.08
@@ -300,7 +300,7 @@ class QuoteFlowIT {
 
         JsonNode q = customerQuote(c, o);
         assertThat(q.path("id").asText()).isEqualTo(v2.path("id").asText());
-        assertThat(q.path("leadDays").asInt()).isEqualTo(20);
+        assertThat(q.path("commitDate").asText()).isEqualTo(LocalDate.now().plusDays(20).toString());
         assertConflict(confirm(c, o, v1, DAY1), "quote.not_open");
         assertThat(confirm(c, o, v2.path("id").asText(), DAY1).getStatusCode().value()).isEqualTo(200);
     }
@@ -410,8 +410,51 @@ class QuoteFlowIT {
         String ops = opsToken();
         assertThat(get("/ops/customers/" + c.orgId() + "/markup", ops).path("data").has("markupRate")).isFalse();
         assertConflict(rawPost("/ops/customer-orders/" + o.id() + "/quotes",
-                sendRequest(o, "EUR", 25, "100.00"), ops), "quote.markup_missing");
+                sendRequest(o, "EUR", 25, "100.00"), ops), "quote.default_markup_missing");
         assertThat(orderStatus(o)).isEqualTo("SUBMITTED");
+    }
+
+    @Test
+    void globalDefaultMarkupAppliesWhenTheCustomerHasNone() throws Exception {
+        Customer c = register("defaultmarkup");
+        Order o = submittedOrder(c, 1);
+        String ops = opsToken();
+
+        // 全局默认 1.25：客户自己没有系数也能发，报价快照记下生效值
+        ResponseEntity<String> saved = rawPut("/ops/quote-settings/default-markup",
+                Map.of("markupRate", new BigDecimal("1.25")), ops);
+        assertThat(saved.getStatusCode().value()).as(saved.getBody()).isEqualTo(200);
+
+        JsonNode sent = sendQuote(ops, o, "EUR", 25, "100.00");
+        assertThat(sent.path("markupRate").decimalValue()).isEqualByComparingTo("1.25");
+
+        // 设置页：默认值 + 这家公司「用默认」→ 生效 1.25
+        JsonNode settings = get("/ops/quote-settings", ops).path("data");
+        assertThat(settings.path("defaultRate").decimalValue()).isEqualByComparingTo("1.25");
+        JsonNode row = null;
+        for (JsonNode n : settings.path("companies").path("items")) {
+            if (n.path("orgId").asText().equals(c.orgId().toString())) {
+                row = n;
+            }
+        }
+        assertThat(row).isNotNull();
+        assertThat(row.path("markupRate").isNull() || row.path("markupRate").isMissingNode()).isTrue();
+        assertThat(row.path("effectiveRate").decimalValue()).isEqualByComparingTo("1.25");
+
+        // 公司自己设成 1.5 后，生效值改成公司的；清掉再回落到默认
+        JsonNode own = put("/ops/customers/" + c.orgId() + "/markup",
+                new MarkupBody(new BigDecimal("1.5")), ops).path("data");
+        assertThat(own.path("effectiveRate").decimalValue()).isEqualByComparingTo("1.5");
+        assertThat(own.path("markupRate").decimalValue()).isEqualByComparingTo("1.5");
+        JsonNode cleared = clearMarkup(c.orgId(), ops);
+        assertThat(cleared.path("markupRate").isNull() || cleared.path("markupRate").isMissingNode()).isTrue();
+        assertThat(cleared.path("effectiveRate").decimalValue()).isEqualByComparingTo("1.25");
+    }
+
+    private JsonNode clearMarkup(UUID orgId, String ops) throws Exception {
+        ResponseEntity<String> res = rawDelete("/ops/customers/" + orgId + "/markup", ops);
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
+        return json.readTree(res.getBody()).path("data");
     }
 
     @Test
@@ -450,13 +493,13 @@ class QuoteFlowIT {
         String line = o.lineIds().get(0).toString();
 
         List<Map<String, Object>> bad = List.of(
-                Map.of("currency", "JPY", "leadDays", 25, "lines", List.of(Map.of("lineId", line, "unitPriceCny", 10))),
-                Map.of("currency", "EUR", "leadDays", 0, "lines", List.of(Map.of("lineId", line, "unitPriceCny", 10))),
-                Map.of("currency", "EUR", "leadDays", 25, "lines", List.of(Map.of("lineId", line, "unitPriceCny", 0))),
-                Map.of("currency", "EUR", "leadDays", 25, "lines", List.of(Map.of("lineId", line, "unitPriceCny", -1))),
-                Map.of("currency", "EUR", "leadDays", 25,
+                Map.of("currency", "JPY", "commitDate", plus(25), "lines", List.of(Map.of("lineId", line, "unitPriceCny", 10))),
+                Map.of("currency", "EUR", "commitDate", LocalDate.now().toString(), "lines", List.of(Map.of("lineId", line, "unitPriceCny", 10))),
+                Map.of("currency", "EUR", "commitDate", plus(25), "lines", List.of(Map.of("lineId", line, "unitPriceCny", 0))),
+                Map.of("currency", "EUR", "commitDate", plus(25), "lines", List.of(Map.of("lineId", line, "unitPriceCny", -1))),
+                Map.of("currency", "EUR", "commitDate", plus(25),
                         "lines", List.of(Map.of("lineId", line, "unitPriceCny", new BigDecimal("1.234")))),
-                Map.of("currency", "EUR", "leadDays", 25, "lines", List.of()),
+                Map.of("currency", "EUR", "commitDate", plus(25), "lines", List.of()),
                 Map.of("currency", "EUR", "lines", List.of(Map.of("lineId", line, "unitPriceCny", 10))));
         for (Map<String, Object> b : bad) {
             ResponseEntity<String> res = rawPost(path, b, ops);
@@ -651,7 +694,7 @@ class QuoteFlowIT {
     }
 
     /** 请求体用 record 构造、走项目 ObjectMapper 序列化（CLAUDE.md §9）。字段名对齐接口。 */
-    private record OrderDraftBody(String title, Integer wantedLeadDays) {
+    private record OrderDraftBody(String title, LocalDate wantedDate) {
     }
 
     private record AddLineBody(String code, String name, int quantity) {
@@ -663,7 +706,7 @@ class QuoteFlowIT {
     private record LineBody(UUID lineId, BigDecimal unitPriceCny) {
     }
 
-    private record SendQuoteBody(String currency, Integer leadDays, List<LineBody> lines) {
+    private record SendQuoteBody(String currency, String commitDate, List<LineBody> lines) {
     }
 
     private record MarkupBody(BigDecimal markupRate) {
@@ -703,7 +746,7 @@ class QuoteFlowIT {
     }
 
     private String createOrder(Customer c) throws Exception {
-        return post("/customer/orders", new OrderDraftBody(null, null), c.token()).path("data").path("id").asText();
+        return post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("data").path("id").asText();
     }
 
     private JsonNode addLine(Customer c, String orderId, String code, int quantity) throws Exception {
@@ -748,8 +791,12 @@ class QuoteFlowIT {
                 .isEqualByComparingTo(rate);
     }
 
-    private static SendQuoteBody body(String currency, Integer leadDays, List<LineBody> lines) {
-        return new SendQuoteBody(currency, leadDays, lines);
+    private static String plus(int days) {
+        return LocalDate.now().plusDays(days).toString();
+    }
+
+    private static SendQuoteBody body(String currency, int leadDays, List<LineBody> lines) {
+        return new SendQuoteBody(currency, LocalDate.now().plusDays(leadDays).toString(), lines);
     }
 
     /** 按订单行顺序依次给单价。 */
@@ -830,6 +877,16 @@ class QuoteFlowIT {
 
     private ResponseEntity<String> rawPut(String path, Object body, String bearer) {
         return exchange(path, HttpMethod.PUT, body, bearer);
+    }
+
+    private JsonNode put(String path, Object body, String bearer) throws Exception {
+        ResponseEntity<String> res = rawPut(path, body, bearer);
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
+        return json.readTree(res.getBody());
+    }
+
+    private ResponseEntity<String> rawDelete(String path, String bearer) {
+        return exchange(path, HttpMethod.DELETE, null, bearer);
     }
 
     private ResponseEntity<String> rawGet(String path, String bearer) {

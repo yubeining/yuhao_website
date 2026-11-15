@@ -88,7 +88,7 @@ export function QuoteListPage() {
                                                     ? t.customer.quotes.floating(q.rateDate)
                                                     : t.customer.quotes.noRate}
                                         </td>
-                                        <td className="n">{t.customer.quotes.afterConfirm(q.leadDays)}</td>
+                                        <td className="n">{q.commitDate}</td>
                                         <td className="n">{fmtDateTime(new Date(q.sentAt))}</td>
                                         <td>{pill(quoteSt(t)[q.status])}</td>
                                     </tr>

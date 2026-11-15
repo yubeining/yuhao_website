@@ -114,7 +114,7 @@ class CustomerOrderService {
      */
     @Transactional
     public OrderView submit(UUID customerOrgId, UUID orderId) {
-        requireDraft(customerOrgId, orderId);
+        CustomerOrder order = requireDraft(customerOrgId, orderId);
         List<CustomerOrderPart> orderLines =
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, customerOrgId);
         if (orderLines.isEmpty()) {
@@ -125,6 +125,10 @@ class CustomerOrderService {
         organizations.findById(customerOrgId)
                 .filter(o -> o.getName() != null && !o.getName().isBlank())
                 .orElseThrow(() -> new BusinessException(400, "organization.name_required"));
+        // 报价的承诺交期以客户期望交期为起点（2026-11-15 拍板），所以提交前必须有日期
+        if (order.getWantedDate() == null) {
+            throw new BusinessException(400, "order.wanted_date_required");
+        }
         Set<UUID> revisionIds = orderLines.stream().map(CustomerOrderPart::getPartRevisionId).collect(Collectors.toSet());
         revisions.lockAllByIdIn(revisionIds, customerOrgId);
         Set<UUID> withDrawing = Set.copyOf(

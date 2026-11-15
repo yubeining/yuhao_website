@@ -26,14 +26,14 @@ class QuoteEmailTemplate {
     private final Map<String, String[]> cache = new ConcurrentHashMap<>();
 
     /** @return {@code [subject, body]} */
-    String[] render(String locale, String orderTitle, String amount, String currency, int leadDays) {
+    String[] render(String locale, String orderTitle, String amount, String currency, String commitDate) {
         String[] raw = load(normalize(locale));
         return new String[]{
                 raw[0].replace("{order}", orderTitle),
                 raw[1].replace("{order}", orderTitle)
                         .replace("{amount}", amount)
                         .replace("{currency}", currency)
-                        .replace("{days}", String.valueOf(leadDays)),
+                        .replace("{date}", commitDate),
         };
     }
 
