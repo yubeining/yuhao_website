@@ -1,5 +1,8 @@
 /**
- * 运营看报价 —— 按订单状态分三栏：待报价、待客户确认、已确认。点进去是报价工作台。
+ * 运营看报价 —— 默认列出全部（待报价 / 待客户确认 / 已确认），状态是筛选项而不是三个互斥的页签。
+ *
+ * ★ 2026-11-15 改：原来一进来只显示「待报价」，其余两栏的订单要切页签才看得到；
+ *   运营关心的是"我手上有哪些单"，先给全量，再按状态筛。点进去是报价工作台。
  *
  * ★ 数据来自后端（2026-09-17 起，第 3 步）。以前这一页是原型假数据（毛利率、AI 来源等），
  *   那些在人工报价里都没有数据来源，已删掉（CLAUDE.md §10 C5）。
@@ -16,8 +19,9 @@ import {
 } from '../../services'
 import { orderSt, quoteSt } from '../customer/status'
 
-/** 三个分页标签。文案随语言变，所以是函数不是常量。 */
-const tabs = (t: ReturnType<typeof useMock>['t']): [OrderStatus, string][] => [
+/** 筛选项：全部 + 三个状态。文案随语言变，所以是函数不是常量。 */
+const filters = (t: ReturnType<typeof useMock>['t']): [OrderStatus | 'ALL', string][] => [
+    ['ALL', t.ops.quotes.filterAll],
     ['SUBMITTED', t.ops.quotes.tabSubmitted],
     ['QUOTED', t.ops.quotes.tabQuoted],
     ['CONFIRMED', t.ops.quotes.tabConfirmed],
@@ -26,7 +30,7 @@ const tabs = (t: ReturnType<typeof useMock>['t']): [OrderStatus, string][] => [
 export function OpsQuotesPage() {
     const { t } = useMock()
     const navigate = useNavigate()
-    const [tab, setTab] = useState<OrderStatus>('SUBMITTED')
+    const [tab, setTab] = useState<OrderStatus | 'ALL'>('ALL')
     const [orders, setOrders] = useState<OpsOrderSummaryView[] | null>(null)
     /** 每张单最新一版报价。「待报价」里有这一项且是被拒的，说明是客户拒绝后退回来的，不是新单。 */
     const [latest, setLatest] = useState<Record<string, OpsQuoteSummaryView>>({})
@@ -36,7 +40,7 @@ export function OpsQuotesPage() {
     const load = useCallback(async () => {
         setOrders(null)
         try {
-            const page = await listOpsOrders(tab, 1, 100)
+            const page = await listOpsOrders(tab === 'ALL' ? undefined : tab, 1, 100)
             const summaries = await listQuoteSummaries(page.items.map((o) => o.id))
             setLatest(Object.fromEntries(summaries.map((q) => [q.orderId, q])))
             setOrders(page.items)
@@ -55,7 +59,7 @@ export function OpsQuotesPage() {
                 title={t.ops.quotes.title}
                 right={
                     <>
-                        {tabs(t).map(([st, label]) => (
+                        {filters(t).map(([st, label]) => (
                             <button key={st} type="button" className={`btn${tab === st ? ' pri' : ''}`}
                                 onClick={() => setTab(st)}>{label}</button>
                         ))}
@@ -63,7 +67,7 @@ export function OpsQuotesPage() {
                 }
             />
             <Card>
-                <CardHead title={tabs(t).find(([st]) => st === tab)?.[1] ?? ''} rid={orders ? t.ops.quotes.orderCount(total) : undefined} />
+                <CardHead title={filters(t).find(([st]) => st === tab)?.[1] ?? ''} rid={orders ? t.ops.quotes.orderCount(total) : undefined} />
                 {orders === null ? (
                     <CardBody>
                         {err

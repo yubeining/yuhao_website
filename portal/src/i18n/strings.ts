@@ -263,7 +263,7 @@ export interface Strings {
             empty: string
         }
         quotes: {
-            title: string; tabSubmitted: string; tabQuoted: string; tabConfirmed: string
+            title: string; filterAll: string; tabSubmitted: string; tabQuoted: string; tabConfirmed: string
             orderCount: (n: number) => string
             colQty: string; colLead: string; colSubmitted: string; colQuote: string
             leadDays: (n: number) => string; version: (n: number) => string; never: string; empty: string
@@ -678,7 +678,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 markDelivered: '标记已交付', registerPayment: '登记回款', empty: '还没有订单',
             },
             quotes: {
-                title: '报价', tabSubmitted: '待报价', tabQuoted: '待客户确认', tabConfirmed: '已确认',
+                title: '报价', filterAll: '全部', tabSubmitted: '待报价', tabQuoted: '待客户确认', tabConfirmed: '已确认',
                 orderCount: (n) => `${n} 单`,
                 colQty: '总件数', colLead: '客户期望交期', colSubmitted: '提交时间', colQuote: '报价',
                 leadDays: (n) => `${n} 天（仅参考）`, version: (n) => `第 ${n} 版`, never: '未报过',
@@ -1200,7 +1200,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 markDelivered: 'Mark delivered', registerPayment: 'Record payment', empty: 'No orders yet',
             },
             quotes: {
-                title: 'Quotes', tabSubmitted: 'To quote', tabQuoted: 'Awaiting customer', tabConfirmed: 'Confirmed',
+                title: 'Quotes', filterAll: 'All', tabSubmitted: 'To quote', tabQuoted: 'Awaiting customer', tabConfirmed: 'Confirmed',
                 orderCount: (n) => `${n} order${n === 1 ? '' : 's'}`,
                 colQty: 'Total qty', colLead: 'Requested lead time', colSubmitted: 'Submitted', colQuote: 'Quote',
                 leadDays: (n) => `${n} days (reference)`, version: (n) => `v${n}`, never: 'Never quoted',
