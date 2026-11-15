@@ -6,8 +6,8 @@
  *   重画整棵树；这里改成每个表单自己管自己的值。
  */
 
-import { useI18n } from '../i18n/I18nProvider'
 import type { CSSProperties, ReactNode } from 'react'
+import { useI18n } from '../i18n/I18nProvider'
 
 export function Input({ value, onChange, onBlur, placeholder, type = 'text', bad, disabled, style, id, autoComplete }: {
     value: string
@@ -54,10 +54,24 @@ export function Select({ value, onChange, options, style }: {
 }
 
 /** 带标签的字段。登录、注册、入驻向导都用它。 */
-export function Field({ label, children }: { label: ReactNode; children: ReactNode }) {
+/** 必填标记：全站同一个样式（红 * + 读屏念「必填」），不要各页自己拼字符串。 */
+export function Req() {
+    return <span className="req" aria-hidden="true">*</span>
+}
+
+export function Field({ label, required, children }: {
+    label: ReactNode
+    required?: boolean
+    children: ReactNode
+}) {
+    const { t } = useI18n()
     return (
         <div className="field2">
-            <label>{label}</label>
+            <label>
+                {label}
+                {required && <Req />}
+                {required && <span className="sr-only">{t.common.required}</span>}
+            </label>
             {children}
         </div>
     )

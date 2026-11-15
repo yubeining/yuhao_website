@@ -36,7 +36,7 @@ export interface Strings {
         actionFailed: string
         loading: string
         retry: string
-        cancel: string; save: string; close: string; openInNewTab: string
+        cancel: string; save: string; close: string; openInNewTab: string; required: string
         /** 自动保存后的轻提示 */
         saved: string
         create: string
@@ -411,7 +411,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开',
+            loading: '加载中…', retry: '重试', cancel: '取消', create: '创建', save: '保存', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
             untitledOrder: '未命名订单',
             table: {
                 name: '名称', parts: '零件', quantity: '总件数', created: '建单', status: '状态',
@@ -462,7 +462,7 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersionQueued: '你选了新文件，会为这张订单开一个新版本。',
             reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
-            fldCode: '图号 *',
+            fldCode: '图号',
             codeHint: '零件的唯一标识；重复使用会复用已有零件',
             fldMaterial: '材料', fldSurface: '表面处理',
             drawingTitle: '图纸',
@@ -933,7 +933,7 @@ export const STRINGS: Record<Lang, Strings> = {
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
             loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', create: 'Create',
-            save: 'Save', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab',
+            save: 'Save', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab', required: 'required',
             untitledOrder: 'Untitled order',
             table: {
                 name: 'Name', parts: 'Parts', quantity: 'Total qty', created: 'Created', status: 'Status',
@@ -984,7 +984,7 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersionQueued: 'You selected new files, so a new revision will be created for this order.',
             reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
-            fldCode: 'Drawing no. *',
+            fldCode: 'Drawing no.',
             codeHint: 'Identifies the part; reusing it links to the existing part',
             fldMaterial: 'Material', fldSurface: 'Surface finishing',
             drawingTitle: 'Drawings',
