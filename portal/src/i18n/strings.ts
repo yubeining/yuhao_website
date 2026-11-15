@@ -242,7 +242,7 @@ export interface Strings {
     nav: {
         settings: string; signOut: string; profile: string
         defaultUser: string; supplierFallback: string
-        customer: { trade: string; orders: string; quotes: string }
+        customer: { orders: string; quotes: string }
         supplier: {
             accept: string; orders: string; settlement: string; bill: string
             company: string; profile: string; hall: string; workspace: string
@@ -667,7 +667,7 @@ export const STRINGS: Record<Lang, Strings> = {
         nav: {
             settings: '设置', signOut: '退出登录', profile: '个人资料',
             defaultUser: '用户', supplierFallback: '供应商',
-            customer: { trade: '交易', orders: '我的订单', quotes: '我的报价' },
+            customer: { orders: '我的订单', quotes: '我的报价' },
             supplier: {
                 accept: '接单', orders: '我的订单', settlement: '结算', bill: '对账与开票',
                 company: '企业', profile: '企业资料', hall: '订单市场', workspace: '我的工作台',
@@ -1204,7 +1204,7 @@ export const STRINGS: Record<Lang, Strings> = {
         nav: {
             settings: 'Settings', signOut: 'Sign out', profile: 'Profile',
             defaultUser: 'User', supplierFallback: 'Supplier',
-            customer: { trade: 'Trade', orders: 'Orders', quotes: 'Quotes' },
+            customer: { orders: 'Orders', quotes: 'Quotes' },
             supplier: {
                 accept: 'Orders', orders: 'My orders', settlement: 'Settlement', bill: 'Reconciliation & invoicing',
                 company: 'Company', profile: 'Company profile', hall: 'Order market', workspace: 'My workspace',
