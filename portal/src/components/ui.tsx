@@ -113,8 +113,8 @@ export function Stack({ children }: { children: ReactNode }) {
 /* ── 表格 ─────────────────────────────────────────────────────────── */
 
 /** 表格必须能横向滚动 —— 列多的表在窄屏下不该把整页撑出横向滚动条。 */
-export function TableWrap({ children }: { children: ReactNode }) {
-    return <div className="tw"><table>{children}</table></div>
+export function TableWrap({ children, className }: { children: ReactNode; className?: string }) {
+    return <div className={`tw${className ? ` ${className}` : ''}`}><table>{children}</table></div>
 }
 
 /* ── 空状态 ───────────────────────────────────────────────────────── */

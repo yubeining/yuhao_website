@@ -12,7 +12,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pill, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -205,17 +205,14 @@ export function OrderDetailPage() {
             </Card>
 
             <Card>
-                <CardHead
-                    title={t.customer.orderDetail.partsTitle(order.lines.length)}
-                    right={draft && noDrawing > 0 ? <Pill tone="wa">{t.customer.orderDetail.missingDrawingPill(noDrawing)}</Pill> : undefined}
-                />
+                <CardHead title={t.customer.orderDetail.partsTitle(order.lines.length)} />
                 {order.lines.length ? (
                     <CardBody flush>
-                        <TableWrap>
+                        <TableWrap className="partsTable">
                             <thead>
                                 <tr>
                                     <th className="n">#</th><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.customer.orderDetail.colRevision}</th><th>{t.customer.orderDetail.colMaterial}</th>
-                                    <th className="n">{t.customer.orderDetail.colQty}</th><th className="n">{t.customer.orderDetail.colDrawing}</th><th>{t.common.table.status}</th>
+                                    <th className="n">{t.customer.orderDetail.colQty}</th><th>{t.customer.orderDetail.colDrawing}</th>
                                     {inProduction && <th>{t.customer.orderDetail.colProgress}</th>}<th />
                                 </tr>
                             </thead>
@@ -231,12 +228,13 @@ export function OrderDetailPage() {
                                         </td>
                                         <td>{l.material || X}</td>
                                         <td className="n">{l.quantity}</td>
-                                        <td className="n">{l.revision.files.length || X}</td>
-                                        <td>{l.revision.files.length ? <Pill tone="ok">{t.customer.orderDetail.drawingUploaded}</Pill> : <Pill tone="wa">{t.customer.orderDetail.drawingMissing}</Pill>}</td>
+                                        <td><span className={`dstat${l.revision.files.length ? ' ok' : ' miss'}`}>
+                                            <i />{l.revision.files.length ? t.customer.orderDetail.drawingUploaded : t.customer.orderDetail.drawingMissing}
+                                        </span></td>
                                         {inProduction && <td>{pill(lineFulfillSt(t)[l.fulfillmentStatus])}</td>}
                                         <td style={{ textAlign: 'right' }}>
                                             {draft
-                                                ? <button className="btn qui sm" type="button"
+                                                ? <button className="linkbtn" type="button"
                                                     onClick={(e) => { e.stopPropagation(); void remove(l.id) }}>{t.customer.orderDetail.remove}</button>
                                                 : <span style={{ color: 'var(--faint)' }}>›</span>}
                                         </td>
