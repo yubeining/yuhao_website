@@ -145,7 +145,7 @@ function UsersTab() {
                 <CardBody>
                     <div className="fbar">
                         <FilterField label={a.colEmail}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 260 }} />
+                            <Input value={q} onChange={setQ} onEnter={search} style={{ width: 260 }} />
                         </FilterField>
                         <button className="btn pri" type="button" disabled={busy} onClick={search}>{a.query}</button>
                     </div>
@@ -339,7 +339,7 @@ function OrgsTab() {
                 <CardBody>
                     <div className="fbar">
                         <FilterField label={a.colOrg}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 220 }} />
+                            <Input value={q} onChange={setQ} onEnter={search} style={{ width: 220 }} />
                         </FilterField>
                         <FilterField label={a.colType}>
                             <select className="inp" value={type} onChange={(e) => setType(e.target.value)} style={{ width: 130 }}>
@@ -531,7 +531,7 @@ function StaffTab() {
                 <CardBody>
                     <div className="fbar">
                         <FilterField label={a.colEmail}>
-                            <Input value={q} placeholder={a.searchHint} onChange={setQ} onEnter={search} style={{ width: 260 }} />
+                            <Input value={q} onChange={setQ} onEnter={search} style={{ width: 260 }} />
                         </FilterField>
                         <button className="btn pri" type="button" disabled={busy} onClick={search}>{a.query}</button>
                     </div>

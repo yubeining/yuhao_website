@@ -295,7 +295,7 @@ export interface Strings {
         accounts: {
             title: string
             tabUsers: string; tabOrgs: string; tabStaff: string
-            search: string; searchHint: string; query: string
+            search: string; query: string
             colEmail: string; colName: string; colOrg: string; colType: string
             colStatus: string; colVerified: string; colCreated: string; colCountry: string
             colDept: string
@@ -718,7 +718,7 @@ export const STRINGS: Record<Lang, Strings> = {
             accounts: {
                 title: '账号管理',
                 tabUsers: '外部用户', tabOrgs: '组织', tabStaff: '运营账号',
-                search: '搜索', searchHint: '留空显示全部', query: '查询',
+                search: '搜索', query: '查询',
                 colEmail: '邮箱', colName: '姓名', colOrg: '公司', colType: '类型',
                 colStatus: '状态', colVerified: '邮箱已验证', colCreated: '创建', colCountry: '国家',
                 colDept: '内部组织',
@@ -1242,7 +1242,7 @@ export const STRINGS: Record<Lang, Strings> = {
             accounts: {
                 title: 'Accounts',
                 tabUsers: 'External users', tabOrgs: 'Organizations', tabStaff: 'Staff accounts',
-                search: 'Search', searchHint: 'Leave blank to list everything', query: 'Search',
+                search: 'Search', query: 'Search',
                 colEmail: 'Email', colName: 'Name', colOrg: 'Company', colType: 'Type',
                 colStatus: 'Status', colVerified: 'Email verified', colCreated: 'Created', colCountry: 'Country',
                 colDept: 'Internal org',
