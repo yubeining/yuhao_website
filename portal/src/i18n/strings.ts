@@ -78,12 +78,15 @@ export interface Strings {
             reuseExisting: (name: string, rev: number, files: number) => string
             reuseNewVersionQueued: string; reuseNewVersion: (name: string) => string
             infoTitle: string
-            fldCode: string; fldCodeReadonly: string; codeHint: string
+            fldCode: string; codeHint: string
             fldMaterial: string; fldSurface: string
-            drawingTitle: string; drawingHint: string; lockedPill: (rev: number) => string
+            drawingTitle: string; drawingMissing: string
+            drawingUploadedCount: (n: number) => string; drawingQueuedCount: (n: number) => string
+            lockedPill: (rev: number) => string
             chooseDrawing: string; replaceDrawing: string
             download: string; removeTitle: string; preview: string; previewUnsupported: string
-            cancel: string; backToOrder: string; addToOrder: string; addHint: string; saveEdit: string
+            cancel: string; backToOrder: string; discardConfirm: string
+            addToOrder: string; addHint: string; saveEdit: string
         }
         quotes: {
             title: string
@@ -459,16 +462,20 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersionQueued: '你选了新文件，会为这张订单开一个新版本。',
             reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
-            fldCode: '图号 *', fldCodeReadonly: '图号',
+            fldCode: '图号 *',
             codeHint: '零件的唯一标识；重复使用会复用已有零件',
             fldMaterial: '材料', fldSurface: '表面处理',
             drawingTitle: '图纸',
-            drawingHint: '订单提交前，每个零件至少要有一份图纸',
+            drawingMissing: '未上传 · 订单提交前需上传',
+            drawingUploadedCount: (n) => `已上传 ${n} 个文件`,
+            drawingQueuedCount: (n) => `待上传 ${n} 个文件`,
             lockedPill: (rev) => `第 ${rev} 版 · 已锁定`,
             chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
             download: '下载', removeTitle: '移除',
             preview: '预览', previewUnsupported: '该格式无法在线预览，请下载后用 CAD 软件打开',
-            cancel: '取消', backToOrder: '返回订单', addToOrder: '添加到订单',
+            cancel: '取消', backToOrder: '返回订单',
+            discardConfirm: '放弃未保存的修改？',
+            addToOrder: '添加到订单',
             addHint: '添加后进入零件详情', saveEdit: '保存修改',
         },
             quotes: {
@@ -977,16 +984,20 @@ export const STRINGS: Record<Lang, Strings> = {
             reuseNewVersionQueued: 'You selected new files, so a new revision will be created for this order.',
             reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
-            fldCode: 'Drawing no. *', fldCodeReadonly: 'Drawing no.',
+            fldCode: 'Drawing no. *',
             codeHint: 'Identifies the part; reusing it links to the existing part',
             fldMaterial: 'Material', fldSurface: 'Surface finishing',
             drawingTitle: 'Drawings',
-            drawingHint: 'Every part needs at least one drawing before the order is submitted',
+            drawingMissing: 'Not uploaded yet — required before submitting the order',
+            drawingUploadedCount: (n) => `${n} file${n === 1 ? '' : 's'} uploaded`,
+            drawingQueuedCount: (n) => `${n} file${n === 1 ? '' : 's'} queued`,
             lockedPill: (rev) => `Rev ${rev} · locked`,
             chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
             download: 'Download', removeTitle: 'Remove',
             preview: 'Preview', previewUnsupported: 'This format cannot be previewed; download it and open it in CAD',
-            cancel: 'Cancel', backToOrder: 'Back to order', addToOrder: 'Add to order',
+            cancel: 'Cancel', backToOrder: 'Back to order',
+            discardConfirm: 'Discard unsaved changes?',
+            addToOrder: 'Add to order',
             addHint: 'Opens the part after adding', saveEdit: 'Save changes',
         },
             quotes: {
