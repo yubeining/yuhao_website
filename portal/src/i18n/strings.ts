@@ -352,20 +352,17 @@ export interface Strings {
             savedMarkup: string; confirmResend: string; confirmSend: string
             sentVersion: (n: number) => string
             lockedBanner: string; cancelledBanner: string
-            orderInfoTitle: string; fldCustomer: string; fldParts: string; fldTotalQty: string
-            fldLead: string; fldSubmitted: string; leadDays: (n: number) => string
-            markupTitle: string; fldCurrent: string; fldUpdated: string; notSet: string
-            markupPlaceholder: string; save: string
-            markupNote: string; markupScope: string
-            quoteTitle: string; requoteTitle: string; fillQuote: string; partsTitle: string
+            leadDays: (n: number) => string
+            quoteTitle: string; requoteTitle: string; fillQuote: string
             colPart: string; colMaterialSurface: string; colBasePrice: string
-            colUnit: string; colSubtotal: string
+            colUnit: string
+            context: (parts: number, qty: number, wanted: string, submitted: string) => string
+            viewDrawing: string; viewDrawings: (n: number) => string
+            lblMarkup: string; lblCurrency: string; lblLead: string; markupHint: string
             customerRev: (v: string) => string; pricePlaceholder: string
-            fldQuoteCurrency: string; fldLeadAfterConfirm: string; dayUnit: string; dayPlaceholder: string
-            preview: (rateDate: string, eurCny: string, eurQuote: string, currency: string, markup: string, total: string) => string
-            previewHint: string
-            needMarkup: string; canProceed: string
-            previewBtn: string; resendBtn: string; sendBtn: string
+            dayUnit: string
+            needMarkup: string
+            resendBtn: string; sendBtn: string
             historyTitle: string; versionCount: (n: number) => string
             colVersion: string; colCurrency: string; colLead: string; colMarkup: string
             colTotal: string; colRate: string; colSentAt: string
@@ -798,24 +795,18 @@ export const STRINGS: Record<Lang, Strings> = {
             sentVersion: (n) => `第 ${n} 版报价已发出`,
             lockedBanner: '客户已确认报价，价格和汇率已锁定，这一页只读。',
             cancelledBanner: '订单已取消，不能报价。',
-            orderInfoTitle: '订单信息', fldCustomer: '客户', fldParts: '零件数',
-            fldTotalQty: '总件数', fldLead: '客户期望交期', fldSubmitted: '提交时间',
             leadDays: (n) => `${n} 天（仅参考）`,
-            markupTitle: '客户加成率', fldCurrent: '当前', fldUpdated: '最后修改', notSet: '未设置',
-            markupPlaceholder: '如 1.2', save: '保存',
-            markupNote: '对客价 = 原价 × 汇率 × 加成率。填 1.2 = 加价 20%，填 0.9 = 九折；大于 0，最多 4 位小数。',
-            markupScope: '这是这个客户的值，改了只影响之后发出的报价。',
-            quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价', partsTitle: '零件',
+            quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价',
+            needMarkup: '这个客户还没设加成率',
+            resendBtn: '重新发出', sendBtn: '发出报价',
             colPart: '零件', colMaterialSurface: '材料 / 表面处理', colBasePrice: '原价 ¥/件',
-            colUnit: '对客单价', colSubtotal: '对客小计',
+            colUnit: '对客单价',
+            context: (parts, qty, wanted, submitted) =>
+                `${parts} 个零件 · 共 ${qty} 件${wanted ? ` · 期望交期 ${wanted}` : ''} · 提交于 ${submitted}`,
+            viewDrawing: '查看', viewDrawings: (n) => `查看 (${n})`,
+            lblMarkup: '加成率', lblCurrency: '币种', lblLead: '交期', markupHint: '1.2 = 加价 20%',
             customerRev: (v) => ` · 客户标记 ${v}`, pricePlaceholder: '¥ / 件',
-            fldQuoteCurrency: '对客币种', fldLeadAfterConfirm: '交期（客户确认后）',
-            dayUnit: '天', dayPlaceholder: '天',
-            preview: (rateDate, eurCny, eurQuote, currency, markup, total) =>
-                `试算：ECB ${rateDate} 汇率 1 EUR = ${eurCny} CNY${eurQuote ? ` = ${eurQuote} ${currency}` : ''}，加成率 × ${markup}，合计 ${total}。`,
-            previewHint: '客户确认前，价格会随之后的汇率变动。',
-            needMarkup: '这个客户还没设加成率', canProceed: '可以试算或发出',
-            previewBtn: '按当前汇率试算', resendBtn: '重新发出', sendBtn: '发出报价',
+            dayUnit: '天',
             historyTitle: '报价记录', versionCount: (n) => `${n} 版`,
             colVersion: '版本', colCurrency: '币种', colLead: '交期', colMarkup: '加成率',
             colTotal: '对客总计', colRate: '汇率', colSentAt: '发出时间',
@@ -1335,24 +1326,18 @@ export const STRINGS: Record<Lang, Strings> = {
             sentVersion: (n) => `Quote v${n} sent`,
             lockedBanner: 'The customer confirmed this quote. Prices and FX are locked; this page is read-only.',
             cancelledBanner: 'The order was cancelled and cannot be quoted.',
-            orderInfoTitle: 'Order details', fldCustomer: 'Customer', fldParts: 'Parts',
-            fldTotalQty: 'Total quantity', fldLead: 'Requested lead time', fldSubmitted: 'Submitted',
             leadDays: (n) => `${n} days (reference)`,
-            markupTitle: 'Customer markup', fldCurrent: 'Current', fldUpdated: 'Last changed', notSet: 'Not set',
-            markupPlaceholder: 'e.g. 1.2', save: 'Save',
-            markupNote: 'Customer price = base price × FX rate × markup. 1.2 = +20%; 0.9 = 10% off. Must be > 0, up to 4 decimals.',
-            markupScope: 'This value belongs to this customer and only affects quotes sent from now on.',
-            quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote', partsTitle: 'Parts',
+            quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote',
             colPart: 'Part', colMaterialSurface: 'Material / finishing', colBasePrice: 'Base ¥/pc',
-            colUnit: 'Customer unit price', colSubtotal: 'Customer subtotal',
+            context: (parts, qty, wanted, submitted) =>
+                `${parts} part${parts === 1 ? '' : 's'} · ${qty} pc${qty === 1 ? '' : 's'}${wanted ? ` · wanted ${wanted}` : ''} · submitted ${submitted}`,
+            viewDrawing: 'View', viewDrawings: (n) => `View (${n})`,
+            lblMarkup: 'Markup', lblCurrency: 'Currency', lblLead: 'Lead time', markupHint: '1.2 = +20%',
+            colUnit: 'Customer unit price',
             customerRev: (v) => ` · customer mark ${v}`, pricePlaceholder: '¥ / pc',
-            fldQuoteCurrency: 'Customer currency', fldLeadAfterConfirm: 'Lead time (after confirmation)',
-            dayUnit: 'days', dayPlaceholder: 'days',
-            preview: (rateDate, eurCny, eurQuote, currency, markup, total) =>
-                `Preview: ECB rate on ${rateDate} is 1 EUR = ${eurCny} CNY${eurQuote ? ` = ${eurQuote} ${currency}` : ''}, markup × ${markup}, total ${total}.`,
-            previewHint: 'Prices may change with later FX rates until the customer confirms.',
-            needMarkup: 'No markup rate set for this customer yet', canProceed: 'You can preview or send',
-            previewBtn: 'Preview at current rate', resendBtn: 'Send again', sendBtn: 'Send quote',
+            dayUnit: 'days',
+            needMarkup: 'No markup rate set for this customer yet',
+            resendBtn: 'Send again', sendBtn: 'Send quote',
             historyTitle: 'Quote history', versionCount: (n) => `${n} version${n === 1 ? '' : 's'}`,
             colVersion: 'Version', colCurrency: 'Currency', colLead: 'Lead time', colMarkup: 'Markup',
             colTotal: 'Customer total', colRate: 'FX rate', colSentAt: 'Sent at',

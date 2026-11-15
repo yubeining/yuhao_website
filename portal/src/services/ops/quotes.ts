@@ -48,16 +48,6 @@ export interface OpsQuoteView {
     lines: OpsQuoteLineView[]
 }
 
-export interface QuotePreviewView {
-    currency: QuoteCurrency
-    markupRate: number
-    rateDate: string
-    fxEurCny: number
-    fxEurQuote: number
-    total: number
-    lines: OpsQuoteLineView[]
-}
-
 export interface SendQuoteInput {
     currency: QuoteCurrency
     /** 交期：客户确认后多少天 */
@@ -93,10 +83,6 @@ export function listOrderQuotes(orderId: string): Promise<OpsQuoteView[]> {
 }
 
 /** 发出前试算，不落库。 */
-export function previewQuote(orderId: string, input: SendQuoteInput): Promise<QuotePreviewView> {
-    return http.post<QuotePreviewView>(`/ops/customer-orders/${orderId}/quotes/preview`, input)
-}
-
 /** 发出（或重报：旧的待确认版本作废）。 */
 export function sendQuote(orderId: string, input: SendQuoteInput): Promise<OpsQuoteView> {
     return http.post<OpsQuoteView>(`/ops/customer-orders/${orderId}/quotes`, input)

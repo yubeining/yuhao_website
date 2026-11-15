@@ -778,3 +778,8 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .seg button{border:0;background:var(--panel);padding:7px 14px;font-size:12.5px;color:var(--muted);cursor:pointer;}
 .seg button + button{border-left:1px solid var(--line-2);}
 .seg button.on{background:var(--acc);color:#fff;}
+
+/* 报价工作台：表格底部的设置行 */
+.qset{display:flex;flex-wrap:wrap;align-items:center;gap:22px;padding:14px 18px;border-top:1px solid var(--line);}
+.qset .lbl{display:inline-flex;align-items:center;gap:8px;font-size:12.5px;color:var(--muted);}
+.qset .tip{font-size:11.5px;color:var(--faint);}
