@@ -20,8 +20,66 @@ import static org.assertj.core.api.Assertions.assertThat;
  */
 class DrawingTypeGuardTest {
 
+    /** 最小可用的 OOXML 包：`[Content_Types].xml` 声明了主文档类型，tika 据此细化到具体格式。 */
+    private static byte[] ooxml(String mainPath, String mainType) throws Exception {
+        java.io.ByteArrayOutputStream out = new java.io.ByteArrayOutputStream();
+        try (java.util.zip.ZipOutputStream zip = new java.util.zip.ZipOutputStream(out)) {
+            zip.putNextEntry(new java.util.zip.ZipEntry("[Content_Types].xml"));
+            zip.write(("<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+                    + "<Types xmlns=\"http://schemas.openxmlformats.org/package/2006/content-types\">"
+                    + "<Override PartName=\"/" + mainPath + "\" ContentType=\"" + mainType + "\"/>"
+                    + "</Types>").getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+            zip.putNextEntry(new java.util.zip.ZipEntry(mainPath));
+            zip.write("<?xml version=\"1.0\"?><root/>".getBytes(StandardCharsets.UTF_8));
+            zip.closeEntry();
+        }
+        return out.toByteArray();
+    }
+
     private final DrawingTypeGuard guard = new DrawingTypeGuard(
-            Set.of("STEP", "STP", "IGES", "IGS", "X_T", "SLDPRT", "DWG", "DXF", "PDF", "ZIP"));
+            Set.of("STEP", "STP", "IGES", "IGS", "X_T", "SLDPRT", "DWG", "DXF", "PDF", "ZIP",
+                    "DOC", "DOCX", "XLS", "XLSX", "PPT", "PPTX", "PNG", "JPG", "JPEG"));
+
+    // ---------- 放宽后的格式（2026-11-15）：Office 文档与图纸照片 ----------
+
+    private static final String DOCX_TYPE =
+            "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+    private static final String XLSX_TYPE =
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+
+    @Test
+    void docxIsAcceptedAndReportedAsDocx() throws Exception {
+        byte[] docx = ooxml("word/document.xml", DOCX_TYPE + ".main+xml");
+        DrawingTypeGuard.Verdict v = guard.inspect("工艺卡.docx", docx);
+        assertThat(v.accepted()).isTrue();
+        assertThat(v.detectedType()).isEqualTo(DOCX_TYPE);
+    }
+
+    @Test
+    void xlsxIsAccepted() throws Exception {
+        byte[] xlsx = ooxml("xl/workbook.xml", XLSX_TYPE + ".main+xml");
+        assertThat(guard.inspect("检验表.xlsx", xlsx).accepted()).isTrue();
+    }
+
+    @Test
+    void pngIsAccepted() {
+        byte[] png = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0x0D};
+        assertThat(guard.inspect("photo.png", png).accepted()).isTrue();
+    }
+
+    @Test
+    void docxExtensionWithPdfBytesIsRejected() {
+        byte[] pdf = "%PDF-1.7\n".getBytes(StandardCharsets.US_ASCII);
+        assertThat(guard.inspect("fake.docx", pdf).accepted()).isFalse();
+    }
+
+    @Test
+    void legacyDocIsAcceptedAsOle2Container() {
+        byte[] ole2 = {(byte) 0xD0, (byte) 0xCF, 0x11, (byte) 0xE0,
+                (byte) 0xA1, (byte) 0xB1, 0x1A, (byte) 0xE1, 0, 0, 0, 0};
+        assertThat(guard.inspect("old.doc", ole2).accepted()).isTrue();
+    }
 
     // ---------- 扩展名白名单：看内容之前的第一道 ----------
 

@@ -267,6 +267,12 @@ class PartDrawingService {
         if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
         if (name.endsWith(".webp")) return "image/webp";
         if (name.endsWith(".gif")) return "image/gif";
+        if (name.endsWith(".docx")) return "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
+        if (name.endsWith(".xlsx")) return "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+        if (name.endsWith(".pptx")) return "application/vnd.openxmlformats-officedocument.presentationml.presentation";
+        if (name.endsWith(".doc")) return "application/msword";
+        if (name.endsWith(".xls")) return "application/vnd.ms-excel";
+        if (name.endsWith(".ppt")) return "application/vnd.ms-powerpoint";
         return DEFAULT_CONTENT_TYPE;
     }
 
