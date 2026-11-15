@@ -17,7 +17,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { Field, FieldRow, Input, Stepper } from '../../components/form'
+import { Field, FieldRow, Input, Req, Stepper } from '../../components/form'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pill,
@@ -294,14 +294,14 @@ export function PartFormPage() {
                             <FieldRow cols={isNew ? 3 : 2}>
                                 {/* 图号只在新增时可填；已有零件的图号已经在标题下方，不再占一个字段 */}
                                 {isNew && (
-                                    <Field label={t.customer.partForm.fldCode}>
+                                    <Field label={t.customer.partForm.fldCode} required>
                                         <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
                                         {/* ★ 图号是零件身份：重复使用会复用已有零件，必须写出来 */}
                                         <div className="fnote" style={{ marginTop: 6 }}>{t.customer.partForm.codeHint}</div>
                                     </Field>
                                 )}
-                                <Field label={`${t.common.table.name} *`}><Input value={f.name} onChange={set('name')} /></Field>
-                                <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} placeholder="" width={170} /></Field>
+                                <Field label={t.common.table.name} required><Input value={f.name} onChange={set('name')} /></Field>
+                                <Field label={t.customer.quotes.colQty} required><Stepper value={f.qty} onChange={set('qty')} placeholder="" width={170} /></Field>
                             </FieldRow>
                             <FieldRow>
                                 <Field label={t.customer.partForm.fldMaterial}><Input value={f.mat} onChange={set('mat')} /></Field>
@@ -321,7 +321,7 @@ export function PartFormPage() {
 
                     <div className="attach">
                         <div className="attach-hd">
-                            <span className="attach-k">{t.customer.partForm.drawingTitle} <span style={{ color: 'var(--bad)' }}>*</span></span>
+                            <span className="attach-k">{t.customer.partForm.drawingTitle}<Req /></span>
                             {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill(line.revision.revNo)}</Pill>}
                             <span className="sp" />
                             {draft && (
