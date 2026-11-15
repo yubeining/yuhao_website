@@ -225,13 +225,13 @@ export interface Strings {
     profile: {
         title: string; basic: string; nickname: string; email: string; role: string
         joined: string; edit: string; save: string; cancel: string; saved: string
+        company: string; companyMissing: string; companyFill: string
     }
     /** 通用页面（404 / 设置） */
     misc: {
         notFoundTitle: string; notFoundSub: string; backHome: string
         settings: string; appearance: string; light: string; dark: string
         /** 注册时不收公司名，在设置里补（docs/design/14 §4）。 */
-        companyInfo: string; companyName: string; companyNameHint: string; companySaved: string
     }
     /** 导航与外壳。三端共用，所以按端分组，不要混成一锅。 */
     nav: {
@@ -639,7 +639,9 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     datePicker: { placeholder: '选择日期', clear: '清除', today: '今天' },
     profile: {
-        title: '个人资料', basic: '基本信息', nickname: '昵称', email: '邮箱', role: '身份',
+        title: '个人资料', basic: '基本信息', nickname: '昵称', company: '公司名称',
+        companyMissing: '公司信息未完善，提交订单前需要填写', companyFill: '去填写',
+        email: '邮箱', role: '身份',
         joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
     },
     misc: {
@@ -647,9 +649,6 @@ export const STRINGS: Record<Lang, Strings> = {
         notFoundSub: '链接可能已经失效，或者你没有访问这个页面的身份。',
         backHome: '回首页',
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
-        companyInfo: '公司信息', companyName: '公司名称',
-        companyNameHint: '会显示在报价单、合同和发票上。',
-        companySaved: '公司名称已保存',
     },
         nav: {
             settings: '设置', signOut: '退出登录', profile: '个人资料',
@@ -1167,7 +1166,10 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     datePicker: { placeholder: 'Pick a date', clear: 'Clear', today: 'Today' },
     profile: {
-        title: 'Profile', basic: 'Basic information', nickname: 'Nickname', email: 'Email', role: 'Role',
+        title: 'Profile', basic: 'Basic information', nickname: 'Nickname', company: 'Company name',
+        companyMissing: 'Company details are incomplete — fill them in before submitting an order',
+        companyFill: 'Fill in',
+        email: 'Email', role: 'Role',
         joined: 'Joined', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved',
     },
     misc: {
@@ -1175,9 +1177,6 @@ export const STRINGS: Record<Lang, Strings> = {
         notFoundSub: 'The link may have expired, or you do not have access to this page.',
         backHome: 'Back to home',
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
-        companyInfo: 'Company', companyName: 'Company name',
-        companyNameHint: 'Shown on quotes, contracts and invoices.',
-        companySaved: 'Company name saved',
     },
         nav: {
             settings: 'Settings', signOut: 'Sign out', profile: 'Profile',

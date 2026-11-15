@@ -17,7 +17,6 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { DatePicker } from '../../components/DatePicker'
-import { CompanyNameModal } from '../../components/CompanyNameModal'
 import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
@@ -36,7 +35,6 @@ export function OrderDetailPage() {
     const [wantedDate, setWantedDate] = useState('')
     const [saved, setSaved] = useState(false)
     const [orgName, setOrgName] = useState<string | null>(null)
-    const [companyModal, setCompanyModal] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
@@ -162,24 +160,8 @@ export function OrderDetailPage() {
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
-            {companyModal && (
-                <CompanyNameModal
-                    onClose={() => setCompanyModal(false)}
-                    onSaved={(name) => { setOrgName(name); setCompanyModal(false) }}
-                />
-            )}
             {draft && noDrawing > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
-            )}
-            {draft && missingCompany && noDrawing === 0 && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    <span className="bnr-row">
-                        <span>{t.customer.orderDetail.needCompany}</span>
-                        <button className="btn sm" type="button" onClick={() => setCompanyModal(true)}>
-                            {t.customer.orderDetail.fillCompany}
-                        </button>
-                    </span>
-                </Banner>
             )}
             {order.status === 'SUBMITTED' && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>{t.customer.orderDetail.submittedBanner}</Banner>

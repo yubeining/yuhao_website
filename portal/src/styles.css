@@ -748,3 +748,9 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 
 /* Banner 里的「说明 + 动作」一行 */
 .bnr-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;}
+
+/* 全应用提示条：账号资料缺失等，只在账号层面提示，不进业务页面 */
+.appnotice{display:flex;align-items:center;justify-content:center;gap:10px;
+  padding:8px 18px;background:#FBF3E3;border-bottom:1px solid #EBD9B4;
+  font-size:12.5px;color:#8A5A16;}
+.appnotice .linkbtn{color:#8A5A16;text-decoration:underline;font-size:12.5px;}
