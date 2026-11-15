@@ -230,7 +230,7 @@ export interface Strings {
     profile: {
         title: string; basic: string; nickname: string; email: string; role: string
         joined: string; edit: string; save: string; cancel: string; saved: string
-        company: string; companyMissing: string; companyFill: string
+        company: string; country: string; companyMissing: string; companyFill: string
     }
     /** 通用页面（404 / 设置） */
     misc: {
@@ -653,7 +653,7 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     datePicker: { placeholder: '选择日期', clear: '清除', today: '今天' },
     profile: {
-        title: '个人资料', basic: '基本信息', nickname: '昵称', company: '公司名称',
+        title: '个人资料', basic: '基本信息', nickname: '昵称', company: '公司名称', country: '国家/地区',
         companyMissing: '公司信息未完善，提交订单前需要填写', companyFill: '去填写',
         email: '邮箱', role: '身份',
         joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
@@ -1189,7 +1189,7 @@ export const STRINGS: Record<Lang, Strings> = {
     },
     datePicker: { placeholder: 'Pick a date', clear: 'Clear', today: 'Today' },
     profile: {
-        title: 'Profile', basic: 'Basic information', nickname: 'Nickname', company: 'Company name',
+        title: 'Profile', basic: 'Basic information', nickname: 'Nickname', company: 'Company name', country: 'Country / region',
         companyMissing: 'Company details are incomplete — fill them in before submitting an order',
         companyFill: 'Fill in',
         email: 'Email', role: 'Role',

@@ -153,12 +153,12 @@ public class AccountAdminService {
 
     /** 只改名称 / 国家 / 状态。**类型不可改** —— 改类型等于改受众，权限全变（2026-11-09 决定）。 */
     @Transactional
-    public OrganizationAdminView updateOrganization(UUID id, String name, String country, String status) {
+    public OrganizationAdminView updateOrganization(UUID id, String name, String status) {
         Organization org = requireOrg(id);
         if (hasText(name)) {
             org.setName(name.trim());
         }
-        org.setCountry(trimToNull(country));
+
         if (hasText(status)) {
             org.setStatus(parseStatus(status, Organization.Status.class));
         }
