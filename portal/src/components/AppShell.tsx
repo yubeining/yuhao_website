@@ -183,9 +183,9 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
 
 /* ── 三端各自的壳 ─────────────────────────────────────────────────── */
 
+// 客户侧只有两个入口，不再挂分组标题 —— 早期原型留下的「交易」既不是客户的说法，也没有信息量。
+// 供应商侧入口多（接单 / 结算 / 企业），分组在那里才有意义。
 const customerNav = (t: Strings): NavItem[] => [
-    { sec: t.nav.customer.trade },
-    // ★ 订单是整条链的主干：建订单 → 加零件 → 提交 → 确认价格 →（平台安排生产）
     { to: '/customer/orders', ic: '▣', n: t.nav.customer.orders },
     { to: '/customer/quotes', ic: '€', n: t.nav.customer.quotes },
 ]
