@@ -66,7 +66,7 @@ export interface Strings {
             colCode: string; colQty: string
             customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
             remove: string; emptyParts: string; emptyPartsSub: string
-            submit: string; needDrawings: (n: number) => string
+            submit: string; needDrawings: (n: number) => string; needCompany: string; fillCompany: string
             /** 一个零件都没有时的提交按钮文案 */
             needParts: string
         }
@@ -137,7 +137,8 @@ export interface Strings {
         hint: string
         agree: string; submit: string
         /** 本地校验提示（后端没这几种） */
-        errRequired: string; errCode: string; errAgree: string
+        errRequired: string; errCode: string; errAgree: string; errCompany: string
+        company: string; companyHint: string
         errTaken: string; errFailed: string
         otherCountry: string
     }
@@ -449,6 +450,8 @@ export const STRINGS: Record<Lang, Strings> = {
             submit: '提交订单',
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
             needParts: '先添加至少一个零件',
+            needCompany: '请先补全公司名称',
+            fillCompany: '补全',
         },
         partForm: {
             uploadFailed: '上传失败',
@@ -528,6 +531,9 @@ export const STRINGS: Record<Lang, Strings> = {
             errRequired: '请先填写邮箱',
             errCode: '请输入 6 位验证码',
             errAgree: '请先同意服务条款与隐私政策',
+            errCompany: '请先填写公司名称',
+            company: '公司名称',
+            companyHint: '会显示在报价单与合同上',
             errTaken: '这个邮箱已经注册过了，直接登录即可',
             errFailed: '注册失败，请重试',
             otherCountry: '其他',
@@ -971,6 +977,8 @@ export const STRINGS: Record<Lang, Strings> = {
             submit: 'Submit order',
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
             needParts: 'Add a part first',
+            needCompany: 'Complete your company name first',
+            fillCompany: 'Fill in',
         },
         partForm: {
             uploadFailed: 'Upload failed',
@@ -1051,6 +1059,9 @@ export const STRINGS: Record<Lang, Strings> = {
             errRequired: 'Please enter your email first',
             errCode: 'Enter the 6-digit code',
             errAgree: 'Please accept the Terms and Privacy Policy first',
+            errCompany: 'Please enter your company name',
+            company: 'Company name',
+            companyHint: 'Shown on quotes and contracts',
             errTaken: 'This email is already registered — just sign in',
             errFailed: 'Sign-up failed. Please try again.',
             otherCountry: 'Other',

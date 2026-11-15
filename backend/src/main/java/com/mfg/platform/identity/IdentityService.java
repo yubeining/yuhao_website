@@ -87,12 +87,18 @@ public class IdentityService {
      */
     @Transactional
     public ExternalUser registerVerifiedEmail(String email) {
+        return registerVerifiedEmail(email, null);
+    }
+
+    /** 同 {@link #registerVerifiedEmail(String)}，注册时顺带把公司名写进组织。 */
+    @Transactional
+    public ExternalUser registerVerifiedEmail(String email, String orgName) {
         String normalized = normalizeEmail(email);
         if (externalUsers.existsByEmail(normalized)) {
             throw new BusinessException(409, "auth.email_taken");
         }
         Organization org = organizations.save(
-                new Organization(Organization.Type.CUSTOMER, null, null));
+                new Organization(Organization.Type.CUSTOMER, trimToNull(orgName), null));
         int at = normalized.indexOf('@');
         String localPart = at > 0 ? normalized.substring(0, at) : normalized;
         String displayName = localPart.isBlank() ? normalized : localPart;

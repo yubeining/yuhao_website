@@ -17,6 +17,8 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { DatePicker } from '../../components/DatePicker'
+import { CompanyNameModal } from '../../components/CompanyNameModal'
+import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
     ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
@@ -33,6 +35,8 @@ export function OrderDetailPage() {
     const [title, setTitle] = useState('')
     const [wantedDate, setWantedDate] = useState('')
     const [saved, setSaved] = useState(false)
+    const [orgName, setOrgName] = useState<string | null>(null)
+    const [companyModal, setCompanyModal] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
@@ -54,6 +58,12 @@ export function OrderDetailPage() {
     }, [id, t])
 
     useEffect(() => { void load() }, [load])
+
+    // 公司名是提交订单的前置条件：注册时已收，老账号可能还是空的 —— 先查一次再决定按钮是否可用
+    useEffect(() => {
+        if (order?.status !== 'DRAFT') return
+        getMyOrganization().then((o) => setOrgName(o.name ?? '')).catch(() => undefined)
+    }, [order?.status, order?.id])
 
     // 「已保存」2 秒后自己消失
     useEffect(() => {
@@ -87,7 +97,8 @@ export function OrderDetailPage() {
     const inProduction = order.status === 'CONFIRMED' || order.status === 'READY'
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
-    const canSubmit = draft && order.lines.length > 0 && noDrawing === 0
+    const missingCompany = !orgName?.trim()
+    const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany
 
     const saveDraftInfo = async (nextDate?: string) => {
         const date = (nextDate ?? wantedDate).trim() || null
@@ -140,8 +151,15 @@ export function OrderDetailPage() {
                                     <span className="t2" style={{ color: 'var(--muted)' }}>
                                         {order.lines.length === 0
                                             ? t.customer.orderDetail.needParts
-                                            : t.customer.orderDetail.needDrawings(noDrawing)}
+                                            : noDrawing > 0
+                                                ? t.customer.orderDetail.needDrawings(noDrawing)
+                                                : t.customer.orderDetail.needCompany}
                                     </span>
+                                )}
+                                {draft && missingCompany && order.lines.length > 0 && noDrawing === 0 && (
+                                    <button className="btn sm" type="button" onClick={() => setCompanyModal(true)}>
+                                        {t.customer.orderDetail.fillCompany}
+                                    </button>
                                 )}
                                 <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
                                     {t.customer.orderDetail.submit}
@@ -153,6 +171,12 @@ export function OrderDetailPage() {
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {companyModal && (
+                <CompanyNameModal
+                    onClose={() => setCompanyModal(false)}
+                    onSaved={(name) => { setOrgName(name); setCompanyModal(false) }}
+                />
+            )}
             {draft && noDrawing > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
             )}

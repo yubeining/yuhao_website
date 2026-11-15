@@ -29,6 +29,7 @@ export function RegisterPage() {
     const [sent, setSent] = useState(false)
     /** 重发倒计时（秒）。0 = 可以发。 */
     const [countdown, setCountdown] = useState(0)
+    const [company, setCompany] = useState('')
     const [agree, setAgree] = useState(false)
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -58,11 +59,12 @@ export function RegisterPage() {
     const submit = async () => {
         if (busy) return
         if (!/^\d{6}$/.test(code.trim())) return setErr(c.errCode)
+        if (!company.trim()) return setErr(c.errCompany)
         if (!agree) return setErr(c.errAgree)
         setErr(null)
         setBusy(true)
         try {
-            const token = await registerWithCode(mail.trim(), code.trim())
+            const token = await registerWithCode(mail.trim(), code.trim(), company.trim())
             setSession({
                 accessToken: token.accessToken,
                 refreshToken: token.refreshToken,
@@ -98,6 +100,10 @@ export function RegisterPage() {
                                 {countdown > 0 ? c.resendIn(countdown) : sent ? c.resend : c.sendCode}
                             </button>
                         </div>
+                    </Field>
+                    <Field label={c.company} required>
+                        <Input value={company} onChange={(v) => { setCompany(v); setErr(null) }} />
+                        <div className="fnote" style={{ marginTop: 6 }}>{c.companyHint}</div>
                     </Field>
                     <Field label={c.code}>
                         <Input id="otp" type="text" autoComplete="one-time-code" placeholder={c.codeP}
