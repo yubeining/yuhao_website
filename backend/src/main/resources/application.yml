@@ -191,7 +191,9 @@ app:
     # 允许上传的类型，按 magic bytes 校验（不信扩展名）。清单出处：设计文档 2 §5.2。
     # ★ 文档那句清单的结尾还有「常见图片」，这里没有 —— 客户拍的照片/截图会被拒收。
     #   这是没人拍过板的收窄，用之前先确认要不要把图片加回来。
-    allowed-drawing-types: STEP,STP,IGES,IGS,X_T,SLDPRT,DWG,DXF,PDF,ZIP
+    # 图纸与随件文档：CAD、PDF、压缩包、Office 文档、图纸照片。
+    # 每一种都要在 DrawingTypeGuard.TIKA_TYPES 里有对应的期望类型，否则 complete 时会被拒。
+    allowed-drawing-types: STEP,STP,IGES,IGS,X_T,SLDPRT,DWG,DXF,PDF,ZIP,DOC,DOCX,XLS,XLSX,PPT,PPTX,PNG,JPG,JPEG
     # 不设单文件大小上限 —— 2026-09-10 需求方拍板「不卡大小」。字节直传桶，不经过应用。
     s3:
       # ★ endpoint 是【内网】地址（服务端 put/get 走它，不出集群）；

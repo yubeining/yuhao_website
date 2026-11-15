@@ -24,6 +24,9 @@ import java.util.stream.Collectors;
  *       <td>按规范推出，<b>未用真实客户文件验证过</b></td></tr>
  *   <tr><td>SLDPRT</td><td>tika 只认得出 OLE2 复合文档容器</td><td>只验到容器</td></tr>
  *   <tr><td>X_T</td><td>没有可验证的签名</td><td><b>只能信扩展名</b>，违背文档 2 §5.2</td></tr>
+ *   <tr><td>DOCX / XLSX / PPTX</td><td>OOXML 包内有 {@code [Content_Types].xml}，tika 能判到具体类型</td><td>真校验</td></tr>
+ *   <tr><td>DOC / XLS / PPT</td><td>和 SLDPRT 一样是 OLE2 容器</td><td>只验到容器</td></tr>
+ *   <tr><td>PNG / JPG</td><td>tika 按文件头判</td><td>真校验</td></tr>
  * </table>
  *
  * <p>ZIP 不解包，不防解压炸弹 —— 本轮不做。
@@ -41,13 +44,28 @@ final class DrawingTypeGuard {
         }
     }
 
-    /** 扩展名 → tika 判出的类型（去掉 {@code ; format=...} 参数后比较）。 */
-    private static final Map<String, String> TIKA_TYPES = Map.of(
-            "PDF", "application/pdf",
-            "ZIP", "application/zip",
-            "DWG", "image/vnd.dwg",
-            "DXF", "image/vnd.dxf",
-            "SLDPRT", "application/x-tika-msoffice");
+    /**
+     * 扩展名 → tika 可能判出的类型集合（去掉 {@code ; format=...} 参数后比较）。
+     *
+     * <p>为什么是集合：老版 Office（.doc/.xls/.ppt）和 SLDPRT 一样是 OLE2 复合文档，
+     * tika 有时只报容器 {@code application/x-tika-msoffice}，有时报具体类型 —— 两种都算对。
+     * OOXML（.docx/.xlsx/.pptx）有独立类型，按精确类型比。
+     */
+    private static final Map<String, Set<String>> TIKA_TYPES = Map.ofEntries(
+            Map.entry("PDF", Set.of("application/pdf")),
+            Map.entry("ZIP", Set.of("application/zip", "application/x-tika-ooxml")),
+            Map.entry("DWG", Set.of("image/vnd.dwg")),
+            Map.entry("DXF", Set.of("image/vnd.dxf")),
+            Map.entry("SLDPRT", Set.of("application/x-tika-msoffice")),
+            Map.entry("DOCX", Set.of("application/vnd.openxmlformats-officedocument.wordprocessingml.document")),
+            Map.entry("XLSX", Set.of("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")),
+            Map.entry("PPTX", Set.of("application/vnd.openxmlformats-officedocument.presentationml.presentation")),
+            Map.entry("DOC", Set.of("application/msword", "application/x-tika-msoffice")),
+            Map.entry("XLS", Set.of("application/vnd.ms-excel", "application/x-tika-msoffice")),
+            Map.entry("PPT", Set.of("application/vnd.ms-powerpoint", "application/x-tika-msoffice")),
+            Map.entry("PNG", Set.of("image/png")),
+            Map.entry("JPG", Set.of("image/jpeg")),
+            Map.entry("JPEG", Set.of("image/jpeg")));
 
     private static final Set<String> STEP = Set.of("STEP", "STP");
     private static final Set<String> IGES = Set.of("IGES", "IGS");
@@ -85,22 +103,31 @@ final class DrawingTypeGuard {
             return Verdict.accept(null);
         }
         if (STEP.contains(ext)) {
-            return startsWith(head, STEP_HEADER) ? Verdict.accept("model/step") : Verdict.reject(detect(head));
+            return startsWith(head, STEP_HEADER) ? Verdict.accept("model/step") : Verdict.reject(detect(head, filename));
         }
         if (IGES.contains(ext)) {
-            return looksLikeIges(head) ? Verdict.accept("model/iges") : Verdict.reject(detect(head));
+            return looksLikeIges(head) ? Verdict.accept("model/iges") : Verdict.reject(detect(head, filename));
         }
-        String expected = TIKA_TYPES.get(ext);
-        String detected = detect(head);
+        Set<String> expected = TIKA_TYPES.get(ext);
+        String detected = detect(head, filename);
         if (expected == null) {
             // 白名单里配了一个这里不认识的扩展名：宁可拒，不静默放行
             return Verdict.reject(detected);
         }
-        return expected.equals(baseType(detected)) ? Verdict.accept(detected) : Verdict.reject(detected);
+        return expected.contains(baseType(detected)) ? Verdict.accept(detected) : Verdict.reject(detected);
     }
 
-    private String detect(byte[] head) {
-        return tika.detect(head == null ? new byte[0] : head);
+    /** zip 容器类（含 OOXML）只凭字节分不出是哪一种 Office 格式，要带上文件名再看包内结构。 */
+    private static final Set<String> CONTAINER_TYPES = Set.of("application/zip", "application/x-tika-ooxml");
+
+    private String detect(byte[] head, String filename) {
+        byte[] bytes = head == null ? new byte[0] : head;
+        String byMagic = tika.detect(bytes);
+        if (!CONTAINER_TYPES.contains(baseType(byMagic))) {
+            return byMagic;
+        }
+        // 只在容器类型上借助文件名细化；普通格式仍然只认字节，避免"改个扩展名就过"
+        return tika.detect(bytes, filename == null ? "" : filename);
     }
 
     private static String extensionOf(String filename) {
