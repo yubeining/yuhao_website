@@ -10,22 +10,22 @@ import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../compo
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
-import { listMyQuotes, listOrders, type CustomerQuoteSummaryView } from '../../services'
+import { listMyQuotes, listOrders, type CustomerQuoteSummaryView, type OrderSummaryView } from '../../services'
 import { quoteSt } from './status'
 
 export function QuoteListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [quotes, setQuotes] = useState<CustomerQuoteSummaryView[] | null>(null)
-    // 等报价的订单数：报价列表空着的时候，用户需要知道"不是没进展"
-    const [waiting, setWaiting] = useState(0)
+    // 等报价的订单：报价还没生成，但它们在这页也必须有位置，否则有报价时它们会被吞掉
+    const [waiting, setWaiting] = useState<OrderSummaryView[]>([])
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         try {
             setQuotes((await listMyQuotes(1, 100)).items)
             const orders = (await listOrders(1, 100)).items
-            setWaiting(orders.filter((o) => o.status === 'SUBMITTED').length)
+            setWaiting(orders.filter((o) => o.status === 'SUBMITTED'))
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
@@ -44,9 +44,27 @@ export function QuoteListPage() {
                             ? <Empty text={err} action={<button className="btn" type="button" onClick={() => void load()}>{t.common.retry}</button>} />
                             : <Empty text={t.common.loading} />}
                     </CardBody>
-                ) : quotes.length ? (
+                ) : quotes.length || waiting.length ? (
                     <CardBody flush>
-                        <TableWrap>
+                        {waiting.length > 0 && (
+                            <>
+                                <div className="qsec">{t.customer.quotes.pendingSection(waiting.length)}</div>
+                                {waiting.map((o) => (
+                                    <div className="qrow-wait" key={o.id}
+                                        onClick={() => navigate(`/customer/orders/${o.id}`)}>
+                                        <span className="nm">{o.title || t.common.untitledOrder}</span>
+                                        <span className="st">{t.customer.quotes.awaiting}</span>
+                                        <span className="ar">›</span>
+                                    </div>
+                                ))}
+                            </>
+                        )}
+                        {quotes.length > 0 && (
+                            <div className="qsec" style={{ borderTop: waiting.length ? '1px solid var(--line-2)' : undefined }}>
+                                {t.customer.quotes.quoteSection(quotes.length)}
+                            </div>
+                        )}
+                        {quotes.length > 0 && <TableWrap>
                             <thead>
                                 <tr>
                                     <th>{t.common.table.order}</th><th className="n">{t.common.table.totalPrice}</th><th>{t.common.table.price}</th>
@@ -71,12 +89,11 @@ export function QuoteListPage() {
                                     </tr>
                                 ))}
                             </tbody>
-                        </TableWrap>
+                        </TableWrap>}
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text={t.customer.quotes.empty}
-                            sub={waiting > 0 ? t.customer.quotes.waitingForQuote(waiting) : t.customer.quotes.emptySub} />
+                        <Empty text={t.customer.quotes.empty} sub={t.customer.quotes.emptySub} />
                     </CardBody>
                 )}
             </Card>

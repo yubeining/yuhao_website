@@ -99,7 +99,7 @@ export interface Strings {
             reject: string; confirmPrice: (amount: string) => string; fldRateDate: string
             empty: string
             emptySub: string
-            waitingForQuote: (n: number) => string
+            pendingSection: (n: number) => string; quoteSection: (n: number) => string; awaiting: string
             noQuote: string
             noQuoteSub: string
             viewOrder: string
@@ -501,7 +501,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 reject: '拒绝报价', confirmPrice: (amount) => `确认价格（${amount}）`, fldRateDate: '汇率日期',
                 empty: '暂无报价',
                 emptySub: '订单提交后，平台报价会出现在这里',
-                waitingForQuote: (n) => `还有 ${n} 张订单在等运营报价，出来后会出现在这里。`,
+                pendingSection: (n) => `待报价 ${n}`, quoteSection: (n) => `报价 ${n}`, awaiting: '等待运营报价',
                 noQuote: '暂无报价',
                 noQuoteSub: '这张订单目前没有待确认或已确认的报价',
                 viewOrder: '查看订单',
@@ -1036,7 +1036,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 reject: 'Reject quote', confirmPrice: (amount) => `Confirm price (${amount})`, fldRateDate: 'FX date',
                 empty: 'No quotes yet',
                 emptySub: 'Quotes appear here once you submit an order',
-                waitingForQuote: (n) => `${n} order${n === 1 ? '' : 's'} still waiting for a quote; it will appear here.`,
+                pendingSection: (n) => `Awaiting quote ${n}`, quoteSection: (n) => `Quotes ${n}`, awaiting: 'Awaiting quotation',
                 noQuote: 'No quote yet',
                 noQuoteSub: 'This order has no pending or confirmed quote',
                 viewOrder: 'View order',
