@@ -95,6 +95,12 @@ export function OrderListPage() {
                                         <td className="n">{fmtDate(new Date(o.createdAt))}</td>
                                         <td>{pill(orderSt(t)[o.status])}</td>
                                         <td style={{ textAlign: 'right' }}>
+                                            {o.status === 'QUOTED' && (
+                                                <button className="linkbtn" type="button"
+                                                    onClick={(e) => { e.stopPropagation(); navigate(`/customer/quotes/${o.id}`) }}>
+                                                    {t.customer.orders.confirmQuote}
+                                                </button>
+                                            )}
                                             {o.status === 'DRAFT' && (
                                                 <button className="linkbtn" type="button"
                                                     onClick={(e) => {

@@ -1,0 +1,4 @@
+Your quotation is ready: {order}
+The quotation for "{order}" is {currency} {amount} with a {days}-day lead time.
+
+Open "My quotes" in the customer portal to review and confirm it. Production starts after you confirm.

@@ -52,13 +52,16 @@ export interface Strings {
         orders: {
             title: string; sub: string; count: (n: number) => string
             newOrder: string; newTitle: string; titlePlaceholder: string
-            deleteOrder: string; deleteConfirm: string
+            deleteOrder: string; deleteConfirm: string; confirmQuote: string
             empty: string; emptySub: string
         }
         orderDetail: {
             notFound: string; backToOrders: string; addPart: string; addFirstPart: string
             missingDrawingBanner: (n: number) => string; submittedBanner: string
-            quotedBanner: string; quoteLink: string; confirmedBanner: string; cancelledBanner: string
+            quotedBanner: string; cancelledBanner: string
+            statusSubmitted: string; statusQuoted: (amount: string, days: number) => string
+            statusConfirmed: string; statusReady: string
+            statusViewQuotes: string; statusConfirmQuote: string; statusQuoteDetail: string
             infoTitle: string; fldName: string; fldLead: string; titlePlaceholder: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
             partsTitle: (n: number) => string; missingDrawingPill: (n: number) => string
@@ -96,6 +99,7 @@ export interface Strings {
             reject: string; confirmPrice: (amount: string) => string; fldRateDate: string
             empty: string
             emptySub: string
+            waitingForQuote: (n: number) => string
             noQuote: string
             noQuoteSub: string
             viewOrder: string
@@ -429,6 +433,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 titlePlaceholder: '订单名称（可选）',
                 deleteOrder: '删除',
                 deleteConfirm: '删除这张草稿？订单里的图纸也会一并删除，不能恢复。',
+                confirmQuote: '确认报价 ›',
                 empty: '暂无订单', emptySub: '新建订单后录入零件',
             },
         orderDetail: {
@@ -436,8 +441,12 @@ export const STRINGS: Record<Lang, Strings> = {
             addPart: '＋ 添加零件', addFirstPart: '＋ 添加零件',
             missingDrawingBanner: (n) => `${n} 个零件还没传图纸，传齐后才能提交。`,
             submittedBanner: '订单已提交，各零件的图纸版本已锁定，不能再修改。',
-            quotedBanner: '平台已报价，等你确认。', quoteLink: '查看报价 →',
-            confirmedBanner: '报价已确认。', cancelledBanner: '订单已取消。',
+            quotedBanner: '平台已报价，等你确认。', cancelledBanner: '订单已取消。',
+            statusSubmitted: '运营正在核价，报价出来后可在「我的报价」确认。',
+            statusQuoted: (amount, days) => `报价已出 ${amount}（按确认当日汇率锁价）· 交期 ${days} 天`,
+            statusConfirmed: '已确认报价，正在生产。',
+            statusReady: '全部零件已完工。',
+            statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
             fldName: '名称', fldLead: '期望交货日期',
             titlePlaceholder: '订单名称',
@@ -492,6 +501,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 reject: '拒绝报价', confirmPrice: (amount) => `确认价格（${amount}）`, fldRateDate: '汇率日期',
                 empty: '暂无报价',
                 emptySub: '订单提交后，平台报价会出现在这里',
+                waitingForQuote: (n) => `还有 ${n} 张订单在等运营报价，出来后会出现在这里。`,
                 noQuote: '暂无报价',
                 noQuoteSub: '这张订单目前没有待确认或已确认的报价',
                 viewOrder: '查看订单',
@@ -958,6 +968,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 titlePlaceholder: 'Order name (optional)',
                 deleteOrder: 'Delete',
                 deleteConfirm: 'Delete this draft? Its drawings are deleted too. This cannot be undone.',
+                confirmQuote: 'Confirm quote ›',
                 empty: 'No orders yet', emptySub: 'Create an order to add parts',
             },
         orderDetail: {
@@ -965,8 +976,12 @@ export const STRINGS: Record<Lang, Strings> = {
             addPart: '+ Add part', addFirstPart: '+ Add part',
             missingDrawingBanner: (n) => `${n} part${n === 1 ? '' : 's'} without drawings — all parts need drawings before submitting.`,
             submittedBanner: 'Order submitted. Drawing revisions are locked and can no longer be changed.',
-            quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', quoteLink: 'View quote →',
-            confirmedBanner: 'Quote confirmed.', cancelledBanner: 'Order cancelled.',
+            quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', cancelledBanner: 'Order cancelled.',
+            statusSubmitted: 'We are pricing your order. The quote will appear in "My quotes" for you to confirm.',
+            statusQuoted: (amount, days) => `Quote ready: ${amount} (locked at the rate on the day you confirm) · ${days} days lead time`,
+            statusConfirmed: 'Quote confirmed. Production has started.',
+            statusReady: 'All parts are finished.',
+            statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
             fldName: 'Name', fldLead: 'Requested delivery date',
             titlePlaceholder: 'Order name',
@@ -1021,6 +1036,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 reject: 'Reject quote', confirmPrice: (amount) => `Confirm price (${amount})`, fldRateDate: 'FX date',
                 empty: 'No quotes yet',
                 emptySub: 'Quotes appear here once you submit an order',
+                waitingForQuote: (n) => `${n} order${n === 1 ? '' : 's'} still waiting for a quote; it will appear here.`,
                 noQuote: 'No quote yet',
                 noQuoteSub: 'This order has no pending or confirmed quote',
                 viewOrder: 'View order',
