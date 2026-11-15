@@ -66,7 +66,8 @@ export interface Strings {
             colCode: string; colQty: string
             customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
             remove: string; emptyParts: string; emptyPartsSub: string
-            submit: string; needDrawings: (n: number) => string; needCompany: string; fillCompany: string
+            submit: string; submitConfirmTitle: string; submitConfirmBody: string; submitConfirmCta: string
+            needDrawings: (n: number) => string; needCompany: string; fillCompany: string
             /** 一个零件都没有时的提交按钮文案 */
             needParts: string
         }
@@ -448,6 +449,9 @@ export const STRINGS: Record<Lang, Strings> = {
             drawingUploaded: '图纸已传', drawingMissing: '缺图纸', remove: '删除',
             emptyParts: '暂无零件', emptyPartsSub: '录入零件并传好图纸后提交',
             submit: '提交订单',
+            submitConfirmTitle: '确认提交订单？',
+            submitConfirmBody: '提交后各零件的图纸版本会被锁定，不能再修改或更换图纸。',
+            submitConfirmCta: '确认提交',
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
             needParts: '先添加至少一个零件',
             needCompany: '提交前还需补全公司名称，它会显示在报价单与合同上。',
@@ -974,6 +978,9 @@ export const STRINGS: Record<Lang, Strings> = {
             drawingUploaded: 'Drawing attached', drawingMissing: 'No drawing', remove: 'Remove',
             emptyParts: 'No parts yet', emptyPartsSub: 'Add parts and drawings, then submit',
             submit: 'Submit order',
+            submitConfirmTitle: 'Submit this order?',
+            submitConfirmBody: 'Drawing revisions of every part will be locked and can no longer be changed.',
+            submitConfirmCta: 'Submit',
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
             needParts: 'Add a part first',
             needCompany: 'Your company name is required before submitting; it appears on quotes and contracts.',

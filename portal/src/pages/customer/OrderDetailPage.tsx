@@ -17,6 +17,7 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { DatePicker } from '../../components/DatePicker'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
@@ -35,6 +36,7 @@ export function OrderDetailPage() {
     const [wantedDate, setWantedDate] = useState('')
     const [saved, setSaved] = useState(false)
     const [orgName, setOrgName] = useState<string | null>(null)
+    const [confirmSubmit, setConfirmSubmit] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
@@ -150,7 +152,7 @@ export function OrderDetailPage() {
                                         {t.customer.orderDetail.needParts}
                                     </span>
                                 )}
-                                <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
+                                <button className="btn pri" type="button" onClick={() => setConfirmSubmit(true)} disabled={!canSubmit || busy}>
                                     {t.customer.orderDetail.submit}
                                 </button>
                             </>
@@ -163,6 +165,17 @@ export function OrderDetailPage() {
             {draft && noDrawing > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
             )}
+            {confirmSubmit && (
+                <ConfirmDialog
+                    title={t.customer.orderDetail.submitConfirmTitle}
+                    message={t.customer.orderDetail.submitConfirmBody}
+                    confirmLabel={t.customer.orderDetail.submitConfirmCta}
+                    busy={busy}
+                    onCancel={() => setConfirmSubmit(false)}
+                    onConfirm={() => { void submit().then(() => setConfirmSubmit(false)) }}
+                />
+            )}
+
             {order.status === 'SUBMITTED' && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>{t.customer.orderDetail.submittedBanner}</Banner>
             )}
