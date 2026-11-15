@@ -29,8 +29,7 @@ import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
 import { OpsAccountsPage } from './pages/ops/AccountsPage'
 
-import { SettingsPage } from './pages/SettingsPage'
-import { ProfilePage } from './pages/ProfilePage'
+import { AccountSettingsPage } from './pages/AccountSettingsPage'
 import { NotFoundPage } from './pages/NotFoundPage'
 
 /**
@@ -85,8 +84,9 @@ export const router = createBrowserRouter([
             // ★ new 必须排在 :partId 前面，否则 /parts/new 会被当成 id 为 "new" 的零件
             { path: 'orders/:id/parts/new', element: <PartFormPage /> },
             { path: 'orders/:id/parts/:partId', element: <PartFormPage /> },
-            { path: 'profile', element: <ProfilePage /> },
-            { path: 'settings', element: <SettingsPage /> },
+            // 个人资料与设置已合并（2026-11-15）：旧链接重定向，不留 404
+            { path: 'profile', element: <Navigate to="/customer/settings" replace /> },
+            { path: 'settings', element: <AccountSettingsPage /> },
         ],
     },
 
@@ -106,8 +106,7 @@ export const router = createBrowserRouter([
             { path: 'orders', element: <SupplierOrdersPage /> },
             { path: 'bill', element: <BillPage /> },
             { path: 'profile', element: <SupplierProfilePage /> },
-            { path: 'profile', element: <ProfilePage /> },
-            { path: 'settings', element: <SettingsPage /> },
+            { path: 'settings', element: <AccountSettingsPage /> },
         ],
     },
 
@@ -132,8 +131,8 @@ export const router = createBrowserRouter([
             { path: 'orders', element: <OpsOrdersPage /> },
             { path: 'parties', element: <OpsPartiesPage /> },
             { path: 'accounts', element: <OpsAccountsPage /> },
-            { path: 'profile', element: <ProfilePage /> },
-            { path: 'settings', element: <SettingsPage /> },
+            { path: 'profile', element: <Navigate to="/ops/settings" replace /> },
+            { path: 'settings', element: <AccountSettingsPage /> },
         ],
     },
 
