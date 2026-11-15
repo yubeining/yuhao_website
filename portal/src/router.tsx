@@ -19,7 +19,6 @@ import { SupplierOrdersPage } from './pages/supplier/OrdersPage'
 import { BillPage } from './pages/supplier/BillPage'
 import { SupplierProfilePage } from './pages/supplier/ProfilePage'
 
-import { OpsDashboardPage } from './pages/ops/DashboardPage'
 import { OpsQuotesPage } from './pages/ops/QuotesPage'
 import { OpsQuoteWorkPage } from './pages/ops/QuoteWorkPage'
 import { OpsDispatchPage } from './pages/ops/DispatchPage'
@@ -119,8 +118,10 @@ export const router = createBrowserRouter([
             </PortalGuard>
         ),
         children: [
-            { index: true, element: <Navigate to="/ops/dashboard" replace /> },
-            { path: 'dashboard', element: <OpsDashboardPage /> },
+            // 工作台已删除（2026-11-15）：三个计数不指向动作，运营要的入口就是下面几个列表。
+            // 旧书签仍然能进 —— 重定向到报价列表，不留 404
+            { index: true, element: <Navigate to="/ops/quotes" replace /> },
+            { path: 'dashboard', element: <Navigate to="/ops/quotes" replace /> },
             { path: 'quotes', element: <OpsQuotesPage /> },
             // 报价工作台。:id 是订单号 —— 定价是按整单做的，一单一份报价（见 submitOrder）
             { path: 'quotes/:id', element: <OpsQuoteWorkPage /> },

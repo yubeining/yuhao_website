@@ -255,8 +255,6 @@ export function SupplierShell({ children, full, path }: {
 }
 
 const opsNav = (t: Strings): NavItem[] => [
-    { sec: t.nav.ops.overview },
-    { to: '/ops/dashboard', ic: '◫', n: t.nav.ops.dashboard },
     { sec: t.nav.ops.quoting },
     { to: '/ops/quotes', ic: '€', n: t.nav.ops.quotes },
     { to: '/ops/dispatch', ic: '⇉', n: t.nav.ops.dispatch },

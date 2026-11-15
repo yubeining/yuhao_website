@@ -8,7 +8,7 @@
  *   它只信 JWT 里的 ptype，不信任何请求参数。
  *
  *   把 localStorage 里的 partyType 从 CUSTOMER 改成 OPERATOR，
- *   结果只是前端把你送到 /ops/dashboard，然后每个接口都返回 403。
+ *   结果只是前端把你送到运营首页，然后每个接口都返回 403。
  *
  * ★ 为什么用 localStorage 而不是 httpOnly cookie
  *
@@ -79,7 +79,7 @@ export function subscribeSession(listener: () => void): () => void {
 export const HOME_BY_TYPE: Record<PartyType, string> = {
     CUSTOMER: '/customer/orders',
     SUPPLIER: '/supplier/hall',
-    OPERATOR: '/ops/dashboard',
+    OPERATOR: '/ops/quotes',
 }
 
 /** 各受众的登录页 —— 内外两条独立入口(和后端 /auth vs /auth/internal 对齐)。 */

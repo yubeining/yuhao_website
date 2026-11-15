@@ -249,20 +249,13 @@ export interface Strings {
             company: string; profile: string; hall: string; workspace: string
         }
         ops: {
-            overview: string; dashboard: string; quoting: string; quotes: string
+            quoting: string; quotes: string
             dispatch: string; execution: string; production: string; orders: string
             masterData: string; parties: string; accounts: string; internalOps: string
         }
     }
     /** 运营后台 */
     ops: {
-        dashboard: {
-            title: string; failedTitle: string; failedBody: string
-            kpiPending: string; kpiPendingSub: string
-            kpiAssembling: string; kpiAssemblingSub: string
-            kpiOffered: string; kpiOfferedSub: string
-            missingTitle: string; missingText: string; missingSub: string
-        }
         orders: {
             title: string; colCustomer: string; colCreated: string; colProd: string
             colProgress: string; colPaid: string; unscheduled: string
@@ -672,22 +665,12 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: '企业', profile: '企业资料', hall: '订单市场', workspace: '我的工作台',
             },
             ops: {
-                overview: '总览', dashboard: '工作台', quoting: '询价与报价', quotes: '报价',
+                quoting: '询价与报价', quotes: '报价',
                 dispatch: '派单管理', execution: '执行', production: '生产与质检', orders: '订单',
                 masterData: '主数据', parties: '交易方', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
         ops: {
-            dashboard: {
-                title: '工作台',
-                failedTitle: '工作台数据没取到。', failedBody: '下面的数字是占位符，不要据此安排生产。',
-                kpiPending: '待安排生产', kpiPendingSub: '已确认价格，等运营组包',
-                kpiAssembling: '组包中', kpiAssemblingSub: '草稿，还没挂出去',
-                kpiOffered: '在挂生产订单', kpiOfferedSub: '等供应商接单',
-                missingTitle: '还没放上来的两个指标',
-                missingText: '「已安排生产（产能没锁满）」和「待考察供应商（已提交材料）」在后端没有对应字段或状态。',
-                missingSub: '口径定下来再放上来 —— 现在硬凑一个映射，数字看着像真的，但没人能解释它怎么算出来的。',
-            },
             orders: {
                 title: '订单', colCustomer: '客户', colCreated: '下单', colProd: '生产订单',
                 colProgress: '进度', colPaid: '客户回款', unscheduled: '未安排',
@@ -1204,22 +1187,12 @@ export const STRINGS: Record<Lang, Strings> = {
                 company: 'Company', profile: 'Company profile', hall: 'Order market', workspace: 'My workspace',
             },
             ops: {
-                overview: 'Overview', dashboard: 'Dashboard', quoting: 'Quoting', quotes: 'Quotes',
+                quoting: 'Quoting', quotes: 'Quotes',
                 dispatch: 'Dispatch', execution: 'Execution', production: 'Production & QC', orders: 'Orders',
                 masterData: 'Master data', parties: 'Parties', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
         ops: {
-            dashboard: {
-                title: 'Dashboard',
-                failedTitle: 'Could not load dashboard data.', failedBody: 'The numbers below are placeholders — do not schedule production based on them.',
-                kpiPending: 'To schedule', kpiPendingSub: 'Price confirmed, waiting for us to assemble',
-                kpiAssembling: 'Assembling', kpiAssemblingSub: 'Draft, not offered yet',
-                kpiOffered: 'Open production orders', kpiOfferedSub: 'Waiting for a supplier',
-                missingTitle: 'Two metrics not shown yet',
-                missingText: '“Scheduled production (capacity not filled)” and “Suppliers under review” have no matching field or status in the backend.',
-                missingSub: 'They come back once the definition is agreed — forcing a mapping now produces numbers that look real but cannot be explained.',
-            },
             orders: {
                 title: 'Orders', colCustomer: 'Customer', colCreated: 'Created', colProd: 'Production order',
                 colProgress: 'Progress', colPaid: 'Customer payment', unscheduled: 'Not scheduled',
