@@ -10,18 +10,22 @@ import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../compo
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
-import { listMyQuotes, type CustomerQuoteSummaryView } from '../../services'
+import { listMyQuotes, listOrders, type CustomerQuoteSummaryView } from '../../services'
 import { quoteSt } from './status'
 
 export function QuoteListPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const [quotes, setQuotes] = useState<CustomerQuoteSummaryView[] | null>(null)
+    // 等报价的订单数：报价列表空着的时候，用户需要知道"不是没进展"
+    const [waiting, setWaiting] = useState(0)
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async () => {
         try {
             setQuotes((await listMyQuotes(1, 100)).items)
+            const orders = (await listOrders(1, 100)).items
+            setWaiting(orders.filter((o) => o.status === 'SUBMITTED').length)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
@@ -71,7 +75,8 @@ export function QuoteListPage() {
                     </CardBody>
                 ) : (
                     <CardBody>
-                        <Empty text={t.customer.quotes.empty} sub={t.customer.quotes.emptySub} />
+                        <Empty text={t.customer.quotes.empty}
+                            sub={waiting > 0 ? t.customer.quotes.waitingForQuote(waiting) : t.customer.quotes.emptySub} />
                     </CardBody>
                 )}
             </Card>

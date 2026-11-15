@@ -21,7 +21,8 @@ import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, X } from '../../mock/format'
 import {
-    ApiError, getOrder, removeLine, submitOrder, updateOrder, type OrderView,
+    ApiError, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
+    type CustomerQuoteView, type OrderView,
 } from '../../services'
 import { lineFulfillSt, orderSt } from './status'
 
@@ -36,6 +37,7 @@ export function OrderDetailPage() {
     const [wantedDate, setWantedDate] = useState('')
     const [saved, setSaved] = useState(false)
     const [orgName, setOrgName] = useState<string | null>(null)
+    const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
     const [confirmSubmit, setConfirmSubmit] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
@@ -63,6 +65,12 @@ export function OrderDetailPage() {
     useEffect(() => {
         if (order?.status !== 'DRAFT') return
         getMyOrganization().then((o) => setOrgName(o.name ?? '')).catch(() => undefined)
+    }, [order?.status, order?.id])
+
+    // 已报价/已确认：状态条要显示金额和交期，从报价接口取
+    useEffect(() => {
+        if (order?.status !== 'QUOTED' && order?.status !== 'CONFIRMED') return
+        getOrderQuote(order.id).then(setQuote).catch(() => setQuote(null))
     }, [order?.status, order?.id])
 
     // 「已保存」2 秒后自己消失
@@ -176,18 +184,38 @@ export function OrderDetailPage() {
                 />
             )}
 
+            {/* 状态条：一句话说明现在在等什么，右侧是这一步唯一需要做的事 */}
             {order.status === 'SUBMITTED' && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>{t.customer.orderDetail.submittedBanner}</Banner>
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{t.customer.orderDetail.statusSubmitted}</span>
+                        <Link to="/customer/quotes">{t.customer.orderDetail.statusViewQuotes}</Link>
+                    </span>
+                </Banner>
             )}
             {order.status === 'QUOTED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    {t.customer.orderDetail.quotedBanner}<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>{t.customer.orderDetail.quoteLink}</Link>
+                    <span className="bnr-row">
+                        <span>{quote
+                            ? t.customer.orderDetail.statusQuoted(
+                                `${quote.currency === 'EUR' ? '€' : '¥'}${quote.total ?? 0}`, quote.leadDays)
+                            : t.customer.orderDetail.quotedBanner}</span>
+                        <Link className="btn sm" to={`/customer/quotes/${order.id}`}>
+                            {t.customer.orderDetail.statusConfirmQuote}
+                        </Link>
+                    </span>
                 </Banner>
             )}
             {order.status === 'CONFIRMED' && (
                 <Banner tone="ok" style={{ marginBottom: 14 }}>
-                    {t.customer.orderDetail.confirmedBanner}<Link to={`/customer/quotes/${order.id}`} style={{ marginLeft: 6 }}>{t.customer.orderDetail.quoteLink}</Link>
+                    <span className="bnr-row">
+                        <span>{t.customer.orderDetail.statusConfirmed}</span>
+                        <Link to={`/customer/quotes/${order.id}`}>{t.customer.orderDetail.statusQuoteDetail}</Link>
+                    </span>
                 </Banner>
+            )}
+            {order.status === 'READY' && (
+                <Banner tone="ok" style={{ marginBottom: 14 }}>{t.customer.orderDetail.statusReady}</Banner>
             )}
             {order.status === 'CANCELLED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.cancelledBanner}</Banner>

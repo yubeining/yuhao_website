@@ -8,8 +8,12 @@ import com.mfg.domain.order.QuotableOrder;
 import com.mfg.platform.fx.FxRateService;
 import com.mfg.platform.fx.FxRateView;
 import com.mfg.platform.identity.Organization;
+import com.mfg.platform.identity.ExternalUserRepository;
 import com.mfg.platform.identity.OrganizationRepository;
+import com.mfg.platform.notification.NotificationRequest;
+import com.mfg.platform.notification.NotificationService;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -53,15 +57,23 @@ class QuoteService {
     private final OrderQuoting orders;
     private final FxRateService fxRates;
     private final OrganizationRepository organizations;
+    private final ExternalUserRepository externalUsers;
+    private final NotificationService notifications;
+    private final QuoteEmailTemplate emailTemplate;
 
     QuoteService(QuoteRepository quotes, QuoteLineRepository quoteLines, CustomerMarkupRepository markups,
-                 OrderQuoting orders, FxRateService fxRates, OrganizationRepository organizations) {
+                 OrderQuoting orders, FxRateService fxRates, OrganizationRepository organizations,
+                 ExternalUserRepository externalUsers, NotificationService notifications,
+                 QuoteEmailTemplate emailTemplate) {
         this.quotes = quotes;
         this.quoteLines = quoteLines;
         this.markups = markups;
         this.orders = orders;
         this.fxRates = fxRates;
         this.organizations = organizations;
+        this.externalUsers = externalUsers;
+        this.notifications = notifications;
+        this.emailTemplate = emailTemplate;
     }
 
     /** 运营填的一行原价。 */
@@ -114,7 +126,39 @@ class QuoteService {
         }
         quoteLines.saveAllAndFlush(lines);
         orders.markQuoted(order.customerOrgId(), orderId);
+        notifyQuoteSent(order.customerOrgId(), orderId, leadDays, currency);
         return opsView(quote, lines, latestFx().orElse(null));
+    }
+
+    /**
+     * 报价发出后给客户发邮件。
+     *
+     * <p>★ 走 {@code notifications.notify}（事务提交后异步发）：发信失败不该让运营的报价失败，
+     * 也不该在事务里等外部服务。收件人取该组织第一个可用成员 —— 现在没有"主联系人"这个概念。
+     * ★ 金额这里不写死：SENT 状态的价是按最新汇率现算的，邮件里就写当时的试算价，正文里注明以门户为准。
+     */
+    private void notifyQuoteSent(UUID customerOrgId, UUID orderId, int leadDays, Quote.Currency currency) {
+        externalUsers.findByOrgId(customerOrgId, PageRequest.of(0, 1)).stream()
+                .filter(u -> u.getStatus() == com.mfg.platform.identity.ExternalUser.Status.ACTIVE)
+                .findFirst()
+                .ifPresent(user -> {
+                    String amount = customerViewAmount(orderId, currency);
+                    String orderTitle = orderTitleOf(customerOrgId, orderId);
+                    String[] mail = emailTemplate.render(user.getLocale(), orderTitle, amount,
+                            currency.name(), leadDays);
+                    notifications.notify(NotificationRequest.email(user.getEmail(), mail[0], mail[1]));
+                });
+    }
+
+    private String customerViewAmount(UUID orderId, Quote.Currency currency) {
+        return quotes.findByCustomerOrderIdAndStatus(orderId, Quote.Status.SENT)
+                .map(q -> customerView(q, linesOf(q), null))
+                .map(v -> v.total() == null ? "-" : v.total().toPlainString())
+                .orElse("-");
+    }
+
+    private String orderTitleOf(UUID customerOrgId, UUID orderId) {
+        return orders.titles(customerOrgId, java.util.List.of(orderId)).getOrDefault(orderId, "-");
     }
 
     /** 发出前试算：同样的校验，用当前加成率和最新汇率算，不落库。 */
