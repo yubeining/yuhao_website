@@ -1,10 +1,12 @@
 /**
- * 个人资料。三端共用，挂在各自的前缀下（/customer/profile 等）。
+ * 账号设置。三端共用，挂在各自的前缀下（/customer/settings 等）。
  *
- * ★ 两态：查看态只读（文字），点「编辑」才进入编辑态，改完「保存」回查看态。
+ * ★ 个人资料和设置合并成一页（2026-11-15）：原来两页各只有一点内容，
+ *   用户得记住"改昵称去哪、换主题去哪"。现在按段分组，以后加通知/安全就往下加。
+ * ★ 两态：资料卡查看态只读（文字），点「编辑」才进编辑态。
  *   查看态不用 disabled 输入框表达只读 —— 那是一堆看起来"本来能改"的灰框。
- * ★ 只有昵称可改：邮箱是登录标识（换绑要先证明新旧邮箱都归本人），
- *   身份由组织类型推出，注册时间不可变。
+ * ★ 偏好（语言/主题）即时生效，不需要保存按钮。
+ * ★ 只有昵称/公司/国家可改：邮箱是登录标识，身份由组织类型推出，注册时间不可变。
  * ★ 保存后写回 session，顶栏昵称立刻变，不用重新登录。
  */
 
@@ -16,6 +18,7 @@ import { Field, FieldRow, Input } from '../components/form'
 import { CountrySelect } from '../components/CountrySelect'
 import { countryName } from '../i18n/countries'
 import { useMock } from '../mock/MockProvider'
+import { useI18n } from '../i18n/I18nProvider'
 import { useSession } from '../auth/useSession'
 import { setSession } from '../auth/session'
 import { getMyProfile, updateMyNickname, type MyProfile } from '../services/auth'
@@ -31,8 +34,9 @@ const PARTY_LABEL = (t: ReturnType<typeof useMock>['t']) => ({
 /** 只取日期部分：注册时间不需要时分秒。 */
 const day = (iso: string) => (iso ? iso.slice(0, 10) : '—')
 
-export function ProfilePage() {
-    const { t, lang } = useMock()
+export function AccountSettingsPage() {
+    const { t, theme, setTheme } = useMock()
+    const { lang, setLang, t: ti } = useI18n()
     const session = useSession()
     const p = t.profile
 
@@ -141,7 +145,7 @@ export function ProfilePage() {
 
     return (
         <Page>
-            <Hello title={p.title} />
+            <Hello title={ti.account.title} />
 
             <Card style={{ maxWidth: 720 }}>
                 <CardHead
@@ -211,6 +215,33 @@ export function ProfilePage() {
                         }
                     />
                 )}
+            </Card>
+
+            {/* 偏好：点了就生效，不需要保存 */}
+            <Card style={{ maxWidth: 720, marginTop: 18 }}>
+                <CardHead title={t.account.preferences} />
+                <CardBody>
+                    <div className="setrow">
+                        <span className="k">{t.account.language}</span>
+                        <div className="seg">
+                            {/* i18n-exempt-start: 语言名用各自的语言写，不翻译（中文 / English） */}
+                            <button type="button" className={lang === 'zh' ? 'on' : ''}
+                                onClick={() => setLang('zh')}>中文</button>
+                            <button type="button" className={lang === 'en' ? 'on' : ''}
+                                onClick={() => setLang('en')}>English</button>
+                            {/* i18n-exempt-end */}
+                        </div>
+                    </div>
+                    <div className="setrow">
+                        <span className="k">{t.misc.appearance}</span>
+                        <div className="seg">
+                            <button type="button" className={theme === 'light' ? 'on' : ''}
+                                onClick={() => setTheme('light')}>{t.misc.light}</button>
+                            <button type="button" className={theme === 'dark' ? 'on' : ''}
+                                onClick={() => setTheme('dark')}>{t.misc.dark}</button>
+                        </div>
+                    </div>
+                </CardBody>
             </Card>
         </Page>
     )

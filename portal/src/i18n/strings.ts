@@ -227,6 +227,7 @@ export interface Strings {
     /** 日期选择器。只有「选择 / 清除 / 今天」三个词，其他都靠浏览器本地化。 */
     datePicker: { placeholder: string; clear: string; today: string }
     /** 个人资料页。只有昵称可改，其余只读。 */
+    account: { title: string; preferences: string; language: string }
     profile: {
         title: string; basic: string; nickname: string; email: string; role: string
         joined: string; edit: string; save: string; cancel: string; saved: string
@@ -240,7 +241,7 @@ export interface Strings {
     }
     /** 导航与外壳。三端共用，所以按端分组，不要混成一锅。 */
     nav: {
-        settings: string; signOut: string; profile: string
+        settings: string; signOut: string
         defaultUser: string; supplierFallback: string
         customer: { orders: string; quotes: string }
         supplier: {
@@ -652,6 +653,7 @@ export const STRINGS: Record<Lang, Strings> = {
         cancelReason: { WITHDRAWN: '供应商退单', REVOKED: '运营收回', SIGN_TIMEOUT: '超时未签字' },
     },
     datePicker: { placeholder: '选择日期', clear: '清除', today: '今天' },
+    account: { title: '账号设置', preferences: '偏好', language: '界面语言' },
     profile: {
         title: '个人资料', basic: '基本信息', nickname: '昵称', company: '公司名称', country: '国家/地区',
         companyMissing: '公司信息未完善，提交订单前需要填写', companyFill: '去填写',
@@ -665,7 +667,7 @@ export const STRINGS: Record<Lang, Strings> = {
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
     },
         nav: {
-            settings: '设置', signOut: '退出登录', profile: '个人资料',
+            settings: '设置', signOut: '退出登录',
             defaultUser: '用户', supplierFallback: '供应商',
             customer: { orders: '我的订单', quotes: '我的报价' },
             supplier: {
@@ -1188,6 +1190,7 @@ export const STRINGS: Record<Lang, Strings> = {
         cancelReason: { WITHDRAWN: 'Withdrawn by supplier', REVOKED: 'Withdrawn by us', SIGN_TIMEOUT: 'Signature timeout' },
     },
     datePicker: { placeholder: 'Pick a date', clear: 'Clear', today: 'Today' },
+    account: { title: 'Account settings', preferences: 'Preferences', language: 'Language' },
     profile: {
         title: 'Profile', basic: 'Basic information', nickname: 'Nickname', company: 'Company name', country: 'Country / region',
         companyMissing: 'Company details are incomplete — fill them in before submitting an order',
@@ -1202,7 +1205,7 @@ export const STRINGS: Record<Lang, Strings> = {
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
     },
         nav: {
-            settings: 'Settings', signOut: 'Sign out', profile: 'Profile',
+            settings: 'Settings', signOut: 'Sign out',
             defaultUser: 'User', supplierFallback: 'Supplier',
             customer: { orders: 'Orders', quotes: 'Quotes' },
             supplier: {
