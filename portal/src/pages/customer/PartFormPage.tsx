@@ -165,6 +165,22 @@ export function PartFormPage() {
         }
     }
 
+    /** 有未保存改动时点返回先确认，避免直接丢输入。 */
+    const dirty = !isNew && !!line && (
+        f.name.trim() !== line.partName.trim()
+        || Number(f.qty) !== line.quantity
+        || f.mat.trim() !== (line.material ?? '').trim()
+        || f.surf.trim() !== (line.surfaceTreatment ?? '').trim()
+    )
+    const hasInput = isNew && (
+        !!f.code.trim() || !!f.name.trim() || !!f.mat.trim() || !!f.surf.trim() || queued.length > 0
+    )
+
+    const backOut = () => {
+        if ((dirty || hasInput) && !window.confirm(t.customer.partForm.discardConfirm)) return
+        navigate(`/customer/orders/${id}`)
+    }
+
     const save = async () => {
         const qty = Number(f.qty)
         if (!f.code.trim() || !f.name.trim() || !Number.isInteger(qty) || qty < 1) {
@@ -251,9 +267,10 @@ export function PartFormPage() {
         <Page>
             <Hello
                 back={<Link className="btn sm qui" to={`/customer/orders/${order.id}`}
-                    style={{ margin: '0 0 6px -9px' }}>← {order.title || t.common.untitledOrder}</Link>}
+                    title={order.title || t.common.untitledOrder}
+                    style={{ margin: '0 0 6px -9px' }}>← {t.customer.partForm.backToOrder}</Link>}
                 title={isNew ? t.customer.partForm.titleNew : draft ? t.customer.partForm.titleEdit : (line?.partName ?? t.customer.partForm.titlePart)}
-                sub={line ? t.customer.partForm.versionOnly(line.revision.revNo) : undefined}
+                sub={line ? `${line.code} · ${t.customer.partForm.versionOnly(line.revision.revNo)}` : undefined}
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
@@ -274,17 +291,15 @@ export function PartFormPage() {
 
                     {draft ? (
                         <>
-                            <FieldRow cols={3}>
-                                <Field label={isNew ? t.customer.partForm.fldCode : t.customer.partForm.fldCodeReadonly}>
-                                    {isNew
-                                        ? <>
-                                            <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
-                                            {/* ★ 图号是零件身份：重复使用会复用已有零件，必须写出来 */}
-                                            <div className="fnote" style={{ marginTop: 6 }}>{t.customer.partForm.codeHint}</div>
-                                        </>
-                                        // 图号决定挂哪个零件，加进订单后不能改：只显示，不放一个打字没反应的输入框
-                                        : <div className="ro" style={{ color: 'var(--muted)' }}>{f.code}</div>}
-                                </Field>
+                            <FieldRow cols={isNew ? 3 : 2}>
+                                {/* 图号只在新增时可填；已有零件的图号已经在标题下方，不再占一个字段 */}
+                                {isNew && (
+                                    <Field label={t.customer.partForm.fldCode}>
+                                        <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
+                                        {/* ★ 图号是零件身份：重复使用会复用已有零件，必须写出来 */}
+                                        <div className="fnote" style={{ marginTop: 6 }}>{t.customer.partForm.codeHint}</div>
+                                    </Field>
+                                )}
                                 <Field label={`${t.common.table.name} *`}><Input value={f.name} onChange={set('name')} /></Field>
                                 <Field label={t.customer.quotes.colQty + " *"}><Stepper value={f.qty} onChange={set('qty')} placeholder="" width={170} /></Field>
                             </FieldRow>
@@ -359,7 +374,14 @@ export function PartFormPage() {
                             </div>
                         )}
 
-                        <div className="fnote" style={{ marginTop: 9 }}>{t.customer.partForm.drawingHint}</div>
+                        <div className="fnote" style={{ marginTop: 9 }}>
+                            {(() => {
+                                const uploaded = line?.revision.files.length ?? 0
+                                if (uploaded > 0) return t.customer.partForm.drawingUploadedCount(uploaded)
+                                if (queued.length > 0) return t.customer.partForm.drawingQueuedCount(queued.length)
+                                return t.customer.partForm.drawingMissing
+                            })()}
+                        </div>
 
                         {uploads.map((u) => (
                             <div className="fileRow" key={u.key}>
@@ -375,10 +397,10 @@ export function PartFormPage() {
                 </CardBody>
                 {draft && (
                     <CardFoot
-                        left={<Link className="btn" to={`/customer/orders/${order.id}`}>{isNew ? t.customer.partForm.cancel : t.customer.partForm.backToOrder}</Link>}
+                        left={<button className="btn" type="button" onClick={backOut}>{isNew ? t.customer.partForm.cancel : t.customer.partForm.backToOrder}</button>}
                         right={<>
                             {isNew && <span className="fnote" style={{ marginRight: 12 }}>{t.customer.partForm.addHint}</span>}
-                            <button className="btn pri" type="button" onClick={save} disabled={busy}>
+                            <button className="btn pri" type="button" onClick={save} disabled={busy || (!isNew && !dirty)}>
                                 {isNew ? t.customer.partForm.addToOrder : t.customer.partForm.saveEdit}
                             </button>
                         </>}
