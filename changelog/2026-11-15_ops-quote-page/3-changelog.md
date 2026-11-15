@@ -45,3 +45,14 @@
 headers = # | PART | MATERIAL | FINISHING | QTY | DRAWING | BASE ¥/PC | CUSTOMER UNIT PRICE
 row     = 法兰盘 / 31 | 铝合金 6061 | 阳极氧化 | 1 | View | [ ] | —
 ```
+
+## 再补：图号独立成列
+
+运营反馈：「图号也单独一列」。表格列最终为：
+
+`# / 图号 / 零件 / 材料 / 表面处理 / 数量 / 图纸 / 原价 / 对客单价`
+
+```
+headers = # | DRAWING NO. | PART | MATERIAL | FINISHING | QTY | DRAWING | BASE ¥/PC | CUSTOMER UNIT PRICE
+row     = 1 | 31 | 法兰盘 | 铝合金 6061 | 阳极氧化 | 1 | View | [ ] | —
+```

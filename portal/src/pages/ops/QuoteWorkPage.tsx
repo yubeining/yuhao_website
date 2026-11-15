@@ -190,7 +190,7 @@ export function OpsQuoteWorkPage() {
                     <TableWrap>
                         <thead>
                             <tr>
-                                <th className="n">#</th><th>{t.quoteWork.colPart}</th>
+                                <th className="n">#</th><th>{t.customer.orderDetail.colCode}</th><th>{t.quoteWork.colPart}</th>
                                 <th>{t.quoteWork.colMaterial}</th><th>{t.quoteWork.colSurface}</th>
                                 <th className="n">{t.customer.quotes.colQty}</th><th>{t.customer.orderDetail.colDrawing}</th>
                                 <th>{t.quoteWork.colBasePrice}</th><th className="n">{t.quoteWork.colUnit}</th>
@@ -204,11 +204,9 @@ export function OpsQuoteWorkPage() {
                                 return (
                                     <tr key={l.id}>
                                         <td className="n">{i + 1}</td>
-                                        <td className="t1">
-                                            {l.partName}
-                                            {/* 版本号运营不需要：报价只按零件和数量算，图纸版本是客户侧的事 */}
-                                            <div className="t2 m">{l.code}</div>
-                                        </td>
+                                        {/* 图号单独一列；版本号运营不需要（报价只按零件和数量算） */}
+                                        <td className="m">{l.code}</td>
+                                        <td className="t1">{l.partName}</td>
                                         <td>{l.material || X}</td>
                                         <td>{l.surfaceTreatment || X}</td>
                                         <td className="n">{l.quantity}</td>
