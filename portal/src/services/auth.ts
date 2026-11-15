@@ -49,10 +49,10 @@ export function opsLogin(account: string, password: string): Promise<TokenRespon
  *
  * 建出来的账号没有密码 —— 以后只能用验证码登录。显示名是邮箱前缀（后端生成）。
  */
-export function registerWithCode(email: string, code: string): Promise<TokenResponse> {
+export function registerWithCode(email: string, code: string, orgName?: string): Promise<TokenResponse> {
     return publicRequest<TokenResponse>('/auth/register/otp', {
         method: 'POST',
-        body: { email, code },
+        body: { email, code, orgName },
     })
 }
 

@@ -57,7 +57,9 @@ public class ExternalAuthController {
 
     public record RegisterByCodeRequest(
             @NotBlank @Size(max = 320) String email,
-            @NotBlank @Size(max = 6) String code) {
+            @NotBlank @Size(max = 6) String code,
+            /* 公司名：注册时收，因为它是账号主体（报价/合同抬头）。老客户端不传也能注册，之后在设置里补。 */
+            @Size(max = 200) String orgName) {
     }
 
     /**
@@ -74,7 +76,7 @@ public class ExternalAuthController {
     @PostMapping("/register/otp")
     public TokenResponse registerWithCode(@Valid @RequestBody RegisterByCodeRequest request) {
         String email = otpService.verifyRegistration(OtpChannel.EMAIL, request.email(), request.code());
-        identityService.registerVerifiedEmail(email);
+        identityService.registerVerifiedEmail(email, request.orgName());
         AuthService.Authenticated account = authService.findExternalByEmail(email)
                 .orElseThrow(() -> new BusinessException(500, "common.internal_error"));
         authService.markEmailVerified(account.principal().id(), Instant.now());
