@@ -354,7 +354,7 @@ export interface Strings {
             lockedBanner: string; cancelledBanner: string
             leadDays: (n: number) => string
             quoteTitle: string; requoteTitle: string; fillQuote: string
-            colPart: string; colMaterialSurface: string; colBasePrice: string
+            colPart: string; colMaterial: string; colSurface: string; colBasePrice: string
             colUnit: string
             context: (parts: number, qty: number, wanted: string, submitted: string) => string
             viewDrawing: string; viewDrawings: (n: number) => string
@@ -799,7 +799,7 @@ export const STRINGS: Record<Lang, Strings> = {
             quoteTitle: '零件', requoteTitle: '重新报价', fillQuote: '填报价',
             needMarkup: '这个客户还没设加成率',
             resendBtn: '重新发出', sendBtn: '发出报价',
-            colPart: '零件', colMaterialSurface: '材料 / 表面处理', colBasePrice: '原价 ¥/件',
+            colPart: '零件', colMaterial: '材料', colSurface: '表面处理', colBasePrice: '原价 ¥/件',
             colUnit: '对客单价',
             context: (parts, qty, wanted, submitted) =>
                 `${parts} 个零件 · 共 ${qty} 件${wanted ? ` · 期望交期 ${wanted}` : ''} · 提交于 ${submitted}`,
@@ -1328,7 +1328,7 @@ export const STRINGS: Record<Lang, Strings> = {
             cancelledBanner: 'The order was cancelled and cannot be quoted.',
             leadDays: (n) => `${n} days (reference)`,
             quoteTitle: 'Parts', requoteTitle: 'Re-quote', fillQuote: 'Enter quote',
-            colPart: 'Part', colMaterialSurface: 'Material / finishing', colBasePrice: 'Base ¥/pc',
+            colPart: 'Part', colMaterial: 'Material', colSurface: 'Finishing', colBasePrice: 'Base ¥/pc',
             context: (parts, qty, wanted, submitted) =>
                 `${parts} part${parts === 1 ? '' : 's'} · ${qty} pc${qty === 1 ? '' : 's'}${wanted ? ` · wanted ${wanted}` : ''} · submitted ${submitted}`,
             viewDrawing: 'View', viewDrawings: (n) => `View (${n})`,
