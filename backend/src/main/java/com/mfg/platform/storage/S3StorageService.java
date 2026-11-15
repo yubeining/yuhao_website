@@ -180,6 +180,24 @@ public class S3StorageService implements StorageService {
     }
 
     @Override
+    public URI presignedPreview(String key, Duration ttl, String contentType) {
+        try {
+            GetObjectPresignRequest presign = GetObjectPresignRequest.builder()
+                    .signatureDuration(ttl)
+                    .getObjectRequest(GetObjectRequest.builder()
+                            .bucket(bucket)
+                            .key(key)
+                            .responseContentDisposition("inline")
+                            .responseContentType(contentType)
+                            .build())
+                    .build();
+            return presigner.presignGetObject(presign).url().toURI();
+        } catch (Exception e) {
+            throw new StorageException("presign preview failed for key " + key, e);
+        }
+    }
+
+    @Override
     public String provider() {
         return "s3";
     }

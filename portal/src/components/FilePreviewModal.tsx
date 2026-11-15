@@ -33,6 +33,7 @@ export function FilePreviewModal({ name, url, kind, onClose, onDownload }: {
             <div className="fp-modal" onClick={(e) => e.stopPropagation()}>
                 <div className="fp-head">
                     <span className="fp-title" title={name}>{name}</span>
+                    <a className="btn sm qui" href={url} target="_blank" rel="noreferrer">{t.common.openInNewTab}</a>
                     <button className="btn sm" type="button" onClick={onDownload}>{t.customer.partForm.download}</button>
                     <button className="btn sm qui" type="button" onClick={onClose}>{t.common.close}</button>
                 </div>

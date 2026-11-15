@@ -117,7 +117,9 @@ class PartDrawingService {
         }
         // Content-Type 会被签进上传 URL，浏览器 PUT 时必须一字不差。浏览器对 .step 这类文件常给空串，
         // 所以服务端归一化，并在回执里明确告诉前端要带哪个。
-        String signedType = contentType == null || contentType.isBlank() ? DEFAULT_CONTENT_TYPE : contentType.trim();
+        String signedType = contentType == null || contentType.isBlank()
+                ? previewContentType(filename)
+                : contentType.trim();
         // 对象名服务端生成，不含客户文件名（设计文档 2 §5.1）
         String key = "drawing/" + UUID.randomUUID();
         PartFile file = files.save(new PartFile(revision.getId(), customerOrgId, key, filename, signedType, userId));
@@ -244,11 +246,28 @@ class PartDrawingService {
             throw BusinessException.conflict("part.file_not_completed");
         }
         Instant now = Instant.now();
-        String url = storage.presignedGet(file.getStorageKey(), signedUrlTtl).toString();
+        String url = storage.presignedPreview(file.getStorageKey(), signedUrlTtl,
+                previewContentType(file.getOriginalFilename())).toString();
         accessLog.save(new PartFileAccessLog(file.getId(), file.getPartRevisionId(), customerOrgId,
                 accessorUserId, accessorPartyType, accessorOrgId,
                 PartFileAccessLog.AccessType.SIGNED_URL_ISSUED, contextType, contextId, RequestContext.traceId(), now));
         return new ViewUrl(url, now.plus(signedUrlTtl));
+    }
+
+    /**
+     * 能内嵌渲染的扩展名 → Content-Type；其余一律 {@code application/octet-stream}（只下载）。
+     *
+     * <p>客户端声明的 {@code file.type} 不可靠：从网盘/微信下载来的 PDF 常常是空串，
+     * 存成 octet-stream 之后浏览器只会下载，不会渲染。
+     */
+    private static String previewContentType(String filename) {
+        String name = filename == null ? "" : filename.toLowerCase(java.util.Locale.ROOT);
+        if (name.endsWith(".pdf")) return "application/pdf";
+        if (name.endsWith(".png")) return "image/png";
+        if (name.endsWith(".jpg") || name.endsWith(".jpeg")) return "image/jpeg";
+        if (name.endsWith(".webp")) return "image/webp";
+        if (name.endsWith(".gif")) return "image/gif";
+        return DEFAULT_CONTENT_TYPE;
     }
 
     // ---------- 给订单域同包复用 ----------
