@@ -17,6 +17,9 @@ interface PartFileRepository extends JpaRepository<PartFile, UUID> {
 
     Optional<PartFile> findByIdAndCustomerOrgId(UUID id, UUID customerOrgId);
 
+    /** 硬删草稿用：这些版本下的所有文件（含 PENDING / REJECTED）。 */
+    List<PartFile> findByPartRevisionIdIn(Collection<UUID> partRevisionIds);
+
     List<PartFile> findByPartRevisionIdInAndCustomerOrgIdAndUploadStatusOrderByCreatedAtAsc(
             Collection<UUID> partRevisionIds, UUID customerOrgId, PartFile.UploadStatus uploadStatus);
 

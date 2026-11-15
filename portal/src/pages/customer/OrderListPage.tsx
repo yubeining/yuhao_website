@@ -12,7 +12,7 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDate } from '../../mock/format'
-import { cancelOrder, createOrder, listOrders, type OrderSummaryView } from '../../services'
+import { createOrder, deleteOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 
 export function OrderListPage() {
@@ -45,9 +45,9 @@ export function OrderListPage() {
         }
     }
 
-    const cancel = async (id: string) => {
+    const remove = async (id: string) => {
         try {
-            await cancelOrder(id)
+            await deleteOrder(id)
             await load()
         } catch (e) {
             setErr(errorText(t, e))
@@ -96,12 +96,12 @@ export function OrderListPage() {
                                         <td>{pill(orderSt(t)[o.status])}</td>
                                         <td style={{ textAlign: 'right' }}>
                                             {o.status === 'DRAFT' && (
-                                                <button className="btn qui sm" type="button"
+                                                <button className="linkbtn" type="button"
                                                     onClick={(e) => {
                                                         e.stopPropagation()
-                                                        // 取消没有撤销，点错就回不来
-                                                        if (window.confirm(t.customer.orders.cancelConfirm)) void cancel(o.id)
-                                                    }}>{t.customer.orders.cancelOrder}</button>
+                                                        // 真删，没有撤销；点错就回不来
+                                                        if (window.confirm(t.customer.orders.deleteConfirm)) void remove(o.id)
+                                                    }}>{t.customer.orders.deleteOrder}</button>
                                             )}
                                         </td>
                                     </tr>

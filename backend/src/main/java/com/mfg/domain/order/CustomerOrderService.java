@@ -4,12 +4,14 @@ import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
 import com.mfg.platform.identity.OrganizationRepository;
+import com.mfg.platform.storage.StorageService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.List;
@@ -40,6 +42,8 @@ import java.util.stream.Collectors;
 @Service
 class CustomerOrderService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerOrderService.class);
+
     private final CustomerOrderRepository orders;
     private final CustomerOrderPartRepository lines;
     private final PartDesignRepository parts;
@@ -47,11 +51,14 @@ class CustomerOrderService {
     private final PartFileRepository files;
     private final PartDrawingService drawings;
     private final OrganizationRepository organizations;
+    private final PartFileAccessLogRepository accessLogs;
+    private final StorageService storage;
 
     CustomerOrderService(CustomerOrderRepository orders, CustomerOrderPartRepository lines,
                          PartDesignRepository parts, PartRevisionRepository revisions,
                          PartFileRepository files, PartDrawingService drawings,
-                         OrganizationRepository organizations) {
+                         OrganizationRepository organizations,
+                         PartFileAccessLogRepository accessLogs, StorageService storage) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
@@ -59,6 +66,8 @@ class CustomerOrderService {
         this.files = files;
         this.drawings = drawings;
         this.organizations = organizations;
+        this.accessLogs = accessLogs;
+        this.storage = storage;
     }
 
     // ---------- 订单 ----------
@@ -147,6 +156,45 @@ class CustomerOrderService {
             throw BusinessException.conflict("order.not_draft");
         }
         return get(customerOrgId, orderId);
+    }
+
+    /**
+     * 删掉一张草稿（真删，不可恢复）。
+     *
+     * <p>草稿从未对外发出，留着只会在列表里堆垃圾 —— 所以是删，不是"取消"。
+     * 清理顺序：文件审计 → 对象存储里的图纸 → 文件行 → 版本 → 零件行 → 订单。
+     * 零件主数据（{@code part_design}）保留：它是这家客户自己的图号库，可能被别的订单复用。
+     *
+     * <p>对象存储删除是尽力而为：对象已经不在（或存储暂时不可用）不该让整个删除失败，
+     * 记录一行 warn 即可 —— 数据库里那条记录才是"这张草稿存在过"的唯一依据。
+     */
+    @Transactional
+    public void deleteDraft(UUID customerOrgId, UUID orderId) {
+        CustomerOrder order = requireDraft(customerOrgId, orderId);
+        List<CustomerOrderPart> rows =
+                lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, customerOrgId);
+        List<UUID> revisionIds = rows.stream()
+                .map(CustomerOrderPart::getPartRevisionId)
+                .filter(java.util.Objects::nonNull)
+                .toList();
+        if (!revisionIds.isEmpty()) {
+            List<PartFile> fileRows = files.findByPartRevisionIdIn(revisionIds);
+            if (!fileRows.isEmpty()) {
+                accessLogs.deleteByPartFileIdIn(fileRows.stream().map(PartFile::getId).toList());
+                for (PartFile f : fileRows) {
+                    try {
+                        storage.delete(f.getStorageKey());
+                    } catch (RuntimeException e) {
+                        log.warn("failed to delete drawing object while deleting draft: fileId={} key={}",
+                                f.getId(), f.getStorageKey(), e);
+                    }
+                }
+                files.deleteAll(fileRows);
+            }
+            revisions.deleteAllById(revisionIds);
+        }
+        lines.deleteByCustomerOrderId(orderId);
+        orders.delete(order);
     }
 
     // ---------- 零件行 ----------
