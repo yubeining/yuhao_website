@@ -147,19 +147,10 @@ export function OrderDetailPage() {
                         {/* ★ 按钮名固定「提交订单」：原因属于说明，不该被写成按钮文案 */}
                         {draft && (
                             <>
-                                {!canSubmit && (
+                                {!canSubmit && order.lines.length === 0 && (
                                     <span className="t2" style={{ color: 'var(--muted)' }}>
-                                        {order.lines.length === 0
-                                            ? t.customer.orderDetail.needParts
-                                            : noDrawing > 0
-                                                ? t.customer.orderDetail.needDrawings(noDrawing)
-                                                : t.customer.orderDetail.needCompany}
+                                        {t.customer.orderDetail.needParts}
                                     </span>
-                                )}
-                                {draft && missingCompany && order.lines.length > 0 && noDrawing === 0 && (
-                                    <button className="btn sm" type="button" onClick={() => setCompanyModal(true)}>
-                                        {t.customer.orderDetail.fillCompany}
-                                    </button>
                                 )}
                                 <button className="btn pri" type="button" onClick={submit} disabled={!canSubmit || busy}>
                                     {t.customer.orderDetail.submit}
@@ -179,6 +170,16 @@ export function OrderDetailPage() {
             )}
             {draft && noDrawing > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
+            )}
+            {draft && missingCompany && noDrawing === 0 && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{t.customer.orderDetail.needCompany}</span>
+                        <button className="btn sm" type="button" onClick={() => setCompanyModal(true)}>
+                            {t.customer.orderDetail.fillCompany}
+                        </button>
+                    </span>
+                </Banner>
             )}
             {order.status === 'SUBMITTED' && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>{t.customer.orderDetail.submittedBanner}</Banner>

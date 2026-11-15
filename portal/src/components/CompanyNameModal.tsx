@@ -42,7 +42,7 @@ export function CompanyNameModal({ onClose, onSaved }: {
     return (
         <div className="fp-overlay" onClick={onClose}>
             <div className="cnm" onClick={(e) => e.stopPropagation()}>
-                <div className="cnm-h">{t.misc.companyInfo}</div>
+                <div className="cnm-h">{t.misc.companyName}</div>
                 <div className="cnm-b">
                     <Field label={t.misc.companyName} required>
                         <Input value={name} onChange={(v) => { setName(v); setErr(null) }} />

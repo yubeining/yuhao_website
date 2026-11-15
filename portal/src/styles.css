@@ -745,3 +745,6 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .cnm-h{padding:14px 18px;border-bottom:1px solid var(--line);font-size:14px;font-weight:600;}
 .cnm-b{padding:16px 18px;}
 .cnm-f{display:flex;justify-content:flex-end;gap:10px;padding:12px 18px;border-top:1px solid var(--line);}
+
+/* Banner 里的「说明 + 动作」一行 */
+.bnr-row{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;}

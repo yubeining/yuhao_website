@@ -450,8 +450,8 @@ export const STRINGS: Record<Lang, Strings> = {
             submit: '提交订单',
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
             needParts: '先添加至少一个零件',
-            needCompany: '请先补全公司名称',
-            fillCompany: '补全',
+            needCompany: '提交前还需补全公司名称，它会显示在报价单与合同上。',
+            fillCompany: '填写公司名称',
         },
         partForm: {
             uploadFailed: '上传失败',
@@ -648,7 +648,7 @@ export const STRINGS: Record<Lang, Strings> = {
         backHome: '回首页',
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
         companyInfo: '公司信息', companyName: '公司名称',
-        companyNameHint: '注册时没有收集。报价单、合同和发票都要用，提交订单前请补上。',
+        companyNameHint: '会显示在报价单、合同和发票上。',
         companySaved: '公司名称已保存',
     },
         nav: {
@@ -977,8 +977,8 @@ export const STRINGS: Record<Lang, Strings> = {
             submit: 'Submit order',
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
             needParts: 'Add a part first',
-            needCompany: 'Complete your company name first',
-            fillCompany: 'Fill in',
+            needCompany: 'Your company name is required before submitting; it appears on quotes and contracts.',
+            fillCompany: 'Add company name',
         },
         partForm: {
             uploadFailed: 'Upload failed',
@@ -1176,7 +1176,7 @@ export const STRINGS: Record<Lang, Strings> = {
         backHome: 'Back to home',
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
         companyInfo: 'Company', companyName: 'Company name',
-        companyNameHint: 'Not collected at sign-up. It appears on quotes, contracts and invoices — please fill it in before submitting an order.',
+        companyNameHint: 'Shown on quotes, contracts and invoices.',
         companySaved: 'Company name saved',
     },
         nav: {
