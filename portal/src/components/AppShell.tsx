@@ -159,9 +159,10 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
                     <div className="sec" key={`sec-${i}`}>{it.sec}</div>
                 ) : (
                     <div key={it.to}>
-                        <NavLink to={it.to!} end={it.to === '/customer'} className="it">
+                        {/* title：窄屏收成图标栏时，靠悬停看名称 */}
+                        <NavLink to={it.to!} end={it.to === '/customer'} className="it" title={it.n}>
                             <span className="ic">{it.ic}</span>
-                            {it.n}
+                            <span className="lb">{it.n}</span>
                             {it.cnt ? <span className={`cnt${it.hot ? ' hot' : ''}`}>{it.cnt}</span> : null}
                         </NavLink>
                         {it.children && (
@@ -176,8 +177,8 @@ function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string 
             )}
             {settingsTo && (
                 <div className="navfoot">
-                    <NavLink to={settingsTo} className="it">
-                        <span className="ic">⚙</span>{t.nav.settings}
+                    <NavLink to={settingsTo} className="it" title={t.nav.settings}>
+                        <span className="ic">⚙</span><span className="lb">{t.nav.settings}</span>
                     </NavLink>
                 </div>
             )}
@@ -205,7 +206,8 @@ export function CustomerShell({ children }: { children: ReactNode }) {
     useEffect(() => {
         const load = () => getMyOrganization()
             .then((o) => { setSub(o.name); setOrgName(o.name ?? '') })
-            .catch(() => setOrgName(''))
+            // ★ 读失败 ≠ 公司名为空：失败时保持 null（不提示），只有真读到空名才说「未完善」
+            .catch(() => setOrgName(null))
         void load()
         // 资料页补完公司名后通知这里，提示条立即消失
         const onUpdated = () => void load()
@@ -217,7 +219,7 @@ export function CustomerShell({ children }: { children: ReactNode }) {
     const notice = orgName === '' ? (
         <div className="appnotice">
             <span>{t.profile.companyMissing}</span>
-            <button className="linkbtn" type="button" onClick={() => navigate('/customer/profile')}>
+            <button className="linkbtn" type="button" onClick={() => navigate('/customer/settings')}>
                 {t.profile.companyFill}
             </button>
         </div>
@@ -233,10 +235,8 @@ export function CustomerShell({ children }: { children: ReactNode }) {
 const supplierNav = (t: Strings): NavItem[] => [
     { sec: t.nav.supplier.accept },
     { to: '/supplier/orders', ic: '▣', n: t.nav.supplier.orders },
-    { sec: t.nav.supplier.settlement },
-    { to: '/supplier/bill', ic: '¥', n: t.nav.supplier.bill },
-    { sec: t.nav.supplier.company },
-    { to: '/supplier/profile', ic: '⌂', n: t.nav.supplier.profile },
+    // 「对账与开票」「企业资料」暂时下线（2026-11-17 需求方定）：两页读的是 mock，
+    // 上传发票只改浏览器内存、银行账号和信用代码是编的。后端有了再放回来，页面代码还在。
 ]
 
 const supplierAreas = (t: Strings): AreaTab[] => [

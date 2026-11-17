@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Banner, Card, CardBody, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap } from '../../components/ui'
+import { Banner, Card, CardBody, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, X } from '../../mock/format'
@@ -75,9 +75,9 @@ export function OpsProductionPage() {
     return (
         <Page>
             <Hello title={t.ops.production.title} sub={t.ops.production.sub} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && orders !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {orders === null ? (
-                <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
+                <Card><CardBody><Pending err={err} onRetry={() => void load(page)} /></CardBody></Card>
             ) : orders.length === 0 ? (
                 <Card><CardBody><Empty text={t.ops.production.empty} sub={t.ops.production.emptySub} /></CardBody></Card>
             ) : <>
@@ -136,7 +136,7 @@ export function OpsProductionPage() {
                 </Card>
             ))}
             <Card><Pagination page={page} pageSize={20} total={total}
-                onChange={(p) => { setPage(p); void load(p) }} /></Card>
+                onChange={setPage} /></Card>
             </>
         }
             {confirmDialog}

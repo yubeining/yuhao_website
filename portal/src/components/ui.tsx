@@ -130,6 +130,23 @@ export function Empty({ text, sub, action }: { text: string; sub?: string; actio
     )
 }
 
+/**
+ * 数据还没到手时的占位：没出错 = 加载中；出错 = 错误文案 + 重试（+ 可选的返回链接）。
+ *
+ * ★ 以前各页写的是 `data === null ? <Empty text={loading}/>`，加载失败后 data 仍是 null，
+ *   于是错误横幅下面永远挂着「加载中…」，在不稳的网络上看起来像卡死。
+ */
+export function Pending({ err, onRetry, back }: { err: string | null; onRetry: () => void; back?: ReactNode }) {
+    const { t } = useI18n()
+    if (!err) return <Empty text={t.common.loading} />
+    return (
+        <Empty text={err} action={<>
+            <button className="btn" type="button" onClick={onRetry}>{t.common.retry}</button>
+            {back && <span style={{ marginLeft: 8 }}>{back}</span>}
+        </>} />
+    )
+}
+
 /* ── 提示条 ───────────────────────────────────────────────────────── */
 
 export function Banner({ tone, icon, children, style }: {
@@ -139,7 +156,7 @@ export function Banner({ tone, icon, children, style }: {
     style?: CSSProperties
 }) {
     return (
-        <div className={`ban ${tone}`} style={style}>
+        <div className={`ban ${tone}`} style={style} role={tone === 'wa' ? 'alert' : undefined}>
             <span className="bi">{icon || (tone === 'wa' ? '!' : tone === 'ok' ? '✓' : 'i')}</span>
             <div>{children}</div>
         </div>

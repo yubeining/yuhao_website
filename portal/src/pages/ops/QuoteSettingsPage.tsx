@@ -13,7 +13,7 @@ import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardHead, Empty, Hello, Page, TableWrap,
+    Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -82,7 +82,7 @@ export function OpsQuoteSettingsPage() {
     return (
         <Page>
             <Hello title={q.title} sub={q.sub} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && companies !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={q.defaultTitle} right={
@@ -100,7 +100,9 @@ export function OpsQuoteSettingsPage() {
                 <CardHead title={q.companiesTitle} rid={companies ? q.companyCount(total) : undefined}
                     right={<Link className="linkbtn" to="/ops/accounts/orgs">{q.manageCompanies}</Link>} />
                 <CardBody flush>
-                    {companies?.length ? (
+                    {companies === null ? (
+                        <Pending err={err} onRetry={() => void load(page)} />
+                    ) : companies.length ? (
                         <TableWrap>
                             <thead>
                                 <tr><th>{q.colCompany}</th><th className="n">{q.colRate}</th></tr>
@@ -123,7 +125,7 @@ export function OpsQuoteSettingsPage() {
                         <Empty text={q.empty} sub={q.emptySub} />
                     )}
                     <Pagination page={page} pageSize={PAGE_SIZE} total={total}
-                        onChange={(p) => { setPage(p); void load(p) }} />
+                        onChange={setPage} />
                 </CardBody>
             </Card>
 

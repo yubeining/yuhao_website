@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -55,7 +55,7 @@ export function HallDetailPage() {
         )
     }
     if (!offer) {
-        return <Page><Card><CardBody><Empty text={err ?? t.common.loading} /></CardBody></Card></Page>
+        return <Page><Card><CardBody><Pending err={err} onRetry={() => void load()} back={back} /></CardBody></Card></Page>
     }
 
     const priceOf = (lineId: string) => price?.lines.find((l) => l.lineId === lineId)

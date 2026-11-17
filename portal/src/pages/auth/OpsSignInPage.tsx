@@ -62,11 +62,11 @@ export function OpsSignInPage() {
                     </div>
 
                     <Field label={t.opsLogin.email}>
-                        <Input id="em" type="email" autoComplete="username" placeholder="you@company.com"
+                        <Input id="em" type="email" autoComplete="username"
                             value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                     </Field>
                     <Field label={t.opsLogin.pw}>
-                        <Input id="pw" type="password" autoComplete="current-password" placeholder="••••••••"
+                        <Input id="pw" type="password" autoComplete="current-password"
                             value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
                     </Field>
                     <ErrMsg>{err}</ErrMsg>

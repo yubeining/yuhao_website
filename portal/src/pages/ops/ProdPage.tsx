@@ -14,7 +14,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { Checkbox, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -62,7 +62,7 @@ export function OpsProdPage() {
         return <Page><Hello back={back} title={t.prodDetail.title} /><Card><CardBody><Empty text={t.prodDetail.notFound} /></CardBody></Card></Page>
     }
     if (!order) {
-        return <Page><Card><CardBody><Empty text={err ?? t.common.loading} /></CardBody></Card></Page>
+        return <Page><Card><CardBody><Pending err={err} onRetry={() => void load()} back={back} /></CardBody></Card></Page>
     }
 
     const assembling = order.status === 'ASSEMBLING'

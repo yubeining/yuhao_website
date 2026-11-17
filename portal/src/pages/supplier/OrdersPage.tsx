@@ -10,7 +10,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap } from '../../components/ui'
+import { Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
@@ -102,9 +102,9 @@ export function SupplierOrdersPage() {
     return (
         <Page>
             <Hello title={t.supplier.orders.title} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && orders !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {orders === null ? (
-                <Card><CardBody><Empty text={t.common.loading} /></CardBody></Card>
+                <Card><CardBody><Pending err={err} onRetry={() => void load(page)} /></CardBody></Card>
             ) : orders.length === 0 ? (
                 <Card><CardBody><Empty text={t.supplier.orders.empty} sub={t.supplier.orders.emptySub} /></CardBody></Card>
             ) : <>
@@ -221,7 +221,7 @@ export function SupplierOrdersPage() {
                 )
             })}
             <Card><Pagination page={page} pageSize={20} total={total}
-                onChange={(p) => { setPage(p); void load(p) }} /></Card>
+                onChange={setPage} /></Card>
             </>
         }
             {preview && (

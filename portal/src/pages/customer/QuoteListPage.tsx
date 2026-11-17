@@ -97,7 +97,7 @@ export function QuoteListPage() {
                         </TableWrap>}
                         {quotes.length > 0 && (
                             <Pagination page={page} pageSize={20} total={total}
-                                onChange={(p) => { setPage(p); void load(p) }} />
+                                onChange={setPage} />
                         )}
                     </CardBody>
                 ) : (

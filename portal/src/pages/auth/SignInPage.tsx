@@ -142,11 +142,11 @@ export function SignInPage() {
                     {mode === 'password' ? (
                         <>
                             <Field label={c.email}>
-                                <Input id="em" type="email" autoComplete="username" placeholder="you@company.com"
+                                <Input id="em" type="email" autoComplete="username"
                                     value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                             </Field>
                             <Field label={c.pw}>
-                                <Input id="pw" type="password" autoComplete="current-password" placeholder="••••••••"
+                                <Input id="pw" type="password" autoComplete="current-password"
                                     value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
@@ -159,7 +159,7 @@ export function SignInPage() {
                             </Field>
                             <Field label={c.codeLabel}>
                                 <Input id="otp" type="text" autoComplete="one-time-code"
-                                    placeholder="123456" value={code}
+                                    value={code}
                                     onChange={(v) => { setCode(v.replace(/\D/g, '').slice(0, 6)); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
@@ -180,7 +180,7 @@ export function SignInPage() {
                     ) : (
                         <>
                             <Field label={c.email}>
-                                <Input id="em" type="email" autoComplete="username" placeholder="you@company.com"
+                                <Input id="em" type="email" autoComplete="username"
                                     value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>

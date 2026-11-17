@@ -16,8 +16,6 @@ import { HallPage } from './pages/supplier/HallPage'
 import { HallDetailPage } from './pages/supplier/HallDetailPage'
 import { WonPage } from './pages/supplier/WonPage'
 import { SupplierOrdersPage } from './pages/supplier/OrdersPage'
-import { BillPage } from './pages/supplier/BillPage'
-import { SupplierProfilePage } from './pages/supplier/ProfilePage'
 
 import { OpsQuotesPage } from './pages/ops/QuotesPage'
 import { OpsQuoteSettingsPage } from './pages/ops/QuoteSettingsPage'
@@ -103,8 +101,9 @@ export const router = createBrowserRouter([
             { path: 'hall/:id', element: <HallDetailPage /> },
             { path: 'won', element: <WonPage /> },
             { path: 'orders', element: <SupplierOrdersPage /> },
-            { path: 'bill', element: <BillPage /> },
-            { path: 'profile', element: <SupplierProfilePage /> },
+            // 对账 / 企业资料暂时下线（读 mock，见 AppShell supplierNav 的说明）；旧链接回接单大厅
+            { path: 'bill', element: <Navigate to="/supplier/hall" replace /> },
+            { path: 'profile', element: <Navigate to="/supplier/hall" replace /> },
             { path: 'settings', element: <AccountSettingsPage /> },
         ],
     },

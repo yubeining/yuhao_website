@@ -105,7 +105,7 @@ export function OpsQuotesPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={page} pageSize={20} total={total}
-                            onChange={(p) => { setPage(p); void load(p) }} />
+                            onChange={setPage} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.quotes.empty} /></CardBody>

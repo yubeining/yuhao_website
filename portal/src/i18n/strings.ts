@@ -39,6 +39,8 @@ export interface Strings {
         cancel: string; save: string; edit: string; close: string; openInNewTab: string; required: string
         /** 通用确认弹框的确认按钮 */
         ok: string
+        /** 带筛选条件的列表查不到东西时 —— 和「还没有任何 xx」区分开 */
+        noMatch: string
         /** 自动保存后的轻提示 */
         saved: string
         prevPage: string; nextPage: string
@@ -141,7 +143,7 @@ export interface Strings {
     }
     reg: {
         h: string; sub: string; subA: string
-        email: string; code: string; codeP: string
+        email: string; code: string
         sendCode: string; resend: string; resendIn: (seconds: number) => string
         codeSentTo: (email: string) => string
         hint: string
@@ -288,7 +290,7 @@ export interface Strings {
             colCompany: string; colDiscount: string; colProcess: string; colMaterial: string
             colSize: string; colPrecision: string; colDispatchable: string; colOnboarded: string
             disabled: string; notSet: string; canDispatch: string; missingDiscount: string
-            edit: string; empty: string; emptySub: string
+            edit: string; empty: string
             editTitle: (name: string) => string
             fldDiscount: string; discountPlaceholder: string
             fldProcess: string; fldMaterial: string; fldSize: string; fldPrecision: string
@@ -318,7 +320,7 @@ export interface Strings {
             usersTotal: (n: number) => string
             orgsTotal: (n: number) => string
             staffTotal: (n: number) => string
-            noUsers: string; noUsersSub: string; noOrgs: string; noStaff: string
+            noUsers: string; noOrgs: string; noStaff: string
             staffOrgHint: string
             confirmDisableUser: (email: string) => string
             confirmDisableOrg: (name: string) => string
@@ -420,7 +422,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: '下载后用本地 CAD 软件打开',
             fileCount: (n) => `共 ${n} 个文件`,
             actionFailed: '操作失败，请重试',
-            loading: '加载中…', retry: '重试', cancel: '取消', ok: '确定', create: '创建', save: '保存', edit: '编辑', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
+            loading: '加载中…', retry: '重试', cancel: '取消', ok: '确定', noMatch: '没有匹配的结果', create: '创建', save: '保存', edit: '编辑', saved: '已保存', close: '关闭', openInNewTab: '新窗口打开', required: '必填',
             prevPage: '上一页', nextPage: '下一页',
             pageTotal: (n) => `共 ${n} 条`, pageOf: (page, pages) => `第 ${page} / ${pages} 页`,
             untitledOrder: '未命名订单',
@@ -541,7 +543,7 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         reg: {
             h: '注册', sub: '已有账号？', subA: '返回登录',
-            email: '企业邮箱', code: '验证码', codeP: '6 位验证码',
+            email: '企业邮箱', code: '验证码',
             sendCode: '发送验证码', resend: '重新发送',
             resendIn: (sec) => `${sec} 秒后重发`,
             codeSentTo: (email) => `验证码已发送至 ${email}`,
@@ -717,7 +719,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 colSize: '尺寸范围', colPrecision: '精度等级', colDispatchable: '可派单', colOnboarded: '入驻',
                 disabled: '已停用', notSet: '未设置', canDispatch: '可派单', missingDiscount: '缺折率',
                 edit: '编辑', empty: '还没有供应商',
-                emptySub: '在「供应商入驻」发邀请，对方注册后会出现在这里',
                 editTitle: (name) => `编辑：${name}`,
                 fldDiscount: '折率（对供价 = 原价 × 折率，0.8 = 八折）', discountPlaceholder: '如 0.8',
                 fldProcess: '工艺', fldMaterial: '材料', fldSize: '尺寸范围', fldPrecision: '精度等级',
@@ -751,7 +752,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 passwordRule: '至少 8 位',
                 all: '全部', selectPlaceholder: '（请选择）',
                 usersTotal: (n) => `${n} 个`, orgsTotal: (n) => `${n} 家`, staffTotal: (n) => `${n} 个`,
-                noUsers: '还没有外部用户', noUsersSub: '点右上角「新建」创建第一个',
+                noUsers: '还没有外部用户',
                 noOrgs: '还没有组织', noStaff: '还没有运营账号',
                 staffOrgHint: '运营账号不挂客户/供应商，必须属于「内部」组织。如果选不到，先去「组织」页建一个内部组织。',
                 confirmDisableUser: (email) => `禁用 ${email}？禁用后无法登录，数据保留。`,
@@ -952,7 +953,7 @@ export const STRINGS: Record<Lang, Strings> = {
             openInCad: 'Download and open in your local CAD software',
             fileCount: (n) => `${n} file${n === 1 ? '' : 's'}`,
             actionFailed: 'Something went wrong. Please try again.',
-            loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', ok: 'OK', create: 'Create',
+            loading: 'Loading…', retry: 'Retry', cancel: 'Cancel', ok: 'OK', noMatch: 'No matching results', create: 'Create',
             save: 'Save', edit: 'Edit', saved: 'Saved', close: 'Close', openInNewTab: 'Open in new tab', required: 'required',
             prevPage: 'Previous', nextPage: 'Next',
             pageTotal: (n) => `${n} item${n === 1 ? '' : 's'}`, pageOf: (page, pages) => `Page ${page} of ${pages}`,
@@ -1075,7 +1076,7 @@ export const STRINGS: Record<Lang, Strings> = {
         },
         reg: {
             h: 'Sign up', sub: 'Already have an account? ', subA: 'Sign in',
-            email: 'Work email', code: 'Verification code', codeP: '6-digit code',
+            email: 'Work email', code: 'Verification code',
             sendCode: 'Send code', resend: 'Resend',
             resendIn: (sec) => `Resend in ${sec}s`,
             codeSentTo: (email) => `Code sent to ${email}`,
@@ -1252,7 +1253,6 @@ export const STRINGS: Record<Lang, Strings> = {
                 colSize: 'Size range', colPrecision: 'Precision', colDispatchable: 'Dispatchable', colOnboarded: 'Joined',
                 disabled: 'Disabled', notSet: 'Not set', canDispatch: 'Dispatchable', missingDiscount: 'No discount rate',
                 edit: 'Edit', empty: 'No suppliers yet',
-                emptySub: 'Invite one under “Supplier onboarding”; they appear here after signing up',
                 editTitle: (name) => `Edit: ${name}`,
                 fldDiscount: 'Discount rate (supplier price = base price × rate; 0.8 = 20% off)', discountPlaceholder: 'e.g. 0.8',
                 fldProcess: 'Processes', fldMaterial: 'Materials', fldSize: 'Size range', fldPrecision: 'Precision grade',
@@ -1286,7 +1286,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 passwordRule: 'Min 8 characters',
                 all: 'All', selectPlaceholder: '(select)',
                 usersTotal: (n) => `${n}`, orgsTotal: (n) => `${n}`, staffTotal: (n) => `${n}`,
-                noUsers: 'No external users yet', noUsersSub: 'Use “New” in the top-right corner to create one',
+                noUsers: 'No external users yet',
                 noOrgs: 'No organizations yet', noStaff: 'No staff accounts yet',
                 staffOrgHint: 'Staff accounts are not attached to customers or suppliers — they must belong to an Internal organization. If none is selectable, create one on the Organizations tab first.',
                 confirmDisableUser: (email) => `Disable ${email}? They will not be able to sign in; data is kept.`,

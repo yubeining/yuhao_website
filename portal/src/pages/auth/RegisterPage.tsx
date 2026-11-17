@@ -93,8 +93,7 @@ export function RegisterPage() {
                     <Field label={c.email}>
                         <div style={{ display: 'flex', gap: 8 }}>
                             <Input type="email" value={mail}
-                                onChange={(v) => { setMail(v); setErr(null) }}
-                                placeholder="you@company.com" />
+                                onChange={(v) => { setMail(v); setErr(null) }} />
                             <button className="btn" type="button" style={{ whiteSpace: 'nowrap' }}
                                 disabled={busy || countdown > 0} onClick={() => void requestCode()}>
                                 {countdown > 0 ? c.resendIn(countdown) : sent ? c.resend : c.sendCode}
@@ -106,7 +105,7 @@ export function RegisterPage() {
                         <div className="fnote" style={{ marginTop: 6 }}>{c.companyHint}</div>
                     </Field>
                     <Field label={c.code}>
-                        <Input id="otp" type="text" autoComplete="one-time-code" placeholder={c.codeP}
+                        <Input id="otp" type="text" autoComplete="one-time-code"
                             value={code}
                             onChange={(v) => { setCode(v.replace(/\D/g, '').slice(0, 6)); setErr(null) }} />
                     </Field>

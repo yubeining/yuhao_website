@@ -9,7 +9,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap,
+    Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { Modal } from '../../components/Modal'
@@ -106,13 +106,13 @@ export function OpsPartiesPage() {
     return (
         <Page>
             <Hello title={t.ops.parties.title} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && suppliers !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={t.ops.parties.suppliers} rid={suppliers ? t.ops.parties.supplierCount(total) : undefined} />
                 {suppliers === null ? (
-                    <CardBody><Empty text={t.common.loading} /></CardBody>
+                    <CardBody><Pending err={err} onRetry={() => void load(page)} /></CardBody>
                 ) : suppliers.length ? (
                     <CardBody flush>
                         <TableWrap>
@@ -141,10 +141,10 @@ export function OpsPartiesPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={page} pageSize={20} total={total}
-                            onChange={(p) => { setPage(p); void load(p) }} />
+                            onChange={setPage} />
                     </CardBody>
                 ) : (
-                    <CardBody><Empty text={t.ops.parties.empty} sub={t.ops.parties.emptySub} /></CardBody>
+                    <CardBody><Empty text={t.ops.parties.empty} /></CardBody>
                 )}
             </Card>
 

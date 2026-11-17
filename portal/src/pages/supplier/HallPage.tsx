@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
+import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { Pagination } from '../../components/Pagination'
 import { useMock } from '../../mock/MockProvider'
@@ -42,11 +42,11 @@ export function HallPage() {
     return (
         <Page>
             <Hello title={t.supplier.hall.title} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && offers !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             <Card>
                 <CardHead title={t.supplier.hall.availableTitle} rid={offers ? t.supplier.hall.available(total) : undefined} />
                 {offers === null ? (
-                    <CardBody><Empty text={t.common.loading} /></CardBody>
+                    <CardBody><Pending err={err} onRetry={() => void load(page)} /></CardBody>
                 ) : offers.length ? (
                     <CardBody flush>
                         <TableWrap>
@@ -70,7 +70,7 @@ export function HallPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={page} pageSize={20} total={total}
-                            onChange={(p) => { setPage(p); void load(p) }} />
+                            onChange={setPage} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.supplier.hall.empty} sub={t.supplier.hall.emptySub} /></CardBody>

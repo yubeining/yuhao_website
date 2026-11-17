@@ -21,7 +21,7 @@ import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
 import { Field, Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pill, TableWrap,
+    Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, Pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { OTHER_COUNTRY, countryName } from '../../i18n/countries'
@@ -147,7 +147,7 @@ function UsersTab() {
 
     return (
         <>
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && rows !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
@@ -162,9 +162,12 @@ function UsersTab() {
             </Card>
 
             <Card>
-                <CardHead title={a.tabUsers} rid={a.usersTotal(total)} />
+                <CardHead title={a.tabUsers} rid={rows ? a.usersTotal(total) : undefined} />
                 <CardBody flush>
-                    {rows?.length ? (
+                    {/* 三态：null = 加载中 / 出错（带重试），[] = 确实为空 —— 以前加载中就显示「还没有」 */}
+                    {rows === null ? (
+                        <Pending err={err} onRetry={() => void load(page)} />
+                    ) : rows.length ? (
                         <TableWrap>
                             <thead>
                                 <tr>
@@ -200,10 +203,10 @@ function UsersTab() {
                             </tbody>
                         </TableWrap>
                     ) : (
-                        <Empty text={a.noUsers} />
+                        <Empty text={applied.q ? t.common.noMatch : a.noUsers} />
                     )}
                     <Pagination page={page} pageSize={PAGE_SIZE} total={total}
-                        onChange={(p) => { setPage(p); void load(p) }} />
+                        onChange={setPage} />
                 </CardBody>
             </Card>
 
@@ -300,6 +303,7 @@ function OrgsTab() {
     /** 打开编辑时读这个客户自己的报价系数（留空 = 用全局默认）。 */
     const openEdit = (row: OrganizationAdminView) => {
         setOk(null)
+        setErr(null)
         setMarkupView(null)
         setForm({ id: row.id, type: row.type, name: row.name, country: row.country ?? '', markup: '' })
         if (row.type === 'CUSTOMER') {
@@ -373,7 +377,7 @@ function OrgsTab() {
 
     return (
         <>
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && rows !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
@@ -396,15 +400,18 @@ function OrgsTab() {
             </Card>
 
             <Card>
-                <CardHead title={a.tabOrgs} rid={a.orgsTotal(total)}
+                <CardHead title={a.tabOrgs} rid={rows ? a.orgsTotal(total) : undefined}
                     right={!form && (
                         <button className="btn sm pri" type="button"
-                            onClick={() => { setOk(null); setMarkupView(null); setForm({ type: 'CUSTOMER', name: '', country: '', markup: '' }) }}>
+                            onClick={() => { setOk(null); setErr(null); setMarkupView(null); setForm({ type: 'CUSTOMER', name: '', country: '', markup: '' }) }}>
                             {a.create}
                         </button>
                     )} />
                 <CardBody flush>
-                    {rows?.length ? (
+                    {/* 三态：null = 加载中 / 出错（带重试），[] = 确实为空 —— 以前加载中就显示「还没有」 */}
+                    {rows === null ? (
+                        <Pending err={err} onRetry={() => void load(page)} />
+                    ) : rows.length ? (
                         <TableWrap>
                             <thead>
                                 <tr>
@@ -439,10 +446,10 @@ function OrgsTab() {
                             </tbody>
                         </TableWrap>
                     ) : (
-                        <Empty text={a.noOrgs} />
+                        <Empty text={applied.q || type ? t.common.noMatch : a.noOrgs} />
                     )}
                     <Pagination page={page} pageSize={PAGE_SIZE} total={total}
-                        onChange={(p) => { setPage(p); void load(p) }} />
+                        onChange={setPage} />
                 </CardBody>
             </Card>
 
@@ -454,6 +461,8 @@ function OrgsTab() {
                         <button className="btn pri" type="button" disabled={busy || !form.name.trim()}
                             onClick={() => void save()}>{a.save}</button>
                     </>}>
+                    {/* 保存失败的提示放在弹框里 —— 页面上那条在遮罩后面，看起来像点了没反应 */}
+                    {err && <Banner tone="wa" style={{ marginBottom: 12 }}>{err}</Banner>}
                     <Field label={a.fldType}>
                         {form.id
                             ? <div style={{ padding: '9px 0' }}>{typeLabel(form.type)}<span className="fnote">{a.immutableType}</span></div>
@@ -580,7 +589,7 @@ function StaffTab() {
 
     return (
         <>
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && rows !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="in" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
@@ -595,15 +604,18 @@ function StaffTab() {
             </Card>
 
             <Card>
-                <CardHead title={a.tabStaff} rid={a.staffTotal(total)}
+                <CardHead title={a.tabStaff} rid={rows ? a.staffTotal(total) : undefined}
                     right={!form && (
                         <button className="btn sm pri" type="button"
-                            onClick={() => { setOk(null); setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' }) }}>
+                            onClick={() => { setOk(null); setErr(null); setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' }) }}>
                             {a.create}
                         </button>
                     )} />
                 <CardBody flush>
-                    {rows?.length ? (
+                    {/* 三态：null = 加载中 / 出错（带重试），[] = 确实为空 —— 以前加载中就显示「还没有」 */}
+                    {rows === null ? (
+                        <Pending err={err} onRetry={() => void load(page)} />
+                    ) : rows.length ? (
                         <TableWrap>
                             <thead>
                                 <tr>
@@ -626,6 +638,7 @@ function StaffTab() {
                                             <button className="btn sm" type="button"
                                                 onClick={() => {
                                                     setOk(null)
+                                                    setErr(null)
                                                     setForm({ id: r.id, orgId: r.orgId, orgName: r.orgName ?? '', email: r.email, displayName: r.displayName, password: '' })
                                                 }}>
                                                 {a.edit}
@@ -641,10 +654,10 @@ function StaffTab() {
                             </tbody>
                         </TableWrap>
                     ) : (
-                        <Empty text={a.noStaff} />
+                        <Empty text={applied.q ? t.common.noMatch : a.noStaff} />
                     )}
                     <Pagination page={page} pageSize={PAGE_SIZE} total={total}
-                        onChange={(p) => { setPage(p); void load(p) }} />
+                        onChange={setPage} />
                 </CardBody>
             </Card>
 
@@ -656,6 +669,8 @@ function StaffTab() {
                         <button className="btn pri" type="button" disabled={busy}
                             onClick={() => void save()}>{a.save}</button>
                     </>}>
+                    {/* 保存失败的提示放在弹框里 —— 页面上那条在遮罩后面，看起来像点了没反应 */}
+                    {err && <Banner tone="wa" style={{ marginBottom: 12 }}>{err}</Banner>}
                     <Field label={a.fldOrg}>
                         {form.id
                             ? <div style={{ padding: '9px 0' }}>{form.orgName || '—'}<span className="fnote">{a.immutable}</span></div>

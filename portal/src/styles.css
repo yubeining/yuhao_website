@@ -310,7 +310,8 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .ban .bi{display:none;}
 .ban strong{font-weight:600;color:var(--ink);}
 .ban.in{border-left-color:var(--acc);}
-.ban.wa{border-left-color:var(--warn);}
+/* 警告 / 出错要一眼看得出来：以前和普通说明一样是灰字，在弹框里几乎看不见 */
+.ban.wa{border-left-color:var(--warn);background:var(--warn-wash);color:var(--ink);padding:8px 12px 8px 13px;}
 .ban.ok{border-left-color:var(--ok);}
 
 /* ═══════════════════════════════ 应用外壳（三端共用 · 左深右浅） */
@@ -328,6 +329,14 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .appnav .it .cnt.hot{background:var(--bad);color:#fff;}
 .appnav .it:hover{background:var(--deep-2);color:#fff;}
 .appnav .it[aria-current="page"]{background:var(--deep-2);color:#fff;border-left-color:var(--acc-hi);font-weight:650;}
+/* 窄屏收成图标栏：固定 222px 的侧栏在平板 / 窄窗口里会把表格挤到只剩几列。
+   名称靠 NavLink 的 title 悬停显示；分组标题、计数、子菜单在窄栏里放不下，先隐藏 */
+@media (max-width:900px){
+  .appnav{width:56px;}
+  .appnav .sec,.appnav .subnav,.appnav .it .lb,.appnav .it .cnt{display:none;}
+  .appnav .it{justify-content:center;padding:10px 0;}
+  .appnav .it .ic{width:auto;font-size:14px;opacity:.9;}
+}
 
 /* ═══════════════════════════════ 全局顶栏 */
 .appwrap{display:flex;flex-direction:column;min-height:100vh;}

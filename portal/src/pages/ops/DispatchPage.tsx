@@ -11,7 +11,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -104,13 +104,13 @@ export function OpsDispatchPage() {
     return (
         <Page>
             <Hello title={t.ops.dispatchPage.title} right={<button className="btn pri" type="button" disabled={busy} onClick={() => void create()}>{t.ops.dispatchPage.newOpsOrder}</button>} />
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && pool !== null && orders !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={t.ops.dispatchPage.poolTitle} rid={pool ? t.ops.dispatchPage.poolCount(poolTotal) : undefined} />
                 {pool === null ? (
-                    <CardBody><Empty text={t.common.loading} /></CardBody>
+                    <CardBody><Pending err={err} onRetry={() => void load(poolPage, ordersPage)} /></CardBody>
                 ) : pool.length ? (
                     <CardBody flush>
                         <TableWrap>
@@ -137,7 +137,7 @@ export function OpsDispatchPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={poolPage} pageSize={20} total={poolTotal}
-                            onChange={(p) => { setPoolPage(p); void load(p, ordersPage) }} />
+                            onChange={setPoolPage} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.dispatchPage.poolEmpty} sub={t.ops.dispatchPage.poolEmptySub} /></CardBody>
@@ -181,7 +181,7 @@ export function OpsDispatchPage() {
             <Card>
                 <CardHead title={t.ops.dispatchPage.ordersTitle} rid={orders ? t.ops.dispatchPage.orderCount(ordersTotal) : undefined} />
                 {orders === null ? (
-                    <CardBody><Empty text={t.common.loading} /></CardBody>
+                    <CardBody><Pending err={err} onRetry={() => void load(poolPage, ordersPage)} /></CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
@@ -208,7 +208,7 @@ export function OpsDispatchPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={ordersPage} pageSize={20} total={ordersTotal}
-                            onChange={(p) => { setOrdersPage(p); void load(poolPage, p) }} />
+                            onChange={setOrdersPage} />
                     </CardBody>
                 ) : (
                     <CardBody><Empty text={t.ops.dispatchPage.ordersEmpty} /></CardBody>

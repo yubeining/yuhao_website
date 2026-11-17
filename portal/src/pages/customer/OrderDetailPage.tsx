@@ -240,7 +240,8 @@ export function OrderDetailPage() {
                                 ? <Input value={title} placeholder={t.customer.orderDetail.titlePlaceholder} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
                                 : <div className="ro">{order.title || X}</div>}
                         </Field>
-                        <Field label={t.customer.orderDetail.fldLead} required>
+                        {/* 「必填」只对还能改的草稿有意义；提交后是只读文本，再挂必填是噪音 */}
+                        <Field label={t.customer.orderDetail.fldLead} required={!!draft}>
                             {draft
                                 ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
                                 : <div className="ro">{order.wantedDate || X}</div>}

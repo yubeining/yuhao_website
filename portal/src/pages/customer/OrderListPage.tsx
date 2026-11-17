@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import {
-    Banner, Card, CardBody, Empty, Hello, Page, Pill, pill, TableWrap,
+    Banner, Card, CardBody, Empty, Hello, Page, Pending, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -79,11 +79,11 @@ export function OrderListPage() {
                 }
             />
 
-            {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && orders !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
 
             <Card>
                 {orders === null ? (
-                    <CardBody><Empty text={t.common.loading} /></CardBody>
+                    <CardBody><Pending err={err} onRetry={() => void load(page)} /></CardBody>
                 ) : orders.length ? (
                     <CardBody flush>
                         <TableWrap>
@@ -122,7 +122,7 @@ export function OrderListPage() {
                             </tbody>
                         </TableWrap>
                         <Pagination page={page} pageSize={20} total={total}
-                            onChange={(p) => { setPage(p); void load(p) }} />
+                            onChange={setPage} />
                     </CardBody>
                 ) : (
                     <CardBody>
