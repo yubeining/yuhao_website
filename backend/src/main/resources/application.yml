@@ -228,6 +228,10 @@ app:
     sync-initial-delay: PT1M     # 开机后多久拉第一次
     sync-interval: PT3H          # 之后每隔多久拉一次（同一天重复拉只会跳过）
 
+  estimate:
+    # AI 成本估算用的看图模型（Sealos aiproxy 上的模型名）。需求方 2026-11-17 指定 qwen3.8-flash。
+    model: ${AI_ESTIMATE_MODEL:qwen3.8-flash}
+
   quote:
     # ★ 本节目前【没有任何代码读它】。报价域一开工，写代码的人会把这里当成已拍板的输入 ——
     #   所以只留有出处的，没出处的一律不留占位数字。

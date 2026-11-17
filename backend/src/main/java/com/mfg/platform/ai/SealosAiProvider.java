@@ -7,8 +7,11 @@ import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.ai.chat.model.ChatModel;
 import org.springframework.ai.chat.model.ChatResponse;
 import org.springframework.ai.chat.prompt.Prompt;
+import org.springframework.ai.content.Media;
 import org.springframework.ai.openai.OpenAiChatOptions;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.stereotype.Service;
+import org.springframework.util.MimeType;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -40,7 +43,10 @@ public class SealosAiProvider implements AiProvider {
         if (request.system() != null && !request.system().isBlank()) {
             messages.add(new SystemMessage(request.system()));
         }
-        messages.add(new UserMessage(request.user()));
+        List<Media> media = request.images().stream()
+                .map(img -> new Media(MimeType.valueOf(img.mimeType()), new ByteArrayResource(img.data())))
+                .toList();
+        messages.add(UserMessage.builder().text(request.user()).media(media).build());
 
         OpenAiChatOptions.Builder options = OpenAiChatOptions.builder();
         if (request.model() != null && !request.model().isBlank()) {

@@ -3,6 +3,7 @@ package com.mfg.domain.order;
 import java.util.Collection;
 import java.util.Map;
 import java.util.UUID;
+import java.util.function.Predicate;
 
 /**
  * 订单域发布给报价域的契约（CLAUDE.md §2：跨域只走接口 + record）。依赖方向是「报价 → 订单」，订单域不知道报价。
@@ -33,6 +34,14 @@ public interface OrderQuoting {
 
     /** 已报价 → 已提交（客户拒绝，等运营重报）。不是已报价 → 409 {@code order.not_quoted}。 */
     void markRejected(UUID customerOrgId, UUID orderId);
+
+    /**
+     * AI 成本估算读一行的图纸。订单不存在 / 是草稿 → 404；行不属于这张单 → 404。
+     * 只读这一行锁定版本下传完的文件，{@code readable} 判格式，单份超过 {@code maxBytes} 或超过 {@code maxFiles} 份的不读；
+     * 每读一份落一行审计（{@code READ_FOR_AI}）。
+     */
+    EstimateSource readForEstimate(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId,
+                                   Predicate<String> readable, long maxBytes, int maxFiles);
 
     /** 客户自己的订单名称，给报价列表显示用。没有名称的不在结果里。 */
     Map<UUID, String> titles(UUID customerOrgId, Collection<UUID> orderIds);

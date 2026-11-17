@@ -5,12 +5,14 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
 import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /** {@link OrderQuoting} 的实现。 */
@@ -20,11 +22,16 @@ class OrderQuotingService implements OrderQuoting {
     private final CustomerOrderRepository orders;
     private final CustomerOrderPartRepository lines;
     private final PartDesignRepository parts;
+    private final PartFileRepository files;
+    private final PartDrawingService drawings;
 
-    OrderQuotingService(CustomerOrderRepository orders, CustomerOrderPartRepository lines, PartDesignRepository parts) {
+    OrderQuotingService(CustomerOrderRepository orders, CustomerOrderPartRepository lines, PartDesignRepository parts,
+                        PartFileRepository files, PartDrawingService drawings) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
+        this.files = files;
+        this.drawings = drawings;
     }
 
     @Override
@@ -84,6 +91,34 @@ class OrderQuotingService implements OrderQuoting {
         return orders.findByIdInAndCustomerOrgId(orderIds, customerOrgId).stream()
                 .filter(o -> o.getTitle() != null)
                 .collect(Collectors.toMap(CustomerOrder::getId, CustomerOrder::getTitle));
+    }
+
+    @Override
+    @Transactional
+    public EstimateSource readForEstimate(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId,
+                                          Predicate<String> readable, long maxBytes, int maxFiles) {
+        CustomerOrder order = orders.findByIdAndSubmittedAtIsNotNull(orderId)
+                .orElseThrow(() -> BusinessException.notFound("order.not_found"));
+        UUID orgId = order.getCustomerOrgId();
+        CustomerOrderPart line = lines.findByIdAndCustomerOrderIdAndCustomerOrgId(lineId, orderId, orgId)
+                .orElseThrow(() -> BusinessException.notFound("order.line_not_found"));
+        String code = parts.findByIdInAndCustomerOrgId(Set.of(line.getPartDesignId()), orgId).stream()
+                .findFirst().map(PartDesign::getCode).orElse(null);
+        List<DrawingContent> read = new ArrayList<>();
+        List<String> skipped = new ArrayList<>();
+        for (PartFile file : files.findByPartRevisionIdInAndCustomerOrgIdAndUploadStatusOrderByCreatedAtAsc(
+                List.of(line.getPartRevisionId()), orgId, PartFile.UploadStatus.COMPLETED)) {
+            String name = file.getOriginalFilename();
+            boolean tooBig = file.getSizeBytes() != null && file.getSizeBytes() > maxBytes;
+            if (!readable.test(name) || tooBig || read.size() >= maxFiles) {
+                skipped.add(name);
+                continue;
+            }
+            read.add(new DrawingContent(file.getId(), name,
+                    drawings.readForAi(orgId, opsUserId, opsOrgId, file, orderId)));
+        }
+        return new EstimateSource(orderId, lineId, orgId, code, line.getPartName(), line.getQuantity(),
+                line.getMaterial(), line.getSurfaceTreatment(), List.copyOf(read), List.copyOf(skipped));
     }
 
     private void move(UUID customerOrgId, UUID orderId, CustomerOrder.Status from, CustomerOrder.Status to,

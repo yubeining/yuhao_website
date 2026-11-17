@@ -11,6 +11,7 @@
  * ★ 交期从「确认后天数」改成「承诺日期」：默认取客户的期望交期，运营可改，客户确认即接受该日期。
  * ★ 以前这一页是原型（AI 估价是模拟输出、利润率 / 议价空间是编的公式），第 3 步只做人工报价，已全部换掉。
  *   价格护栏（偏离多少提醒）的百分比还没给，这一页不做提醒。
+ * ★ 2026-11-17 加了真的「AI 成本估算」（EstimateCard）：只给参考成本，不自动填原价。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -32,6 +33,7 @@ import {
 } from '../../services'
 import { orderSt, quoteSt } from '../customer/status'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { EstimateCard } from './EstimateCard'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
@@ -271,6 +273,8 @@ export function OpsQuoteWorkPage() {
                     />
                 )}
             </Card>
+
+            <EstimateCard orderId={order.id} lines={order.lines} editable={editable} />
 
             {quotes.length > 0 && (
                 <Card>

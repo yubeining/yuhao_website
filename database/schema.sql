@@ -39,6 +39,23 @@ CREATE TABLE public.app_setting (
     CONSTRAINT app_setting_value_type_chk CHECK ((value_type = ANY (ARRAY['STRING'::text, 'NUMBER'::text, 'BOOL'::text, 'JSON'::text])))
 );
 
+-- Name: cost_rate; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.cost_rate (
+    id uuid NOT NULL,
+    kind text NOT NULL,
+    name text NOT NULL,
+    unit text NOT NULL,
+    unit_price_cny numeric(12,2) NOT NULL,
+    note text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT cost_rate_kind_chk CHECK ((kind = ANY (ARRAY['MATERIAL'::text, 'PROCESS'::text, 'OUTSOURCE'::text]))),
+    CONSTRAINT cost_rate_price_positive CHECK ((unit_price_cny > (0)::numeric)),
+    CONSTRAINT cost_rate_unit_chk CHECK ((unit = ANY (ARRAY['KG'::text, 'HOUR'::text, 'PIECE'::text, 'BATCH'::text])))
+);
+
 -- Name: customer_markup; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.customer_markup (
@@ -278,7 +295,7 @@ CREATE TABLE public.part_file_access_log (
     accessed_at timestamp with time zone DEFAULT now() NOT NULL,
     context_type text,
     context_id uuid,
-    CONSTRAINT part_file_access_log_access_type_chk CHECK ((access_type = 'SIGNED_URL_ISSUED'::text)),
+    CONSTRAINT part_file_access_log_access_type_chk CHECK ((access_type = ANY (ARRAY['SIGNED_URL_ISSUED'::text, 'READ_FOR_AI'::text]))),
     CONSTRAINT part_file_access_log_context_chk CHECK ((((context_type IS NULL) AND (context_id IS NULL)) OR ((context_type = ANY (ARRAY['CUSTOMER_ORDER'::text, 'OPS_ORDER'::text, 'SUPPLIER_ORDER'::text])) AND (context_id IS NOT NULL)))),
     CONSTRAINT part_file_access_log_party_type_chk CHECK ((accessor_party_type = ANY (ARRAY['CUSTOMER'::text, 'SUPPLIER'::text, 'OPERATOR'::text])))
 );
@@ -310,6 +327,27 @@ CREATE TABLE public.part_revision (
     version bigint DEFAULT 0 NOT NULL,
     locked_at timestamp with time zone,
     CONSTRAINT part_revision_rev_no_positive CHECK ((rev_no >= 1))
+);
+
+-- Name: price_estimate; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.price_estimate (
+    id uuid NOT NULL,
+    customer_order_id uuid NOT NULL,
+    customer_order_part_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    outcome text NOT NULL,
+    unit_cost_cny numeric(12,2),
+    complete boolean NOT NULL,
+    input_snapshot jsonb NOT NULL,
+    ai_output jsonb NOT NULL,
+    breakdown jsonb NOT NULL,
+    model text NOT NULL,
+    estimated_by uuid NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT price_estimate_outcome_chk CHECK ((outcome = ANY (ARRAY['ESTIMATED'::text, 'NOT_MACHINED'::text])))
 );
 
 -- Name: quote; Type: TABLE; Schema: public; Owner: -
@@ -524,6 +562,11 @@ ALTER TABLE ONLY public.part_file_access_log ALTER COLUMN id SET DEFAULT nextval
 ALTER TABLE ONLY public.app_setting
     ADD CONSTRAINT app_setting_pkey PRIMARY KEY (id);
 
+-- Name: cost_rate cost_rate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.cost_rate
+    ADD CONSTRAINT cost_rate_pkey PRIMARY KEY (id);
+
 -- Name: customer_markup customer_markup_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.customer_markup
@@ -599,6 +642,11 @@ ALTER TABLE ONLY public.part_file
 ALTER TABLE ONLY public.part_revision
     ADD CONSTRAINT part_revision_pkey PRIMARY KEY (id);
 
+-- Name: price_estimate price_estimate_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.price_estimate
+    ADD CONSTRAINT price_estimate_pkey PRIMARY KEY (id);
+
 -- Name: quote_line quote_line_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.quote_line
@@ -652,6 +700,10 @@ ALTER TABLE ONLY public.user_role
 -- Name: app_setting_key_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX app_setting_key_uk ON public.app_setting USING btree (config_key);
+
+-- Name: cost_rate_kind_name_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX cost_rate_kind_name_uk ON public.cost_rate USING btree (kind, name);
 
 -- Name: customer_markup_customer_uk; Type: INDEX; Schema: public; Owner: -
 
@@ -788,6 +840,14 @@ CREATE INDEX part_revision_customer_idx ON public.part_revision USING btree (cus
 -- Name: part_revision_design_rev_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX part_revision_design_rev_uk ON public.part_revision USING btree (part_design_id, rev_no);
+
+-- Name: price_estimate_line_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX price_estimate_line_idx ON public.price_estimate USING btree (customer_order_part_id, created_at DESC);
+
+-- Name: price_estimate_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX price_estimate_order_idx ON public.price_estimate USING btree (customer_order_id);
 
 -- Name: quote_customer_status_idx; Type: INDEX; Schema: public; Owner: -
 

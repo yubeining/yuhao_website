@@ -257,7 +257,7 @@ export interface Strings {
         }
         ops: {
             business: string; quotes: string; suppliers: string
-            dispatch: string; production: string; quoteSettings: string
+            dispatch: string; production: string; quoteSettings: string; costRates: string
             masterData: string; accounts: string; internalOps: string
         }
     }
@@ -375,6 +375,33 @@ export interface Strings {
             colCompany: string; colRate: string
             usingDefault: string; ownValue: string; manageCompanies: string
             empty: string; emptySub: string
+        }
+        /** AI 成本估算（报价工作台里的一块，2026-11-17） */
+        estimate: {
+            title: string; sub: string
+            colCost: string; colResult: string; colAt: string
+            run: string; rerun: string; running: string; details: string
+            stComplete: string; stIncomplete: string; stNotMachined: string
+            modalTitle: (code: string) => string
+            kind: Record<string, string>; unit: Record<string, string>
+            colKind: string; colItem: string; colQty: string; colUnitPrice: string; colFactor: string; colAmount: string
+            missingRate: string; missingQty: string; fixedMissing: string; aiEstimated: string
+            total: string; incompleteHint: string
+            partType: string; material: string; weight: (net: string, blank: string) => string
+            assumptions: string; toConfirm: string; files: string; skipped: string; model: string
+        }
+        /** 费率表（AI 成本估算按它算钱） */
+        costRates: {
+            title: string; sub: string
+            create: string; edit: string; del: string; cancel: string; save: string
+            colKind: string; colName: string; colUnit: string; colPrice: string; colNote: string; colUpdated: string
+            kind: Record<string, string>; unit: Record<string, string>
+            all: string
+            newTitle: string; editTitle: string
+            errName: string; errPrice: string
+            confirmDelete: (name: string) => string
+            saved: string; created: string; deleted: (name: string) => string
+            empty: string
         }
     /** 派单详情（生产订单） */
     prodDetail: {
@@ -681,7 +708,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
             ops: {
                 business: '业务', quotes: '报价', suppliers: '供应商',
-                dispatch: '派单管理', production: '生产与质检', quoteSettings: '报价设置',
+                dispatch: '派单管理', production: '生产与质检', quoteSettings: '报价设置', costRates: '费率表',
                 masterData: '主数据', accounts: '账号管理', internalOps: '内部 · 运营',
             },
         },
@@ -820,6 +847,35 @@ export const STRINGS: Record<Lang, Strings> = {
             usingDefault: '用默认', ownValue: '单独配置', manageCompanies: '管理公司 →',
             empty: '还没有客户公司', emptySub: '客户注册后会出现在这里',
         },
+        estimate: {
+            title: 'AI 成本估算', sub: '仅供参考 · 不含毛利 · 原价由运营填写',
+            colCost: '估算成本 ¥/件', colResult: '结果', colAt: '估算时间',
+            run: '估价', rerun: '重新估价', running: '估价中…', details: '明细',
+            stComplete: '完整', stIncomplete: '有缺项', stNotMachined: '非机加件，需人工',
+            modalTitle: (code) => `AI 成本估算 · ${code}`,
+            kind: { MATERIAL: '材料', PROCESS: '工序', OUTSOURCE: '外协', FIXED: '固定费' },
+            unit: { KG: 'kg', HOUR: '小时', PIECE: '次', BATCH: '批' },
+            colKind: '类别', colItem: '项目', colQty: '数量', colUnitPrice: '单价 ¥', colFactor: '数量系数', colAmount: '金额 ¥/件',
+            missingRate: '缺费率', missingQty: '缺数量', fixedMissing: 'AI 未给出', aiEstimated: 'AI 估',
+            total: '每件成本合计',
+            incompleteHint: '有缺项，合计偏低。可在费率表补上对应费率后重新估价。',
+            partType: 'AI 判断', material: '材料',
+            weight: (net, blank) => `净重 ${net} kg · 毛坯 ${blank} kg`,
+            assumptions: '用了这些默认值', toConfirm: '需找客户确认', files: '读取的图纸', skipped: '未读取', model: '模型',
+        },
+        costRates: {
+            title: '费率表', sub: 'AI 成本估算按这里的单价算钱，改动只影响之后的估算',
+            create: '新建', edit: '编辑', del: '删除', cancel: '取消', save: '保存',
+            colKind: '类别', colName: '名称', colUnit: '计价单位', colPrice: '单价 ¥', colNote: '备注', colUpdated: '更新时间',
+            kind: { MATERIAL: '材料', PROCESS: '工序', OUTSOURCE: '外协' },
+            unit: { KG: '每 kg', HOUR: '每小时', PIECE: '每件', BATCH: '每批' },
+            all: '全部',
+            newTitle: '新建费率', editTitle: '编辑费率',
+            errName: '请填名称', errPrice: '单价请填大于 0、最多两位小数的数字',
+            confirmDelete: (name) => `删除「${name}」？之后的估算里这一项会显示缺费率。`,
+            saved: '已保存', created: '已新建', deleted: (name) => `已删除「${name}」`,
+            empty: '还没有费率',
+        },
     prodDetail: {
         back: '← 派单管理', title: '生产订单', notFound: '生产订单不存在',
         dueProblem: '请填对供交期（如 2026-10-20）', errNoSupplier: '请勾选要派的供应商',
@@ -882,6 +938,12 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.line_missing_drawing': '有零件还没传图纸，传完才能提交',
             'order.not_quotable': '这张订单现在不能报价（已确认或已取消）',
             'order.not_quoted': '这张订单现在没有待确认的报价',
+            'estimate.no_readable_drawing': '这一行没有 AI 能读的图纸（只支持 PDF / PNG / JPG）',
+            'estimate.ai_failed': 'AI 暂时不可用，请稍后再试',
+            'estimate.ai_bad_output': 'AI 没有给出可用的结果，请重试',
+            'cost_rate.duplicate': '同一类别下已有同名费率',
+            'cost_rate.not_found': '费率不存在，可能已被删除',
+            'cost_rate.material_needs_kg': '材料只能按 kg 计价',
             'quote.not_found': '暂无报价',
             'quote.not_open': '这份报价已失效（已确认、已拒绝或已被新报价取代），请刷新',
             'quote.price_changed': '汇率刚刚更新，价格已变化，请核对新价格后再确认',
@@ -1213,7 +1275,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
             ops: {
                 business: 'Business', quotes: 'Quotes', suppliers: 'Suppliers',
-                dispatch: 'Dispatch', production: 'Production & QC', quoteSettings: 'Quote settings',
+                dispatch: 'Dispatch', production: 'Production & QC', quoteSettings: 'Quote settings', costRates: 'Cost rates',
                 masterData: 'Master data', accounts: 'Accounts', internalOps: 'Internal · Operations',
             },
         },
@@ -1351,6 +1413,35 @@ export const STRINGS: Record<Lang, Strings> = {
             usingDefault: 'Using default', ownValue: 'Company value', manageCompanies: 'Manage companies →',
             empty: 'No customer companies yet', emptySub: 'They appear here after customers sign up',
         },
+        estimate: {
+            title: 'AI cost estimate', sub: 'For reference only · no margin · base price is entered by ops',
+            colCost: 'Est. cost ¥/pc', colResult: 'Result', colAt: 'Estimated',
+            run: 'Estimate', rerun: 'Re-estimate', running: 'Estimating…', details: 'Details',
+            stComplete: 'Complete', stIncomplete: 'Has gaps', stNotMachined: 'Not machined, manual',
+            modalTitle: (code) => `AI cost estimate · ${code}`,
+            kind: { MATERIAL: 'Material', PROCESS: 'Process', OUTSOURCE: 'Outsourced', FIXED: 'Fixed cost' },
+            unit: { KG: 'kg', HOUR: 'h', PIECE: 'x', BATCH: 'batch' },
+            colKind: 'Type', colItem: 'Item', colQty: 'Qty', colUnitPrice: 'Rate ¥', colFactor: 'Qty factor', colAmount: 'Amount ¥/pc',
+            missingRate: 'No rate', missingQty: 'No quantity', fixedMissing: 'Not given by AI', aiEstimated: 'AI estimate',
+            total: 'Cost per piece',
+            incompleteHint: 'Some items are missing, so the total is too low. Add the rates in Cost rates and re-estimate.',
+            partType: 'AI verdict', material: 'Material',
+            weight: (net, blank) => `Net ${net} kg · blank ${blank} kg`,
+            assumptions: 'Defaults assumed', toConfirm: 'Confirm with customer', files: 'Drawings read', skipped: 'Not read', model: 'Model',
+        },
+        costRates: {
+            title: 'Cost rates', sub: 'AI cost estimates are priced from these rates; changes only affect later estimates',
+            create: 'New', edit: 'Edit', del: 'Delete', cancel: 'Cancel', save: 'Save',
+            colKind: 'Type', colName: 'Name', colUnit: 'Unit', colPrice: 'Rate ¥', colNote: 'Note', colUpdated: 'Updated',
+            kind: { MATERIAL: 'Material', PROCESS: 'Process', OUTSOURCE: 'Outsourced' },
+            unit: { KG: 'per kg', HOUR: 'per hour', PIECE: 'per piece', BATCH: 'per batch' },
+            all: 'All',
+            newTitle: 'New rate', editTitle: 'Edit rate',
+            errName: 'Enter a name', errPrice: 'Enter a number above 0 with at most 2 decimals',
+            confirmDelete: (name) => `Delete "${name}"? Later estimates will show this item as missing a rate.`,
+            saved: 'Saved', created: 'Created', deleted: (name) => `Deleted "${name}"`,
+            empty: 'No rates yet',
+        },
     prodDetail: {
         back: '← Dispatch', title: 'Production order', notFound: 'Production order not found',
         dueProblem: 'Enter the supplier due date (e.g. 2026-10-20)', errNoSupplier: 'Select at least one supplier',
@@ -1413,6 +1504,12 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.line_missing_drawing': 'Some parts have no drawing yet. Upload them before submitting',
             'order.not_quotable': 'This order cannot be quoted now',
             'order.not_quoted': 'This order has no quote waiting for confirmation',
+            'estimate.no_readable_drawing': 'This line has no drawing the AI can read (PDF / PNG / JPG only)',
+            'estimate.ai_failed': 'The AI is unavailable right now, try again later',
+            'estimate.ai_bad_output': 'The AI did not return a usable result, try again',
+            'cost_rate.duplicate': 'A rate with this name already exists in this type',
+            'cost_rate.not_found': 'Rate not found, it may have been deleted',
+            'cost_rate.material_needs_kg': 'Materials can only be priced per kg',
             'quote.not_found': 'No quote yet',
             'quote.not_open': 'This quote is no longer open. Please refresh',
             'quote.price_changed': 'The exchange rate was just updated and the price changed. Please review the new price before confirming',

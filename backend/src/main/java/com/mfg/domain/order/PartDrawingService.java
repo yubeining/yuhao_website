@@ -13,6 +13,9 @@ import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Arrays;
@@ -368,6 +371,26 @@ class PartDrawingService {
     private PartDesign requirePart(UUID customerOrgId, UUID partId) {
         return parts.findByIdAndCustomerOrgId(partId, customerOrgId)
                 .orElseThrow(() -> BusinessException.notFound("part.not_found"));
+    }
+
+    /**
+     * 读出一份图纸的内容，交给 AI 成本估算发给外部模型。顺序同签名 URL：「校验 → 写审计 → 读内容」，
+     * 审计写不进去就不读（CLAUDE.md §3 铁律 6）。调用方已校验文件属于这张单的这一行。
+     */
+    @Transactional
+    byte[] readForAi(UUID customerOrgId, UUID accessorUserId, UUID accessorOrgId, PartFile file, UUID orderId) {
+        if (!file.getCustomerOrgId().equals(customerOrgId)
+                || file.getUploadStatus() != PartFile.UploadStatus.COMPLETED) {
+            throw BusinessException.notFound("part.file_not_found");
+        }
+        accessLog.save(new PartFileAccessLog(file.getId(), file.getPartRevisionId(), customerOrgId,
+                accessorUserId, PartyType.OPERATOR, accessorOrgId, PartFileAccessLog.AccessType.READ_FOR_AI,
+                PartFileAccessLog.ContextType.CUSTOMER_ORDER, orderId, RequestContext.traceId(), Instant.now()));
+        try (InputStream in = storage.get(file.getStorageKey())) {
+            return in.readAllBytes();
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     private PartFile requireFile(UUID customerOrgId, UUID fileId) {

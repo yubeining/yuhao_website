@@ -32,7 +32,9 @@ import java.util.UUID;
 class PartFileAccessLog {
 
     enum AccessType {
-        SIGNED_URL_ISSUED
+        SIGNED_URL_ISSUED,
+        /** 服务端读出文件内容，供 AI 成本估算发给外部模型（2026-11-17） */
+        READ_FOR_AI
     }
 
     enum ContextType {
