@@ -401,12 +401,12 @@ function OrgsTab() {
 
             <Card>
                 <CardHead title={a.tabOrgs} rid={rows ? a.orgsTotal(total) : undefined}
-                    right={!form && (
+                    right={
                         <button className="btn sm pri" type="button"
                             onClick={() => { setOk(null); setErr(null); setMarkupView(null); setForm({ type: 'CUSTOMER', name: '', country: '', markup: '' }) }}>
                             {a.create}
                         </button>
-                    )} />
+                    } />
                 <CardBody flush>
                     {/* 三态：null = 加载中 / 出错（带重试），[] = 确实为空 —— 以前加载中就显示「还没有」 */}
                     {rows === null ? (
@@ -605,12 +605,12 @@ function StaffTab() {
 
             <Card>
                 <CardHead title={a.tabStaff} rid={rows ? a.staffTotal(total) : undefined}
-                    right={!form && (
+                    right={
                         <button className="btn sm pri" type="button"
                             onClick={() => { setOk(null); setErr(null); setForm({ orgId: '', orgName: '', email: '', displayName: '', password: '' }) }}>
                             {a.create}
                         </button>
-                    )} />
+                    } />
                 <CardBody flush>
                     {/* 三态：null = 加载中 / 出错（带重试），[] = 确实为空 —— 以前加载中就显示「还没有」 */}
                     {rows === null ? (

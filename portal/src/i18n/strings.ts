@@ -68,7 +68,7 @@ export interface Strings {
             statusSubmitted: string; statusQuoted: (amount: string, commitDate: string) => string
             statusConfirmed: string; statusReady: string
             statusViewQuotes: string; statusConfirmQuote: string; statusQuoteDetail: string
-            infoTitle: string; fldName: string; fldLead: string; needWantedDate: string; titlePlaceholder: string
+            infoTitle: string; fldName: string; fldLead: string; needWantedDate: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
             partsTitle: (n: number) => string; missingDrawingPill: (n: number) => string
             colRevision: string; colMaterial: string; colDrawing: string; colProgress: string
@@ -456,7 +456,6 @@ export const STRINGS: Record<Lang, Strings> = {
             statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
             fldName: '名称', fldLead: '期望交货日期', needWantedDate: '请先填期望交货日期',
-            titlePlaceholder: '订单名称',
             fldParts: '零件数', fldTotalQty: '总件数', fldCreated: '建单日期', fldSubmitted: '提交时间',
             partsTitle: (n) => `零件 ${n} 个`, missingDrawingPill: (n) => `${n} 缺图纸`,
             colRevision: '版本', colMaterial: '材料', colDrawing: '图纸', colProgress: '进度',
@@ -987,7 +986,6 @@ export const STRINGS: Record<Lang, Strings> = {
             statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
             fldName: 'Name', fldLead: 'Requested delivery date', needWantedDate: 'Please fill in the requested delivery date',
-            titlePlaceholder: 'Order name',
             fldParts: 'Parts', fldTotalQty: 'Total quantity', fldCreated: 'Created', fldSubmitted: 'Submitted',
             partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, missingDrawingPill: (n) => `${n} missing drawing`,
             colRevision: 'Rev', colMaterial: 'Material', colDrawing: 'Drawing', colProgress: 'Progress',
@@ -1093,7 +1091,7 @@ export const STRINGS: Record<Lang, Strings> = {
             otherCountry: 'Other',
         },
         opsLogin: {
-            brand: 'SONNENSCHEIN · Internal',
+            brand: '融一智造 · Internal',
             h: 'Staff sign in',
             email: 'Work email', pw: 'Password', submit: 'Sign in',
             badCredentials: 'Incorrect email or password', failed: 'Sign-in failed. Please try again.',

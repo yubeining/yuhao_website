@@ -57,16 +57,25 @@ export function DatePicker({ value, onChange, placeholder }: {
         const onKey = (e: KeyboardEvent) => {
             if (e.key === 'Escape') setOpen(false)
         }
-        const onScroll = () => setOpen(false)
+        // ★ 滚动 / 改窗口大小时跟着输入框挪位置，而不是直接关掉。
+        //   以前任何滚动都关 —— 点开时浏览器为聚焦把输入框滚进视野，弹层刚打开就没了，看起来像点不开。
+        //   输入框整个滚出视口时才关，免得弹层悬在一个看不见的输入框下面。
+        const onMove = () => {
+            const rect = boxRef.current?.getBoundingClientRect()
+            if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) { setOpen(false); return }
+            const width = 296
+            const left = Math.min(rect.left, window.innerWidth - width - 8)
+            setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
+        }
         document.addEventListener('mousedown', onDown)
         document.addEventListener('keydown', onKey)
-        window.addEventListener('resize', onScroll)
-        window.addEventListener('scroll', onScroll, true)
+        window.addEventListener('resize', onMove)
+        window.addEventListener('scroll', onMove, true)
         return () => {
             document.removeEventListener('mousedown', onDown)
             document.removeEventListener('keydown', onKey)
-            window.removeEventListener('resize', onScroll)
-            window.removeEventListener('scroll', onScroll, true)
+            window.removeEventListener('resize', onMove)
+            window.removeEventListener('scroll', onMove, true)
         }
     }, [open])
 
