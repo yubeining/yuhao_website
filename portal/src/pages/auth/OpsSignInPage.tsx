@@ -57,9 +57,6 @@ export function OpsSignInPage() {
                         {t.opsLogin.brand}
                     </div>
                     <h1 className="fh">{t.opsLogin.h}</h1>
-                    <div className="fsub" style={{ color: 'var(--faint)' }}>
-                        {t.opsLogin.sub}
-                    </div>
 
                     <Form onSubmit={() => void submit()}>
                         <Field label={t.opsLogin.email}>

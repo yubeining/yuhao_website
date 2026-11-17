@@ -156,7 +156,7 @@ export interface Strings {
     }
     /** 内部（运营）登录。独立入口，和外部登录不共用文案。 */
     opsLogin: {
-        brand: string; h: string; sub: string
+        brand: string; h: string
         email: string; pw: string; submit: string
         badCredentials: string; failed: string
     }
@@ -563,7 +563,6 @@ export const STRINGS: Record<Lang, Strings> = {
         opsLogin: {
             brand: '融一智造 · 内部后台',
             h: '运营登录',
-            sub: '仅限内部员工。账号由管理员开通，不支持自助注册。',
             email: '企业邮箱', pw: '密码', submit: '登录',
             badCredentials: '账号或密码错误', failed: '登录失败，请重试',
         },
@@ -1096,7 +1095,6 @@ export const STRINGS: Record<Lang, Strings> = {
         opsLogin: {
             brand: 'SONNENSCHEIN · Internal',
             h: 'Staff sign in',
-            sub: 'Internal staff only. Accounts are created by an administrator; self sign-up is not available.',
             email: 'Work email', pw: 'Password', submit: 'Sign in',
             badCredentials: 'Incorrect email or password', failed: 'Sign-in failed. Please try again.',
         },
