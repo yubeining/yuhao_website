@@ -137,20 +137,21 @@ export function SupplierOrdersPage() {
                             </Fields>
                         </CardBody>
                         <CardBody flush>
-                            <TableWrap>
+                            {/* stack：窄屏下每行变成一张竖排卡片（td 前面显示 data-label），桌面端不变 */}
+                            <TableWrap className="stack">
                                 <thead>
                                     <tr><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.supplier.hallDetail.colMaterialSurface}</th><th className="n">{t.customer.quotes.colQty}</th><th className="n">{t.supplier.hallDetail.colUnitPrice}</th><th className="n">{t.supplier.hallDetail.colSubtotal}</th><th>{t.supplier.hallDetail.colDrawing}</th><th>{t.customer.orderDetail.colProgress}</th></tr>
                                 </thead>
                                 <tbody>
                                     {o.lines.map((l) => (
                                         <tr key={l.id}>
-                                            <td className="m">{l.code}</td>
-                                            <td className="t1">{l.partName}</td>
-                                            <td>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
-                                            <td className="n">{l.quantity}</td>
-                                            <td className="n">{lp(l.id) ? M(lp(l.id)!.unitPriceCny) : X}</td>
-                                            <td className="n">{lp(l.id) ? M(lp(l.id)!.lineTotalCny) : X}</td>
-                                            <td>
+                                            <td data-label={t.customer.orderDetail.colCode} className="m">{l.code}</td>
+                                            <td data-label={t.common.table.name} className="t1">{l.partName}</td>
+                                            <td data-label={t.supplier.hallDetail.colMaterialSurface}>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
+                                            <td data-label={t.customer.quotes.colQty} className="n">{l.quantity}</td>
+                                            <td data-label={t.supplier.hallDetail.colUnitPrice} className="n">{lp(l.id) ? M(lp(l.id)!.unitPriceCny) : X}</td>
+                                            <td data-label={t.supplier.hallDetail.colSubtotal} className="n">{lp(l.id) ? M(lp(l.id)!.lineTotalCny) : X}</td>
+                                            <td data-label={t.supplier.hallDetail.colDrawing}>
                                                 {/* 取消的单不给图；已接 / 待签 / 已签都给 —— 签完才是最需要图纸的时候 */}
                                                 {o.status !== 'CANCELLED' && l.files.length ? l.files.map((f) => (
                                                     <div key={f.id}>
@@ -165,7 +166,7 @@ export function SupplierOrdersPage() {
                                                     </div>
                                                 )) : X}
                                             </td>
-                                            <td>
+                                            <td data-label={t.customer.orderDetail.colProgress}>
                                                 {/* 返工 / 重做拆出来的行没有价格 —— 成本供应商自担，合计不变 */}
                                                 {l.status ? pill(lineSt(t)[l.status]) : X}
                                                 {l.replacesPartId && <div className="t2">{t.supplier.orders.reworkLine}</div>}

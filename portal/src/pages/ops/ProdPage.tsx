@@ -11,7 +11,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Checkbox, Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
@@ -31,6 +31,7 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function OpsProdPage() {
     const { t } = useMock()
+    const location = useLocation()
     const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '' } = useParams()
@@ -56,7 +57,9 @@ export function OpsProdPage() {
 
     useEffect(() => { void load() }, [load])
 
-    const back = <Link className="btn sm qui" to="/ops/dispatch" style={{ margin: '0 0 6px -9px' }}>{t.prodDetail.back}</Link>
+    // 从派单列表点进来时带着列表地址（含页码），返回就回到原样
+    const backState = (location.state as { back?: string } | null)?.back
+    const back = <Link className="btn sm qui" to={backState?.startsWith('/ops/dispatch') ? backState : '/ops/dispatch'} style={{ margin: '0 0 6px -9px' }}>{t.prodDetail.back}</Link>
 
     if (missing) {
         return <Page><Hello back={back} title={t.prodDetail.title} /><Card><CardBody><Empty text={t.prodDetail.notFound} /></CardBody></Card></Page>

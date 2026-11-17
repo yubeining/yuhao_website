@@ -6,7 +6,7 @@
  *   重画整棵树；这里改成每个表单自己管自己的值。
  */
 
-import type { CSSProperties, ReactNode } from 'react'
+import { createContext, useContext, useId, type CSSProperties, type FormEvent, type ReactNode } from 'react'
 import { useI18n } from '../i18n/I18nProvider'
 
 export function Input({ value, onChange, onBlur, onEnter, placeholder, type = 'text', bad, disabled, style, id, autoComplete }: {
@@ -26,11 +26,13 @@ export function Input({ value, onChange, onBlur, onEnter, placeholder, type = 't
     id?: string
     autoComplete?: string
 }) {
+    // 放在 Field 里时用 Field 生成的 id，这样 <label htmlFor> 自动对上（点标签聚焦、读屏念标签）
+    const fieldId = useContext(FieldIdContext)
     return (
         <input
             className={`inp${bad ? ' bad' : ''}`}
             type={type}
-            id={id}
+            id={fieldId ?? id}
             autoComplete={autoComplete}
             placeholder={placeholder}
             value={value}
@@ -56,6 +58,9 @@ export function Select({ value, onChange, options, style }: {
     )
 }
 
+/** Field 生成的 id，由里面的 Input 取用。 */
+const FieldIdContext = createContext<string | undefined>(undefined)
+
 /** 带标签的字段。登录、注册、入驻向导都用它。 */
 /** 必填标记：全站同一个样式（红 * + 读屏念「必填」），不要各页自己拼字符串。 */
 export function Req() {
@@ -68,14 +73,15 @@ export function Field({ label, required, children }: {
     children: ReactNode
 }) {
     const { t } = useI18n()
+    const id = useId()
     return (
         <div className="field2">
-            <label>
+            <label htmlFor={id}>
                 {label}
                 {required && <Req />}
                 {required && <span className="sr-only">{t.common.required}</span>}
             </label>
-            {children}
+            <FieldIdContext.Provider value={id}>{children}</FieldIdContext.Provider>
         </div>
     )
 }
@@ -89,7 +95,19 @@ export function FieldRow({ children, cols = 2 }: { children: ReactNode; cols?: 2
 
 /** 表单级错误。永远显示在提交按钮上方 —— 提交失败时视线就在那里。 */
 export function ErrMsg({ children }: { children: ReactNode }) {
-    return children ? <div className="errmsg">{children}</div> : null
+    return children ? <div className="errmsg" role="alert">{children}</div> : null
+}
+
+/**
+ * 表单外壳：回车提交、密码管理器能认出这是登录表单。
+ * 里面的主按钮用 <BigButton type="submit">，不要再挂 onClick。
+ */
+export function Form({ onSubmit, children }: { onSubmit: () => void; children: ReactNode }) {
+    return (
+        <form noValidate onSubmit={(e: FormEvent) => { e.preventDefault(); onSubmit() }}>
+            {children}
+        </form>
+    )
 }
 
 export function BigButton({ children, onClick, type = 'button' }: {

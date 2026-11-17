@@ -7,7 +7,7 @@
  */
 
 import { useState } from 'react'
-import { BigButton, ErrMsg, Field, Input } from '../../components/form'
+import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { opsLogin } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { landingAfterSignIn, setSession } from '../../auth/session'
@@ -61,17 +61,19 @@ export function OpsSignInPage() {
                         {t.opsLogin.sub}
                     </div>
 
-                    <Field label={t.opsLogin.email}>
-                        <Input id="em" type="email" autoComplete="username"
-                            value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
-                    </Field>
-                    <Field label={t.opsLogin.pw}>
-                        <Input id="pw" type="password" autoComplete="current-password"
-                            value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
-                    </Field>
-                    <ErrMsg>{err}</ErrMsg>
+                    <Form onSubmit={() => void submit()}>
+                        <Field label={t.opsLogin.email}>
+                            <Input id="em" type="email" autoComplete="username"
+                                value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
+                        </Field>
+                        <Field label={t.opsLogin.pw}>
+                            <Input id="pw" type="password" autoComplete="current-password"
+                                value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
+                        </Field>
+                        <ErrMsg>{err}</ErrMsg>
 
-                    <BigButton onClick={submit}>{busy ? '…' : t.opsLogin.submit}</BigButton>
+                        <BigButton type="submit">{busy ? '…' : t.opsLogin.submit}</BigButton>
+                    </Form>
                 </div>
             </div>
         </div>

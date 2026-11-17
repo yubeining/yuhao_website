@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
-import { BigButton, Checkbox, ErrMsg, Field, Input } from '../../components/form'
+import { BigButton, Checkbox, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { registerWithCode, sendOtp } from '../../services/auth'
@@ -90,35 +90,38 @@ export function RegisterPage() {
                     <h1 className="fh">{c.h}</h1>
                     <div className="fsub">{c.sub}<Link to="/auth/signin">{c.subA}</Link></div>
 
-                    <Field label={c.email}>
-                        <div style={{ display: 'flex', gap: 8 }}>
-                            <Input type="email" value={mail}
-                                onChange={(v) => { setMail(v); setErr(null) }} />
-                            <button className="btn" type="button" style={{ whiteSpace: 'nowrap' }}
-                                disabled={busy || countdown > 0} onClick={() => void requestCode()}>
-                                {countdown > 0 ? c.resendIn(countdown) : sent ? c.resend : c.sendCode}
-                            </button>
+                    {/* 回车 = 提交注册；邮箱旁的「发送验证码」是 type=button，不会触发提交 */}
+                    <Form onSubmit={() => void submit()}>
+                        <Field label={c.email}>
+                            <div style={{ display: 'flex', gap: 8 }}>
+                                <Input type="email" value={mail}
+                                    onChange={(v) => { setMail(v); setErr(null) }} />
+                                <button className="btn" type="button" style={{ whiteSpace: 'nowrap' }}
+                                    disabled={busy || countdown > 0} onClick={() => void requestCode()}>
+                                    {countdown > 0 ? c.resendIn(countdown) : sent ? c.resend : c.sendCode}
+                                </button>
+                            </div>
+                        </Field>
+                        <Field label={c.company} required>
+                            <Input value={company} onChange={(v) => { setCompany(v); setErr(null) }} />
+                            <div className="fnote" style={{ marginTop: 6 }}>{c.companyHint}</div>
+                        </Field>
+                        <Field label={c.code}>
+                            <Input id="otp" type="text" autoComplete="one-time-code"
+                                value={code}
+                                onChange={(v) => { setCode(v.replace(/\D/g, '').slice(0, 6)); setErr(null) }} />
+                        </Field>
+                        {sent && <div className="fnote" style={{ marginBottom: 12 }}>{c.codeSentTo(mail.trim())}</div>}
+
+                        <ErrMsg>{err}</ErrMsg>
+
+                        <div className="inprow">
+                            <Checkbox checked={agree} onChange={(v) => { setAgree(v); setErr(null) }}>
+                                {c.agree}
+                            </Checkbox>
                         </div>
-                    </Field>
-                    <Field label={c.company} required>
-                        <Input value={company} onChange={(v) => { setCompany(v); setErr(null) }} />
-                        <div className="fnote" style={{ marginTop: 6 }}>{c.companyHint}</div>
-                    </Field>
-                    <Field label={c.code}>
-                        <Input id="otp" type="text" autoComplete="one-time-code"
-                            value={code}
-                            onChange={(v) => { setCode(v.replace(/\D/g, '').slice(0, 6)); setErr(null) }} />
-                    </Field>
-                    {sent && <div className="fnote" style={{ marginBottom: 12 }}>{c.codeSentTo(mail.trim())}</div>}
-
-                    <ErrMsg>{err}</ErrMsg>
-
-                    <div className="inprow">
-                        <Checkbox checked={agree} onChange={(v) => { setAgree(v); setErr(null) }}>
-                            {c.agree}
-                        </Checkbox>
-                    </div>
-                    <BigButton onClick={() => void submit()}>{busy ? '…' : c.submit}</BigButton>
+                        <BigButton type="submit">{busy ? '…' : c.submit}</BigButton>
+                    </Form>
                     <div className="fnote" style={{ marginTop: 12 }}>{c.hint}</div>
                 </div>
             </div>

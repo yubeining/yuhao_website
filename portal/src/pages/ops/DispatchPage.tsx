@@ -8,7 +8,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pending, pill, TableWrap,
@@ -26,12 +26,22 @@ import { Pagination } from '../../components/Pagination'
 export function OpsDispatchPage() {
     const { t } = useMock()
     const navigate = useNavigate()
+    const location = useLocation()
+    // ★ 两个列表的页码放在网址里（?pp=2&op=3），从生产订单详情返回时不丢，理由同报价列表
+    const [params, setParams] = useSearchParams()
+    const poolPage = Math.max(1, Number(params.get('pp')) || 1)
+    const ordersPage = Math.max(1, Number(params.get('op')) || 1)
+    const setPageParam = (key: 'pp' | 'op') => (p: number) => setParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (p > 1) next.set(key, String(p)); else next.delete(key)
+        return next
+    }, { replace: true })
+    const setPoolPage = setPageParam('pp')
+    const setOrdersPage = setPageParam('op')
     const [pool, setPool] = useState<PoolLine[] | null>(null)
     const [poolTotal, setPoolTotal] = useState(0)
-    const [poolPage, setPoolPage] = useState(1)
     const [orders, setOrders] = useState<OpsOrderSummary[] | null>(null)
     const [ordersTotal, setOrdersTotal] = useState(0)
-    const [ordersPage, setOrdersPage] = useState(1)
     // 拆单时要把行分给「组装中」的生产订单 —— 这个列表要全量，不能被分页切掉
     const [assembling, setAssembling] = useState<OpsOrderSummary[]>([])
     const [picking, setPicking] = useState<PoolLine | null>(null)
@@ -193,7 +203,7 @@ export function OpsDispatchPage() {
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
-                                    <tr className="clk" key={o.id} onClick={() => navigate(`/ops/dispatch/${o.id}`)}>
+                                    <tr className="clk" key={o.id} onClick={() => navigate(`/ops/dispatch/${o.id}`, { state: { back: location.pathname + location.search } })}>
                                         <td className="m">{shortId(o.id)}</td>
                                         <td>{pill(opsOrderSt(t)[o.status])}</td>
                                         <td>{o.dispatchMode ? dispatchMode(t)[o.dispatchMode] : X}</td>

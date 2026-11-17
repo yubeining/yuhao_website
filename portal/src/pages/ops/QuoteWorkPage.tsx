@@ -14,7 +14,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useLocation, useParams } from 'react-router-dom'
 import { Input, Select } from '../../components/form'
 import { DatePicker } from '../../components/DatePicker'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
@@ -37,6 +37,7 @@ const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
 export function OpsQuoteWorkPage() {
     const { t } = useMock()
+    const location = useLocation()
     const [askConfirm, confirmDialog] = useConfirm()
     const { id = '' } = useParams()
     const [order, setOrder] = useState<OpsOrderView | null>(null)
@@ -81,7 +82,9 @@ export function OpsQuoteWorkPage() {
 
     useEffect(() => { void load(true) }, [load])
 
-    const back = <Link className="btn sm qui" to="/ops/quotes" style={{ margin: '0 0 6px -9px' }}>{t.quoteWork.back}</Link>
+    // 从列表点进来时带着列表地址（含筛选和页码），返回就回到原样；直接打开的链接退回列表首页
+    const backState = (location.state as { back?: string } | null)?.back
+    const back = <Link className="btn sm qui" to={backState?.startsWith('/ops/quotes') ? backState : '/ops/quotes'} style={{ margin: '0 0 6px -9px' }}>{t.quoteWork.back}</Link>
 
     if (missing) {
         return (

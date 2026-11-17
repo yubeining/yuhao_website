@@ -9,8 +9,9 @@
  *   部分 App 内置浏览器）直接把它禁掉并返回 false，按钮点了就像没反应。
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useCallback, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n/I18nProvider'
+import { useDialog } from './useDialog'
 
 export function ConfirmDialog({ title, message, confirmLabel, busy, danger, onConfirm, onCancel }: {
     /** 不填时只显示 message —— 文案本身已经是问句的场景 */
@@ -24,20 +25,16 @@ export function ConfirmDialog({ title, message, confirmLabel, busy, danger, onCo
     onCancel: () => void
 }) {
     const { t } = useI18n()
-
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.key === 'Escape' && !busy) onCancel()
-        }
-        document.addEventListener('keydown', onKey)
-        return () => document.removeEventListener('keydown', onKey)
-    }, [busy, onCancel])
+    // 焦点默认落在「取消」上（第一个按钮）—— 误按回车不会触发不可逆动作
+    const { ref, titleId } = useDialog(() => { if (!busy) onCancel() })
 
     return (
-        <div className="fp-overlay" onClick={() => { if (!busy) onCancel() }}>
-            <div className="dlg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
+        // dlg-mask 叠在编辑弹框（modal-mask）之上：确认可能是从弹框里发起的
+        <div className="fp-overlay dlg-mask" onClick={() => { if (!busy) onCancel() }}>
+            <div className="dlg" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true"
+                aria-labelledby={titleId} ref={ref} tabIndex={-1}>
                 {title && <div className="dlg-h">{title}</div>}
-                <div className="dlg-b" style={title ? undefined : { paddingTop: 18 }}>{message}</div>
+                <div className="dlg-b" id={titleId} style={title ? undefined : { paddingTop: 18 }}>{message}</div>
                 <div className="dlg-f">
                     <button className="btn" type="button" disabled={busy} onClick={onCancel}>
                         {t.common.cancel}

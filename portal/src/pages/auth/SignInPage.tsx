@@ -16,7 +16,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
-import { BigButton, ErrMsg, Field, Input } from '../../components/form'
+import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { externalLogin, sendOtp, verifyOtp } from '../../services/auth'
@@ -139,8 +139,9 @@ export function SignInPage() {
                         {c.sub}<Link to="/auth/register">{c.subA}</Link>
                     </div>
 
+                    {/* 每种状态包一层 <form>：回车提交，密码管理器也能认出这是登录表单 */}
                     {mode === 'password' ? (
-                        <>
+                        <Form onSubmit={() => void submitPassword()}>
                             <Field label={c.email}>
                                 <Input id="em" type="email" autoComplete="username"
                                     value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
@@ -150,10 +151,10 @@ export function SignInPage() {
                                     value={pw} onChange={(v) => { setPw(v); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
-                            <BigButton onClick={submitPassword}>{busy ? '…' : c.submit}</BigButton>
-                        </>
+                            <BigButton type="submit">{busy ? '…' : c.submit}</BigButton>
+                        </Form>
                     ) : codeSent ? (
-                        <>
+                        <Form onSubmit={() => void submitCode()}>
                             <Field label={c.codeSentTo}>
                                 <div style={{ padding: '10px 0', fontSize: 14 }}>{mail.trim()}</div>
                             </Field>
@@ -168,7 +169,7 @@ export function SignInPage() {
                                     {c.needsRegistration}<Link to="/auth/register">{c.subA}</Link>
                                 </div>
                             )}
-                            <BigButton onClick={submitCode}>{busy ? '…' : c.submit}</BigButton>
+                            <BigButton type="submit">{busy ? '…' : c.submit}</BigButton>
                             <div style={{ display: 'flex', gap: 12, marginTop: 12 }}>
                                 <button type="button" className="btn sm" onClick={backToEmail}>{c.backToEmail}</button>
                                 <button type="button" className="btn sm" disabled={countdown > 0 || busy}
@@ -176,19 +177,19 @@ export function SignInPage() {
                                     {countdown > 0 ? c.resendIn(countdown) : c.resend}
                                 </button>
                             </div>
-                        </>
+                        </Form>
                     ) : (
-                        <>
+                        <Form onSubmit={() => void requestCode()}>
                             <Field label={c.email}>
                                 <Input id="em" type="email" autoComplete="username"
                                     value={mail} onChange={(v) => { setMail(v); setErr(null) }} />
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
-                            <BigButton onClick={requestCode}>{busy ? '…' : c.sendCode}</BigButton>
+                            <BigButton type="submit">{busy ? '…' : c.sendCode}</BigButton>
                             <div className="fnote" style={{ marginTop: 12 }}>
                                 {c.codeHint}
                             </div>
-                        </>
+                        </Form>
                     )}
 
                     {/* 两种登录方式并列，默认验证码，密码给运营建的账号用。放在表单下面，不打断输入 */}

@@ -112,7 +112,8 @@ export function HallDetailPage() {
             <Card>
                 <CardHead title={t.supplier.hallDetail.partsTitle(offer.lines.length)} />
                 <CardBody flush>
-                    <TableWrap>
+                    {/* stack：窄屏下每行变成一张竖排卡片（td 前面显示 data-label），桌面端不变 */}
+                            <TableWrap className="stack">
                         <thead>
                             <tr>
                                 <th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.supplier.hallDetail.colMaterialSurface}</th><th className="n">{t.customer.quotes.colQty}</th>
@@ -122,13 +123,13 @@ export function HallDetailPage() {
                         <tbody>
                             {offer.lines.map((l) => (
                                 <tr key={l.id}>
-                                    <td className="m">{l.code}</td>
-                                    <td className="t1">{l.partName}</td>
-                                    <td>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
-                                    <td className="n">{l.quantity}</td>
-                                    <td className="n">{priceOf(l.id) ? M(priceOf(l.id)!.unitPriceCny) : X}</td>
-                                    <td className="n">{priceOf(l.id) ? M(priceOf(l.id)!.lineTotalCny) : X}</td>
-                                    <td>
+                                    <td data-label={t.customer.orderDetail.colCode} className="m">{l.code}</td>
+                                    <td data-label={t.common.table.name} className="t1">{l.partName}</td>
+                                    <td data-label={t.supplier.hallDetail.colMaterialSurface}>{l.material || X}<div className="t2">{l.surfaceTreatment || X}</div></td>
+                                    <td data-label={t.customer.quotes.colQty} className="n">{l.quantity}</td>
+                                    <td data-label={t.supplier.hallDetail.colUnitPrice} className="n">{priceOf(l.id) ? M(priceOf(l.id)!.unitPriceCny) : X}</td>
+                                    <td data-label={t.supplier.hallDetail.colSubtotal} className="n">{priceOf(l.id) ? M(priceOf(l.id)!.lineTotalCny) : X}</td>
+                                    <td data-label={t.supplier.hallDetail.colDrawing}>
                                         {l.files.length ? l.files.map((f) => (
                                             <div key={f.id}>
                                                 {/* 能预览的（PDF / 图片）开预览；CAD 等格式浏览器渲染不了，点了直接下载 */}

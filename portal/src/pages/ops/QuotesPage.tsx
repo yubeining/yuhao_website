@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
@@ -31,12 +31,23 @@ const filters = (t: ReturnType<typeof useMock>['t']): [OrderStatus | 'ALL', stri
 export function OpsQuotesPage() {
     const { t } = useMock()
     const navigate = useNavigate()
-    const [tab, setTab] = useState<OrderStatus | 'ALL'>('ALL')
+    const location = useLocation()
+    // ★ 筛选和页码放在网址里（?tab=SUBMITTED&page=3）：进报价工作台再返回、刷新、转发链接都不丢。
+    //   以前放在 useState 里，处理完一单返回就回到「全部」第 1 页，要重新筛一遍。
+    const [params, setParams] = useSearchParams()
+    const rawTab = params.get('tab')
+    const tab: OrderStatus | 'ALL' = filters(t).some(([st]) => st === rawTab) ? rawTab as OrderStatus : 'ALL'
+    const page = Math.max(1, Number(params.get('page')) || 1)
+    const setTab = (st: OrderStatus | 'ALL') => setParams(st === 'ALL' ? {} : { tab: st }, { replace: true })
+    const setPage = (p: number) => setParams((prev) => {
+        const next = new URLSearchParams(prev)
+        if (p > 1) next.set('page', String(p)); else next.delete('page')
+        return next
+    }, { replace: true })
     const [orders, setOrders] = useState<OpsOrderSummaryView[] | null>(null)
     /** 每张单最新一版报价。「待报价」里有这一项且是被拒的，说明是客户拒绝后退回来的，不是新单。 */
     const [latest, setLatest] = useState<Record<string, OpsQuoteSummaryView>>({})
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async (pageNo: number) => {
@@ -63,7 +74,7 @@ export function OpsQuotesPage() {
                     <>
                         {filters(t).map(([st, label]) => (
                             <button key={st} type="button" className={`btn${tab === st ? ' pri' : ''}`}
-                                onClick={() => { setTab(st); setPage(1) }}>{label}</button>
+                                onClick={() => setTab(st)}>{label}</button>
                         ))}
                     </>
                 }
@@ -87,7 +98,7 @@ export function OpsQuotesPage() {
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
-                                    <tr className="clk" key={o.id} onClick={() => navigate(`/ops/quotes/${o.id}`)}>
+                                    <tr className="clk" key={o.id} onClick={() => navigate(`/ops/quotes/${o.id}`, { state: { back: location.pathname + location.search } })}>
                                         <td className="t1">{o.title || t.common.untitledOrder}</td>
                                         <td>{o.customerName ?? X}</td>
                                         <td className="n">{o.lineCount}</td>
