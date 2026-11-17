@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ★★ 已废弃（2026-11-17）：DevBox 部署链路不再使用，本文件保留备查。现行部署方式见 deploy/README.md。
 #
 # DevBox 一次性初始化。幂等，可以重复跑。
 #

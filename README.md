@@ -25,8 +25,8 @@
 ├── database/
 │   └── migrations/        手写迁移，开机自动应用
 ├── deploy/                部署到 Sealos 的配置与脚本
-│   ├── README.md          ★ 部署指南：建库 → 初始化 DevBox → 配 Secrets → 点 Actions
-│   └── devbox/            bootstrap.sh（一次性）+ deploy.sh（每次部署）
+│   ├── README.md          ★ 部署指南：建库 → 配应用环境变量 → 推 main 出镜像 → Sealos 重启
+│   └── devbox/            旧 DevBox 部署脚本（已废弃，保留备查）
 ├── Dockerfile             前后端单一镜像（三阶段构建）
 ├── scripts/               提交闸门 + 运维脚本
 ├── .githooks/             commit-msg + pre-commit
@@ -138,18 +138,17 @@ curl localhost:3001/actuator/health        # {"status":"UP"}
 
 **完整步骤见 [`deploy/README.md`](./deploy/README.md)。**一句话版本：
 
-> GitHub → Actions → **Deploy to Sealos DevBox** → Run workflow
+> 推 `main` → Actions **Build Image** 自动构建并推 `ghcr.io/yubeining/yuhao_website:latest`
+> → Sealos 应用管理 → `yuhao` → **重启** → `curl https://www.partcut.com/api/v1/public/ping` 核对 `commit`
 
-它会构建前端、打成单个 jar（前端在 jar 里）、scp 到 Sealos DevBox、
-健康检查不过自动回滚上一版。
+**推 main 只出镜像，不上线** —— 上线要在 Sealos 里手动点重启，部署是决定，不是副作用。
 
-**只有手动触发，没有 push 自动部署** —— 部署是决定，不是副作用。
+原来的「Actions → Deploy to Sealos DevBox」已废弃（`deploy.yml` 和 `deploy/devbox/` 保留备查）。
 
-首次部署前必须先做三件事（`deploy/README.md` 有详细步骤）：
+首次部署前必须先做两件事（`deploy/README.md` 有详细步骤）：
 
 1. 在 Sealos 建 PostgreSQL 16 + Redis，并 `CREATE DATABASE mfg`
-2. 在 DevBox 上跑一次 `deploy/devbox/bootstrap.sh`，然后填 `/home/devbox/app/.env`
-3. 在 GitHub 配 `DEVBOX_SSH_KEY` / `DEVBOX_HOST` / `DEVBOX_PORT` / `DEVBOX_USER`
+2. 在 Sealos 应用 `yuhao` 的环境变量里配数据库 / Redis / `JWT_SECRET` / 对象存储 / 邮件
 
 > **★ 没有任何播种账号的开关。** 生产账号一律走真实入口创建（见上文「开发登录」），
 > 不要写测试账号的初始化逻辑 —— 代码里也没有可以打开的后门。
@@ -225,7 +224,7 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 - 定时任务 2 个（汇率同步、签字超时扫描），均按条目加 Redis 锁
 - 测试：11 个 `*Test` + 19 个 `*IT`，共 207 项
 - React SPA 三端骨架（32 个页面），由 Spring Boot 托管
-- 部署：GHCR 镜像（推 `main` 自动构建）+ DevBox 部署（手动触发）；`www.partcut.com` 已在线
+- 部署：GHCR 镜像（推 `main` 自动构建）+ Sealos 应用 `yuhao`（手动重启上线）；`www.partcut.com` 已在线
 
 **还没有**
 
@@ -241,4 +240,4 @@ MFG-12, feat, [quote] add validity-period guard on customer quote acceptance
 - **供应商自助维护产能 / 资质**：只有 ops 侧 `PUT /ops/suppliers/{orgId}/capability`
 - **官网 `site/`**：`noindex,nofollow` 的演示稿，未部署到 `www.partcut.com`
   （该域名现在跑的是平台 SPA）
-- **零停机部署**：DevBox 单实例，部署期间有几十秒不可用
+- **零停机部署**：Sealos 应用目前 1 个实例，重启上线时是否中断、中断多久未实测

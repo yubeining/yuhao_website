@@ -1,35 +1,35 @@
 # 部署到 Sealos
 
-> 目标形态：在 GitHub 上点一下 Actions，把 `main` 的最新代码部署到 Sealos DevBox。
-
-```
-GitHub (点 Actions → Run workflow)
-   │
-   ├─ npm run build        前端 → backend/src/main/resources/static/
-   ├─ mvn package          打成单个 app.jar（前端在里面）
-   ├─ 校验 jar 里确实有 static/index.html 和 db/migrations/*.sql
-   │
-   ├─ scp app.jar ──────────────────────▶ DevBox:/home/devbox/app/app.jar.new
-   └─ ssh 'bash deploy.sh' ─────────────▶ 停旧 → 换 jar → 起新
-                                             → 健康检查
-                                             → 不过就自动回滚上一版
-DevBox:8080 ──▶ https://mhswbrrnpspx.sealosbja.site
-   │
-   ├──▶ Sealos PostgreSQL（内网）
-   └──▶ Sealos Redis（内网）
-```
-
-**★ 口令的唯一真源是 GitHub Secrets**（2026-09-07 起）。每次部署，workflow 把
-`DB_PASSWORD` / `JWT_SECRET` / `REDIS_PASSWORD` / `STORAGE_S3_*` 覆盖进 DevBox 的
-`/home/devbox/app/.env`（`deploy/devbox/apply-env.sh`）。DevBox 是容器，删了重建
-或换一台，`.env` 就没了 —— 所以它只是缓存，不是真源。
-
-> 之前（2026-08-02）的设计相反：GitHub 不碰任何数据口令，只有一把 SSH 私钥。
-> 那样 GitHub token 泄露的爆炸半径更小，但 `.env` 没有任何备份。改掉的取舍见
-> `changelog/2026-09-07_secrets-from-github/`。
+> 现行方式（2026-11-17 起写进文档）：推 `main` → GitHub Actions 自动构建镜像推到 GHCR
+> → 在 Sealos 应用管理里给应用 `yuhao` 点「重启」拉最新镜像。
 >
-> ★ GitHub Secrets **存进去就看不到了**（只能更新或删除），这是设计如此。
-> 你自己要另留一份（密码管理器）。
+> 原来的「Actions → Deploy to Sealos DevBox」链路**已废弃**。`.github/workflows/deploy.yml`
+> 和 `deploy/devbox/` 下的脚本保留备查，不要再用；旧地址 `mhswbrrnpspx.sealosbja.site` 已无服务。
+
+```
+git push main
+   │
+   └─ .github/workflows/image.yml（push main 自动触发）
+        ├─ docker build（Dockerfile 三阶段：前端 → 后端 jar → 运行时）
+        │    └─ commit 短 sha 经 --build-arg GIT_COMMIT 打进 jar
+        └─ 推送 ghcr.io/yubeining/yuhao_website:latest
+                和 ghcr.io/yubeining/yuhao_website:<7 位 sha>
+
+Sealos 应用管理 → yuhao → 「重启」（手动）
+   └─ 拉 :latest 起新 Pod，端口 8080 ──▶ https://www.partcut.com
+        │
+        ├──▶ Sealos PostgreSQL（内网）
+        ├──▶ Sealos Redis（内网）
+        └──▶ Sealos 对象存储
+```
+
+**★ 推 main 不等于上线。**镜像构建完之后，线上仍跑着旧 Pod，直到有人在 Sealos 里点「重启」。
+
+**★ 配置的真源是 Sealos 应用 `yuhao` 的环境变量**（应用管理 → yuhao → 变更 → 环境变量）。
+GitHub Secrets 里那些 `DB_PASSWORD` / `JWT_SECRET` / `DEVBOX_*` 是旧 DevBox 链路用的，
+现在不会被任何东西读到。
+
+> ★ 环境变量自己另留一份（密码管理器）。应用删了重建，这些值就得重填。
 
 ---
 
@@ -37,13 +37,11 @@ DevBox:8080 ──▶ https://mhswbrrnpspx.sealosbja.site
 
 应用没有数据库起不来 —— `SchemaMigrationRunner` 在 JPA 初始化之前就要连库。
 
-### ★ 为什么是独立实例，不和应用挤在 DevBox 里
+### ★ 为什么是独立实例，不和应用挤在一起
 
 | 理由 | 说明 |
 |---|---|
 | 生命周期不同 | 应用要频繁重新部署，数据库不能跟着重启 |
-| DevBox 会被暂停 / 重建 | 它本质是开发环境，重建一次数据就没了 |
-| 资源 | DevBox 只有 2C/4G，PG + Redis + JVM 挤一起互相抢 |
 | 备份 / 监控 / 扩容 | 托管实例自带，自己跑容器全都没有 |
 
 对本系统还有一条更硬的：`file_access_log`（图纸访问全审计）是
@@ -86,8 +84,8 @@ CREATE DATABASE mfg;
 
 ```
 写 database/migrations/2026-08-15_01_add-inspection-report.sql
-  → git push
-  → 点 Actions 部署
+  → git push main（自动出镜像）
+  → Sealos 里重启 yuhao
   → 应用启动时自动应用，日志里能看到 "applying migration: ..."
 ```
 
@@ -101,21 +99,18 @@ CREATE DATABASE mfg;
 
 多实例并发启动由 `pg_advisory_lock` 保证只有一个在跑，其余排队后发现已应用直接放行。
 
-### ★★ 但是：数据库改动不会随 jar 回滚
+### ★★ 但是：数据库改动不会随镜像回滚
 
-部署失败时 `deploy.sh` 会把 **jar** 回滚到上一版，
-**但迁移已经执行了，schema 不会退回去**。结果是「旧代码 + 新 schema」。
+把应用换回旧镜像，**迁移已经执行了，schema 不会退回去**。结果是「旧代码 + 新 schema」。
 
 加列这种向后兼容的改动无所谓；**删列 / 列改名 / 加 NOT NULL 会让回滚后的旧版本直接炸** ——
 你以为回滚救回来了，其实服务还是挂的。
 
 所以破坏性变更必须拆成两次发布（扩展-收缩）。
-规则和判断方法写在 [`../CLAUDE.md`](../CLAUDE.md) §6「迁移必须向后兼容一个版本」，
+规则和判断方法写在 [`../CLAUDE.md`](../CLAUDE.md) §5「迁移必须向后兼容一个版本」，
 **动 schema 之前先看那一节**。
 
-> 另外：迁移在**端口打开之前**执行。大迁移会拉长启动时间，
-> 超过 `deploy.sh` 的 `HEALTH_TIMEOUT`（默认 120 秒）会被误判成启动失败而触发回滚。
-> 预计耗时长的迁移，部署前先把这个值调大。
+> 另外：迁移在**端口打开之前**执行。大迁移会拉长启动时间。
 
 ### Redis
 
@@ -127,10 +122,9 @@ CREATE DATABASE mfg;
 
 同样记下内网地址、端口 `6379`、密码。
 
-> **★ Redis 不是可选的 —— 没有它部署会失败。**
+> **★ Redis 不是可选的。**
 >
-> actuator 的 `RedisHealthIndicator` 会把 Redis 状态汇总进 `/actuator/health`，
-> 而 `deploy.sh` 正是拿这个端点判断部署成不成功。实测：
+> actuator 的 `RedisHealthIndicator` 会把 Redis 状态汇总进 `/actuator/health`：
 >
 > ```
 > Redis 正常   /actuator/health  200  {"status":"UP"}
@@ -138,75 +132,50 @@ CREATE DATABASE mfg;
 > ```
 >
 > 表现会非常迷惑：**应用其实起来了，业务接口也正常**
-> （`/api/v1/public/ping` 照样 200），但健康检查不过 →
-> 自动回滚 → Actions 报红。日志里看不到任何启动异常。
->
-> 现在系统还没有真正用到 Redis（缓存不强制、定时任务还没写），
-> 但它已经在健康检查链路里了。要么先建好，要么去掉 Redis 健康指示器 ——
-> **不要选后者**：定时任务的分布式锁马上就要用它，
-> 那时候 Redis 挂了必须让部署失败，而不是带着"锁失效"上线。
+> （`/api/v1/public/ping` 照样 200），但健康端点是 503。
+> 定时任务的分布式锁也依赖它（CLAUDE.md §8）。
 
 > **为什么必须用内网地址**：外网地址要过公网、有额外延迟和流量费，
-> 而且把数据库暴露在公网上是没必要的风险。DevBox 和数据库在同一个
+> 而且把数据库暴露在公网上是没必要的风险。应用和数据库在同一个
 > namespace（`ns-aprx7mvw`）里，内网直连即可。
 
 ---
 
-## 第 2 步：初始化 DevBox
+## 第 2 步：配置 Sealos 应用的环境变量
 
-从 DevBox 控制台拿到 SSH 信息（「SSH 配置」那一栏，点复制按钮拿完整命令；
-「私钥」按钮下载私钥文件）。
-
-```bash
-# 在你本机
-scp -i <私钥> -P <端口> deploy/devbox/bootstrap.sh devbox@<主机>:/tmp/
-ssh -i <私钥> -p <端口> devbox@<主机> 'bash /tmp/bootstrap.sh'
-```
-
-`bootstrap.sh` 做三件事：
-
-1. **备好 JDK 25 并把位置记在 `/home/devbox/app/jdk.env`**（已有 25+ 就直接用）。
-   顺序：已装的 25+ → apt 的 `openjdk-25-jdk-headless` → **Temurin 25 tarball**（源里没有时自动走这条，不需要 sudo）。
-
-   > ★ 为什么要落一个 `jdk.env`，而不是靠系统默认的 `java`：
-   > CI 是**非交互 ssh**（`ssh host "bash build.sh"`），**不读 `~/.bashrc`**；
-   > 而且 Ubuntu 装了新 JDK 也**不会**自动把 `java` 切过去。
-   > 于是会出现"JDK 25 明明装上了，构建却仍用 21 报 release version 25 not supported"——
-   > 装上了却没用上，是这里最难查的坑。
-   > `build.sh` / `deploy.sh` / `entrypoint.sh` 都 source 这个文件，三者必定用同一个 JDK。
-2. 建 `/home/devbox/app/` 和 `.env` 模板
-3. 装 `/home/devbox/project/entrypoint.sh` —— 这是**发布成应用镜像后**的容器入口
-   （`deploy.sh` 每次部署会从仓库把它抄过去）。
-
-   > ★★ **DevBox 开发容器不会执行这个文件。**
-   > 2026-11-01 实测：文件正常装上了，权限对、内容对，但 DevBox 重启后
-   > `ss -lntp | grep 8080` 无输出、`ps -ef | grep java` 无进程，
-   > 公网地址返回 `delayed connect error: 111`。两次重启都一样。
-   > Sealos 官方文档对这个文件的定义是「应用**在发布后**的启动方式，
-   > 是项目**发布为 OCI 镜像时**的关键组件」—— 它服务于发布出去的镜像，
-   > 不服务于开发容器。
-   >
-   > 所以：**DevBox 重启后应用不会自己回来**，需要重跑一次 Action 或手动拉起。
-   > 生产请走「应用管理」跑镜像（见文末「扩缩容」一节），那里才有副本管理和自动重启。
-
-然后**编辑 `.env` 填地址类的值**（口令类不用填 —— 第 3 步配进 GitHub 后，
-第一次部署会自动覆盖进来；地址类也可以配成 GitHub Variables 省掉这一步）：
-
-```bash
-ssh -i <私钥> -p <端口> devbox@<主机>
-vi /home/devbox/app/.env
-```
+应用管理 → `yuhao` → **变更** → 环境变量。
 
 | 变量 | 填什么 |
 |---|---|
-| `SERVER_PORT` | `8080` —— DevBox 网络配置里对外暴露的就是它，别改 |
 | `DB_URL` | `jdbc:postgresql://<pg内网地址>:5432/mfg` |
 | `DB_USERNAME` / `DB_PASSWORD` | 第 1 步记下的 |
-| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 第 1 步记下的 |
-| `JWT_SECRET` | `openssl rand -base64 48` 生成，**不要与本地开发共用** |
+| `REDIS_HOST` / `REDIS_PORT` / `REDIS_PASSWORD` | 第 1 步记下的；Redis 没设口令就不填 `REDIS_PASSWORD` |
+| `JWT_SECRET` | `openssl rand -base64 48` 生成，≥ 32 字节，**不要与本地开发共用**。不足 32 字节应用拒绝启动 |
+| `STORAGE_S3_ENDPOINT` | 对象存储**内网**地址（见下） |
+| `STORAGE_S3_PUBLIC_ENDPOINT` | 对象存储**外网**地址（见下） |
+| `STORAGE_S3_BUCKET` | 桶名 |
+| `STORAGE_S3_ACCESS_KEY` / `STORAGE_S3_SECRET_KEY` | Sealos 对象存储 → 桶 → 访问密钥 |
+| `SEALOS_AI_API_KEY` | AI 报价用；不填时是 `not-configured` |
 | `MAIL_HOST` / `MAIL_PORT` / `MAIL_USERNAME` | Resend：`smtp.resend.com` / `587` / `resend` |
 | `MAIL_PASSWORD` | Resend 的 API key（`re_...`）。**不填就等于没接邮件** |
 | `MAIL_FROM` | 发信地址，必须落在**已验证**的发信子域上（如 `noreply@mail.partcut.com`） |
+
+`SERVER_PORT` 不用配 —— 镜像里已经 `ENV SERVER_PORT=8080`，和应用网络配置里暴露的端口一致。
+其余变量的默认值见 `backend/src/main/resources/application.yml`。
+
+> ★ **对象存储的端点和桶名在 `application.yml` 里没有默认值**（旧 DevBox 链路是在
+> `deploy.yml` 里补的默认值），所以在 Sealos 应用里必须配。旧链路用过的值：
+>
+> | 变量 | 旧链路的值 | 谁在用 |
+> |---|---|---|
+> | `STORAGE_S3_ENDPOINT` | `http://object-storage.objectstorage-system.svc.cluster.local` | 服务端 put/get/head，不出集群 |
+> | `STORAGE_S3_PUBLIC_ENDPOINT` | `https://objectstorageapi.bja.sealos.run` | 发给客户浏览器的签名 URL；也是 CSP 放行的域名 |
+> | `STORAGE_S3_BUCKET` | `aprx7mvw-yuhao-oss` | |
+>
+> **public 配错或不配的后果**：签名对 host 敏感，用内网地址签出来的 URL，
+> 客户的浏览器连域名都解析不了 —— 表现是图裂、下载不了，**后端日志一片干净**，
+> 因为请求根本没到后端。启动日志里会有一条 warning 提示回落发生了；
+> CSP 也会主动**不放行**内网域名（放了也没用，只会掩盖「外网地址没配」）。
 
 > ### ★ 验证码能不能发出去，取决于 `MAIL_*` 这三件事
 >
@@ -223,75 +192,26 @@ vi /home/devbox/app/.env
 
 ---
 
-## 第 3 步：配置 GitHub Secrets
+## 第 3 步：部署
 
-仓库 → Settings → Secrets and variables → Actions → New repository secret：
-
-| Secret | 值 | 必填 |
-|---|---|---|
-| `DEVBOX_SSH_KEY` | DevBox 控制台下载的**私钥全文**（含 `-----BEGIN/END-----` 两行） | ✅ |
-| `DEVBOX_HOST` | SSH 主机名 | ✅ |
-| `DEVBOX_PORT` | SSH 端口 | ✅ |
-| `DEVBOX_USER` | 通常是 `devbox` | ✅ |
-| `DEVBOX_KNOWN_HOSTS` | `ssh-keyscan -p <端口> <主机>` 的输出 | 建议 |
-| `DB_PASSWORD` | 第 1 步记下的（Sealos 数据库 → 连接信息里随时能看） | ✅ |
-| `JWT_SECRET` | `openssl rand -base64 48` 生成，≥ 32 字节，**不与本地共用** | ✅ |
-| `REDIS_PASSWORD` | 第 1 步记下的；Redis 没设口令就不用配 | 按需 |
-| `STORAGE_S3_ACCESS_KEY` / `STORAGE_S3_SECRET_KEY` | Sealos 对象存储 → 桶 → 访问密钥 | 图纸域上线前 |
-
-以上口令项每次部署都会覆盖进 DevBox 的 `.env`；**缺 `DB_PASSWORD` 或 `JWT_SECRET` 部署直接失败**，
-不会等到应用起不来才发现。
-
-非口令项走同一页的 **Variables** 标签（可选，没配就用 workflow 里的默认值或 DevBox `.env` 现有值）：
-`DB_URL` / `DB_USERNAME` / `REDIS_HOST` / `REDIS_PORT` / `STORAGE_PROVIDER` /
-`STORAGE_S3_ENDPOINT` / `STORAGE_S3_PUBLIC_ENDPOINT` / `STORAGE_S3_REGION` / `STORAGE_S3_BUCKET`。
-
-> ★ **对象存储有两个端点，两个都要对，且它们的失效方式都是静默的。**
->
-> | 变量 | 填什么 | 谁在用 | 当前默认值 |
-> |---|---|---|---|
-> | `STORAGE_S3_ENDPOINT` | **内网**地址 | 服务端 put/get/head，不出集群、不计公网流量 | `http://object-storage.objectstorage-system.svc.cluster.local` |
-> | `STORAGE_S3_PUBLIC_ENDPOINT` | **外网**地址 | 发给客户浏览器的签名 URL；也是 CSP 放行的域名 | `https://objectstorageapi.bja.sealos.run` |
->
-> 两个默认值已经写进 workflow，正常不用配 Variables；换集群 / 换区域时才需要覆盖。
->
-> **public 配错或不配的后果**：签名对 host 敏感，用内网地址签出来的 URL，
-> 客户的浏览器连域名都解析不了 —— 表现是图裂、下载不了，**后端日志一片干净**，
-> 因为请求根本没到后端。启动日志里会有一条 warning 提示回落发生了；
-> CSP 也会主动**不放行**内网域名（放了也没用，只会掩盖「外网地址没配」）。
-
-> `DEVBOX_KNOWN_HOSTS` 不填也能跑 —— workflow 会退化成每次现扫主机公钥，
-> 并在日志里打出扫到的内容和一条 warning。现扫的问题是**无法防中间人**：
-> 有人劫持了 DNS 或网络，你的私钥就直接送到对方手里了。
-> 第一次部署成功后，把日志里打印的那几行存成这个 secret 即可固定。
-
----
-
-## 第 4 步：部署
-
-GitHub → **Actions** → 左侧 **Deploy to Sealos DevBox** → **Run workflow**
-→ 分支选 `main` → 绿色按钮。
-
-一次部署大约 3–6 分钟（首次久一些，Maven 要拉依赖）。
-
-成功的日志尾部长这样：
-
-```
-[deploy 14:32:10] stopping pid 1234
-[deploy 14:32:12] starting
-[deploy 14:32:12] pid 5678
-[deploy 14:32:39] healthy after 27s
-[deploy 14:32:39] deploy OK
-```
-
-验证：
+1. 代码合进 `main` 并推送。`image.yml` 自动跑（GitHub → Actions → **Build Image**），
+   冷缓存 8–12 分钟，有缓存 2 分钟左右。等它变绿。
+2. Sealos → 应用管理 → `yuhao` → **重启**。
+3. 核对线上版本：
 
 ```bash
-curl https://mhswbrrnpspx.sealosbja.site/actuator/health     # {"status":"UP"}
-curl https://mhswbrrnpspx.sealosbja.site/api/v1/public/ping
+curl https://www.partcut.com/api/v1/public/ping
+# {"code":200,"message":"ok","data":{..., "commit":"<7 位 sha>", "builtAt":"..."}}
 ```
 
-浏览器打开 `https://mhswbrrnpspx.sealosbja.site` 应该看到登录页。
+`commit` 必须等于你推的那个提交的前 7 位（`git rev-parse --short=7 HEAD`）。
+对不上就说明 Pod 没拉到新镜像，或者镜像还没构建完就点了重启。
+
+> 2026-11-17 之前构建的镜像不带 commit，`commit` 一律是 `unknown`，只能用 `builtAt`
+> 去对 Build Image 那次 run 的时间。
+
+> ★ GHCR 上的 package 必须是 Public，否则 Sealos 拉镜像会 `ImagePullBackOff`
+> （除非在应用里配 imagePullSecret）。
 
 ### 建运营账号
 
@@ -307,16 +227,9 @@ scripts/ops-user-sql.sh > /tmp/ops-user.sql   # 按提示输邮箱、显示名�
 
 ## 回滚
 
-`deploy.sh` 自带自动回滚：新版本健康检查不过 → 自动换回上一版 → 重新起。
-**无论回滚成功与否，Actions 都会显示红色** —— 回滚只是止血，不是部署成功。
-
-手动回滚到上一版：
-
-```bash
-ssh -i <私钥> -p <端口> devbox@<主机>
-cd /home/devbox/app
-cp app.jar.prev app.jar.new && bash deploy.sh
-```
+**待确认。**`image.yml` 每次都会额外推一个 `:<7 位 sha>` 标签，按理可以在应用「变更」里
+把镜像从 `:latest` 改成某个旧 sha 来回滚 —— 但这是推导，没有实际操作验证过。
+注意回滚不会撤销已执行的迁移（见第 1 步）。
 
 ---
 
@@ -324,75 +237,21 @@ cp app.jar.prev app.jar.new && bash deploy.sh
 
 | 现象 | 多半是 |
 |---|---|
-| 部署卡在 `health check timed out` | 数据库连不上。`tail -100 /home/devbox/app/logs/app.log` 看真实异常 |
+| ping 的 `commit` 不是刚推的那个 | 没点重启；或 Build Image 还没跑完 / 跑失败了 |
+| Pod 一直 `ImagePullBackOff` | GHCR package 不是 Public |
 | `role "xxx" does not exist` | `DB_URL` 里的库名或用户名不对，或 `CREATE DATABASE mfg` 没执行 |
-| 网页白屏、接口正常 | jar 里没有前端产物。workflow 的「确认 jar 里带上了前端」这步就是为此设的，它没拦住说明构建顺序被改过 |
+| 网页白屏、接口正常 | 镜像里没有前端产物，检查 Dockerfile 阶段 1 是否被改过 |
 | 启动报 `missing table` | 迁移没跑。检查 jar 里有没有 `BOOT-INF/classes/db/migrations/*.sql` |
-| 启动报 `app.jar.secret is missing or too short` | `JWT_SECRET` 没填或不足 32 字节 |
-| 公网地址 502 | 应用没起来，或 `SERVER_PORT` 不是 8080 |
-| DevBox 重启后应用没了 | **预期行为，不是故障。** DevBox 开发容器不执行 `entrypoint.sh`（实测，见第 2 步的说明），重启后需重跑一次 Action 或手动拉起。要「重启自愈」必须用「应用管理」部署镜像 |
+| 启动报 `app.jwt.secret is missing or too short` | `JWT_SECRET` 没填或不足 32 字节 |
+| 公网地址 502 / 503 `no healthy upstream` | Pod 没起来或没就绪，看应用的「日志」 |
 
-看日志：
-
-```bash
-ssh -i <私钥> -p <端口> devbox@<主机> 'tail -f /home/devbox/app/logs/app.log'
-```
+日志：Sealos 应用管理 → `yuhao` → **日志**。
 
 ---
 
-## 已知限制
+## 多副本注意事项
 
-**DevBox 不是为生产设计的。**它可以被暂停、规格有限（2C/4G）、没有多副本、
-没有滚动更新——部署期间会有几十秒不可用。
-
-现阶段够用。等到需要**零停机**或**多副本**时，换成
-「构建镜像 → 推 registry → Sealos 应用管理（App Launchpad）」：
-仓库里的 `Dockerfile` 已经写好了，那条路只需要再加一个推镜像的 workflow。
-
-**日志没有轮转。**`logs/app.log` 会一直长。上线跑起来后加个 logrotate，
-或者把日志改成输出到 stdout 由平台收集。
-
----
-
-## 扩缩容：从「跑在 DevBox 上」到「可扩的应用」
-
-### 先认清现状
-
-公网地址直接指向 **DevBox 的 8080** —— 也就是说**生产就跑在开发容器里**。
-DevBox 是**一个**容器，**它本身扩不了**，加多少配置都是一台。
-
-Sealos 给的正规路径是：
-
-```
-DevBox（开发/构建）──「发布版本」──▶ 镜像版本 ──「部署应用」──▶ N 个副本（可扩缩容）
-```
-
-镜像仓库是 Sealos 自带的（DevBox 概览页「镜像源」那一行，形如
-`hub.bja.sealos.run/ns-<namespace>/<devbox名>`），**发版时自动推送，不需要你配任何凭证**。
-
-### 操作步骤
-
-1. **先正常部署一次**（GitHub Actions → Deploy），确认 DevBox 上跑的是最新代码。
-   这一步会把 `entrypoint.sh` 正本装到 `/home/devbox/project/`——**每个副本启动时跑的就是它**。
-2. DevBox 概览页右下角 **「发布版本」** → 填个版本号（如 `v1`）。
-3. 发版完成后点 **「部署应用」**，关键几项：
-   - **端口**：8080
-   - **环境变量**：把数据库地址/口令、`JWT_SECRET` 等**配在这里**（理由见下）
-   - **副本数**：先 1，验证没问题再往上加
-4. **扩缩容 = 改副本数**。不需要 ssh、不需要装任何东西 —— 环境已经在镜像里了。
-
-### ★ 环境变量一定要配在应用上，不要依赖镜像里的 `.env`
-
-发版会把 `/home/devbox/app/.env` **一起打进镜像**。这带来两个问题：
-
-1. **密钥进了镜像**：每个副本、每个历史版本里都躺着数据库口令和 `JWT_SECRET`。
-2. 曾经还有更隐蔽的一个：`entrypoint.sh` 早先是 `set -a; . .env` —— **`.env` 会覆盖容器级环境变量**，
-   于是你在应用里配的值被镜像里的旧值静默盖掉，改了不生效、还不报错。
-
-第 2 条**已经修了**（现在是「容器级优先，`.env` 只兜底」，见 `deploy/devbox/entrypoint.sh`），
-但第 1 条仍在 —— 所以**真实密钥请配在 Sealos 应用的环境变量里**，让镜像里的 `.env` 只当占位。
-
-### 多副本注意事项
+扩缩容 = 在应用「变更」里改实例数。目前是 1 个实例。
 
 | 项 | 状态 |
 |---|---|
@@ -401,6 +260,6 @@ DevBox（开发/构建）──「发布版本」──▶ 镜像版本 ──�
 | 限流 / 幂等 / refresh token | ✅ 都在 Redis，天然共享 |
 | 并发写 | ✅ 乐观锁在 DB |
 | 文件 | ✅ 走对象存储，不落本地盘 |
-| 定时任务 | ✅ 目前一个都没有。⚠ **将来加 `@Scheduled` 必须按 CLAUDE.md §8 加 Redis 锁**，否则 N 个副本重复跑 |
+| 定时任务 | ⚠ **`@Scheduled` 必须按 CLAUDE.md §8 加 Redis 锁**，否则 N 个副本重复跑 |
 | 优雅停机 | ✅ `server.shutdown: graceful`，缩容时在途请求能收尾 |
-| 日志 | ⚠ 各副本各写本地文件，没有聚合。副本一多要上日志收集 |
+| 日志 | ⚠ 各副本各写各的，没有聚合。副本一多要上日志收集 |

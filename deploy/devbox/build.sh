@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ★★ 已废弃（2026-11-17）：DevBox 部署链路不再使用，本文件保留备查。现行部署方式见 deploy/README.md。
 #
 # 在 DevBox 上构建。由 GitHub Actions 分阶段调用，每个阶段在 Actions 里是独立一步。
 #

@@ -1,4 +1,8 @@
-name: Deploy to Sealos DevBox
+name: "[已废弃] Deploy to Sealos DevBox"
+
+# ★★ 已废弃（2026-11-17）：DevBox 部署链路不再使用，本文件保留备查，不要再运行。
+#    现行部署：推 main → image.yml 出镜像 → Sealos 应用 yuhao 手动重启，见 deploy/README.md。
+#    旧地址 mhswbrrnpspx.sealosbja.site 已无服务，本 workflow 末尾的「核对线上版本」必然失败。
 
 # 手动触发：GitHub → Actions → Deploy to Sealos DevBox → Run workflow
 #

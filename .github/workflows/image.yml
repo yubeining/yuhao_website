@@ -2,10 +2,13 @@ name: Build Image
 
 # 构建可部署的容器镜像并推送到 GitHub Container Registry (GHCR)。
 #
+# ★ 这是现行的唯一部署链路：推 main → 本 workflow 出镜像 → Sealos 应用 yuhao
+#   手动点「重启」拉最新 :latest。完整步骤见 deploy/README.md。
+#
 # ★ 为什么需要这个 workflow
 #
-#   现有的 deploy.yml 是「把源码同步到 DevBox，在 DevBox 上构建并直接跑」——
-#   那是【开发/预发】链路。它的致命问题是：DevBox 是容器不是虚拟机，
+#   原来的 deploy.yml 是「把源码同步到 DevBox，在 DevBox 上构建并直接跑」——
+#   该链路已废弃（2026-11-17 标注，文件保留备查）。它的致命问题是：DevBox 是容器不是虚拟机，
 #   重启后没有任何东西会把应用拉起来（实测：entrypoint.sh 装在
 #   /home/devbox/project/ 上也不会被执行，那是发布出去的镜像才用的）。
 #   于是每次 DevBox 重启 = 线上白屏，必须手动点一次 Action。
@@ -64,9 +67,9 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # ★ 统一在这里算一次短 commit，和 deploy.yml 保持同样的 7 位口径。
-      #   应用侧用 /api/v1/public/ping 返回的 commit 核对线上版本时，
-      #   两边长度必须一致，否则"核对版本"会永远不通过。
+      # ★ 统一在这里算一次短 commit（7 位），镜像标签和打进 jar 的 commit 共用。
+      #   部署后用 /api/v1/public/ping 返回的 commit 核对线上版本，
+      #   两边长度必须一致，否则"核对版本"会永远对不上。
       - name: 计算版本号
         id: v
         run: echo "short=$(echo '${{ github.sha }}' | cut -c1-7)" >> "$GITHUB_OUTPUT"
@@ -83,6 +86,10 @@ jobs:
           tags: |
             ${{ env.IMAGE }}:latest
             ${{ env.IMAGE }}:${{ steps.v.outputs.short }}
+          # ★ 不传的话 ping 返回的 commit 永远是 unknown（pom.xml 默认值），
+          #   线上跑的是哪个版本就只能靠 builtAt 和构建时间去对 —— 2026-11-17 之前就是这样。
+          build-args: |
+            GIT_COMMIT=${{ steps.v.outputs.short }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -97,5 +104,5 @@ jobs:
             echo "| commit | \`${{ steps.v.outputs.short }}\` |"
             echo "| 架构 | linux/amd64 |"
             echo ""
-            echo "下一步：Sealos 应用管理 → 新建应用 → 镜像填上面的地址 → 端口 8080"
+            echo "下一步：Sealos 应用管理 → yuhao → 重启，然后 curl https://www.partcut.com/api/v1/public/ping 核对 commit"
           } >> "$GITHUB_STEP_SUMMARY"

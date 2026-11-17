@@ -49,8 +49,16 @@ COPY --from=portal-build /src/backend/src/main/resources/static \
 
 # ★ 跳过测试是刻意的：镜像构建不是跑测试的地方。
 #   测试需要真实 PostgreSQL + 真实 Redis（CLAUDE.md §10 禁止 mock 掉 Redis），
-#   在 docker build 里没有它们。测试由 CI 的独立 job 跑，绿了才轮到构建镜像。
-RUN mvn -B -f backend/pom.xml clean package -DskipTests \
+#   在 docker build 里没有它们。
+#   ★ 目前没有任何 CI job 跑测试 —— image.yml 只构建不测试，推 main 就出镜像。
+#     测试只靠提交前本地跑 mvn verify（CLAUDE.md §11）。
+#
+# ★ commit 号由 image.yml 通过 --build-arg GIT_COMMIT 传入，打进 build-info，
+#   线上 curl /api/v1/public/ping 返回的 commit 就是它。
+#   不传时是 unknown（pom.xml 的默认值），本地 docker build 即如此。
+#   ARG 放在这里而不是阶段开头：放前面的话每个 commit 都会让依赖缓存层失效。
+ARG GIT_COMMIT=unknown
+RUN mvn -B -f backend/pom.xml clean package -DskipTests "-Dgit.commit=${GIT_COMMIT}" \
  && mv backend/target/*.jar /app.jar
 
 
@@ -81,13 +89,13 @@ USER app
 WORKDIR /home/app
 COPY --from=backend-build --chown=app:app /app.jar app.jar
 
-# ★ Sealos DevBox 的网络配置里对外暴露的是 8080，不是应用默认的 3001。
+# ★ Sealos 应用（yuhao）的网络配置里对外暴露的是 8080，不是应用默认的 3001。
 #   Spring Boot 的 relaxed binding 会把 SERVER_PORT 映射到 server.port。
 ENV SERVER_PORT=8080
 EXPOSE 8080
 
 # ★ MaxRAMPercentage 而不是固定 -Xmx：
-#   容器内存上限是部署时才定的（这台 DevBox 是 4 GiB，换个规格就变）。
+#   容器内存上限是部署时才定的（在 Sealos 应用的 Memory Limit 里设，换个规格就变）。
 #   写死 -Xmx 要么浪费内存，要么在小规格上被 OOMKilled，
 #   而 OOMKill 表现为容器无日志重启，最难查的一类问题。
 ENV JAVA_OPTS="-XX:MaxRAMPercentage=70 -XX:+ExitOnOutOfMemoryError -Duser.timezone=Asia/Shanghai"

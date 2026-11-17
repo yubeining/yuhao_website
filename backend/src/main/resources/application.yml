@@ -1,5 +1,5 @@
 server:
-  # 本地 3001；容器里由 SERVER_PORT 覆盖（Sealos DevBox 对外暴露 8080）。
+  # 本地 3001；容器里由 SERVER_PORT 覆盖（Sealos 应用 yuhao 对外暴露 8080，镜像里 ENV SERVER_PORT=8080）。
   # ★ 不要写死 —— 换个托管平台就是换个端口，而端口错了的表现是
   #   "容器起来了但访问不通"，日志里一切正常，最容易怀疑到别的地方去。
   port: ${SERVER_PORT:3001}

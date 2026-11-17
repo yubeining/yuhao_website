@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+# ★★ 已废弃（2026-11-17）：DevBox 部署链路不再使用，本文件保留备查。现行部署方式见 deploy/README.md。
 # 把 GitHub Secrets / Variables 覆盖进 DevBox 的 .env。
 #
 # 由 deploy.yml 的「写入配置」一步通过 ssh 调用，stdin 每行一项：
