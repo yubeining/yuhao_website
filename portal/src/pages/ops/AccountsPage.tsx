@@ -34,6 +34,7 @@ import {
 import {
     clearCustomerMarkup, getCustomerMarkup, setCustomerMarkup, type MarkupView,
 } from '../../services/ops/quotes'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 type Tab = 'users' | 'orgs' | 'staff'
 
@@ -87,6 +88,7 @@ export function OpsAccountsPage() {
 
 function UsersTab() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const [rows, setRows] = useState<AccountView[] | null>(null)
     const [total, setTotal] = useState(0)
@@ -117,7 +119,7 @@ function UsersTab() {
     const search = () => { setApplied({ q }); setPage(1) }
 
     const disable = async (row: AccountView) => {
-        if (!window.confirm(a.confirmDisableUser(row.email))) return
+        if (!(await askConfirm(a.confirmDisableUser(row.email), { danger: true }))) return
         setBusy(true)
         try {
             await disableAccount(row.id)
@@ -210,6 +212,7 @@ function UsersTab() {
                     onClose={() => setEditing(null)}
                     onSaved={() => { setEditing(null); void load(page) }} />
             )}
+            {confirmDialog}
         </>
     )
 }
@@ -261,6 +264,7 @@ function UserModal({ user, busy, onClose, onSaved }: {
 
 function OrgsTab() {
     const { t, lang } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const [rows, setRows] = useState<OrganizationAdminView[] | null>(null)
     const [total, setTotal] = useState(0)
@@ -341,7 +345,7 @@ function OrgsTab() {
     }
 
     const disable = async (row: OrganizationAdminView) => {
-        if (!window.confirm(a.confirmDisableOrg(row.name))) return
+        if (!(await askConfirm(a.confirmDisableOrg(row.name), { danger: true }))) return
         setBusy(true)
         try {
             await disableOrganization(row.id)
@@ -482,6 +486,7 @@ function OrgsTab() {
                     )}
                 </Modal>
             )}
+            {confirmDialog}
         </>
     )
 }
@@ -490,6 +495,7 @@ function OrgsTab() {
 
 function StaffTab() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const [rows, setRows] = useState<StaffView[] | null>(null)
     const [total, setTotal] = useState(0)
@@ -546,7 +552,7 @@ function StaffTab() {
     }
 
     const disable = async (row: StaffView) => {
-        if (!window.confirm(a.confirmDisableStaff(row.email))) return
+        if (!(await askConfirm(a.confirmDisableStaff(row.email), { danger: true }))) return
         setBusy(true)
         try {
             await disableStaff(row.id)
@@ -675,6 +681,7 @@ function StaffTab() {
                     )}
                 </Modal>
             )}
+            {confirmDialog}
         </>
     )
 }

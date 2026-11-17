@@ -25,11 +25,13 @@ import {
     type OpsOrderDetail, type OpsSupplierPrice,
 } from '../../services'
 import { cancelReason, dispatchMode, offerSt, opsOrderSt, shortId, supplierOrderSt } from './dispatchStatus'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function OpsProdPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '' } = useParams()
     const [order, setOrder] = useState<OpsOrderDetail | null>(null)
@@ -85,21 +87,21 @@ export function OpsProdPage() {
         }
     }
 
-    const offer = () => {
+    const offer = async () => {
         if (!chosen.length) return setErr(t.prodDetail.errNoSupplier)
         if (dueProblem) return setErr(dueProblem)
-        if (!window.confirm(t.prodDetail.confirmOffer(chosen.length))) return
+        if (!(await askConfirm(t.prodDetail.confirmOffer(chosen.length)))) return
         void run(async () => { await offerOpsOrder(order.id, chosen, due.trim()); setChosen([]) }, t.prodDetail.offered)
     }
 
-    const publish = () => {
+    const publish = async () => {
         if (dueProblem) return setErr(dueProblem)
-        if (!window.confirm(t.prodDetail.confirmPublish)) return
+        if (!(await askConfirm(t.prodDetail.confirmPublish))) return
         void run(() => publishOpsOrder(order.id, due.trim()).then(() => undefined), t.prodDetail.published)
     }
 
-    const recall = () => {
-        if (!window.confirm(t.prodDetail.confirmRecall)) return
+    const recall = async () => {
+        if (!(await askConfirm(t.prodDetail.confirmRecall, { danger: true }))) return
         void run(() => recallOpsOrder(order.id).then(() => undefined), t.prodDetail.recalled)
     }
 
@@ -108,19 +110,19 @@ export function OpsProdPage() {
         void run(() => createSupplierContract(accepted.id).then(() => undefined), t.prodDetail.contractCreated)
     }
 
-    const dropContract = () => {
+    const dropContract = async () => {
         if (!accepted) return
-        if (!window.confirm(t.prodDetail.confirmCancelContract)) return
+        if (!(await askConfirm(t.prodDetail.confirmCancelContract, { danger: true }))) return
         void run(() => cancelSupplierContract(accepted.id).then(() => undefined), t.prodDetail.contractCancelled)
     }
 
-    const revoke = () => {
-        if (!window.confirm(t.prodDetail.confirmRevokeSupplier(accepted?.supplierName ?? ''))) return
+    const revoke = async () => {
+        if (!(await askConfirm(t.prodDetail.confirmRevokeSupplier(accepted?.supplierName ?? ''), { danger: true }))) return
         void run(() => revokeOpsOrderSupplier(order.id).then(() => undefined), t.prodDetail.revokedSupplier)
     }
 
-    const unallocate = (customerOrderPartId: string, code: string) => {
-        if (!window.confirm(t.prodDetail.confirmUnallocate(code))) return
+    const unallocate = async (customerOrderPartId: string, code: string) => {
+        if (!(await askConfirm(t.prodDetail.confirmUnallocate(code), { danger: true }))) return
         void run(() => unallocateLine(customerOrderPartId).then(() => undefined), t.prodDetail.unallocated(code))
     }
 
@@ -299,6 +301,7 @@ export function OpsProdPage() {
                     </CardBody>
                 </Card>
             )}
+            {confirmDialog}
         </Page>
     )
 }

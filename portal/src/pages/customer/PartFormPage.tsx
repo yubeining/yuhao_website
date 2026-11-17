@@ -30,6 +30,7 @@ import {
     addLine, ApiError, filePreviewUrl, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
     uploadDrawing, type FileView, type OrderLineView, type OrderView, type PartView,
 } from '../../services'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 interface Form {
     code: string
@@ -68,6 +69,7 @@ const ext = (name: string) => (name.split('.').pop() || '').toUpperCase()
 
 export function PartFormPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '', partId = 'new' } = useParams()
     const isNew = partId === 'new'
@@ -176,8 +178,8 @@ export function PartFormPage() {
         !!f.code.trim() || !!f.name.trim() || !!f.mat.trim() || !!f.surf.trim() || queued.length > 0
     )
 
-    const backOut = () => {
-        if ((dirty || hasInput) && !window.confirm(t.customer.partForm.discardConfirm)) return
+    const backOut = async () => {
+        if ((dirty || hasInput) && !(await askConfirm(t.customer.partForm.discardConfirm, { danger: true }))) return
         navigate(`/customer/orders/${id}`)
     }
 
@@ -420,6 +422,7 @@ export function PartFormPage() {
                     }}
                 />
             )}
+            {confirmDialog}
         </Page>
     )
 }

@@ -15,6 +15,7 @@ import { fmtDateTime, X } from '../../mock/format'
 import { listProduction, qcLine, remakeLine, type OpsLine, type OpsProductionOrder } from '../../services'
 import { lineSt, shortId, supplierOrderSt } from './dispatchStatus'
 import { Pagination } from '../../components/Pagination'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 /** 一行待质检的三个数，按行 id 存着。 */
 type Counts = { pass: string; rework: string; scrap: string }
@@ -24,6 +25,7 @@ const num = (v: string) => (v.trim() === '' ? 0 : Number(v))
 
 export function OpsProductionPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<OpsProductionOrder[] | null>(null)
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
@@ -52,7 +54,7 @@ export function OpsProductionPage() {
             .finally(() => setBusy(false))
     }
 
-    const submitQc = (orderId: string, line: OpsLine) => {
+    const submitQc = async (orderId: string, line: OpsLine) => {
         const c = counts[line.id] ?? EMPTY
         const [pass, rework, scrap] = [num(c.pass), num(c.rework), num(c.scrap)]
         if (pass + rework + scrap !== line.quantity) {
@@ -60,7 +62,7 @@ export function OpsProductionPage() {
             return
         }
         if (rework + scrap > 0
-            && !window.confirm(t.ops.production.confirmQc(pass, rework, scrap))) {
+            && !(await askConfirm(t.ops.production.confirmQc(pass, rework, scrap)))) {
             return
         }
         act(() => qcLine(orderId, line.id, { pass, rework, scrap })
@@ -137,6 +139,7 @@ export function OpsProductionPage() {
                 onChange={(p) => { setPage(p); void load(p) }} /></Card>
             </>
         }
+            {confirmDialog}
         </Page>
     )
 }

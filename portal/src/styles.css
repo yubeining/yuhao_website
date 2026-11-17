@@ -213,6 +213,9 @@ select.inp{appearance:none;-webkit-appearance:none;cursor:pointer;
 .btn:active{transform:translateY(1px);}
 .btn.pri{background:var(--acc);border-color:var(--acc);color:#fff;font-weight:600;}
 .btn.pri:hover{background:var(--acc-hi);border-color:var(--acc-hi);}
+/* 不可逆 / 破坏性动作的确认按钮（停用、撤销、拒接、删除） */
+.btn.pri.danger{background:var(--bad);border-color:var(--bad);}
+.btn.pri.danger:hover{filter:brightness(1.08);background:var(--bad);border-color:var(--bad);}
 .btn.sm{padding:5px 11px;font-size:12.5px;}
 .btn.qui{border-color:transparent;background:transparent;color:var(--acc-ink);padding:5px 9px;}
 .btn.qui:hover{background:var(--acc-wash);}

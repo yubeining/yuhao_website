@@ -31,11 +31,13 @@ import {
     type SendQuoteInput,
 } from '../../services'
 import { orderSt, quoteSt } from '../customer/status'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
 export function OpsQuoteWorkPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const { id = '' } = useParams()
     const [order, setOrder] = useState<OpsOrderView | null>(null)
     const [quotes, setQuotes] = useState<OpsQuoteView[]>([])
@@ -134,13 +136,13 @@ export function OpsQuoteWorkPage() {
         }
     }
 
-    const doSend = () => {
+    const doSend = async () => {
         if (typeof input === 'string') { setTried(true); return }
         const replacing = order.status === 'QUOTED'
         const msg = replacing
             ? t.quoteWork.confirmResend
             : t.quoteWork.confirmSend
-        if (!window.confirm(msg)) return
+        if (!(await askConfirm(msg))) return
         void run(async () => {
             const q = await sendQuote(order.id, input)
             setTried(false)
@@ -307,6 +309,7 @@ export function OpsQuoteWorkPage() {
                     onClose={() => setPreview(null)}
                     onDownload={() => download(preview.lineId, preview.fileId)} />
             )}
+            {confirmDialog}
         </Page>
     )
 }

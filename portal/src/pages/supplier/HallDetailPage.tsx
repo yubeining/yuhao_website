@@ -19,9 +19,11 @@ import {
     acceptSupplierOffer, ApiError, declineSupplierOffer, getSupplierOffer, supplierOfferFilePreviewUrl,
     supplierOfferFileUrl, supplierOfferPrices, type OfferPrice, type SupplierOffer,
 } from '../../services'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 export function HallDetailPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '' } = useParams()
     const [offer, setOffer] = useState<SupplierOffer | null>(null)
@@ -59,8 +61,8 @@ export function HallDetailPage() {
     const priceOf = (lineId: string) => price?.lines.find((l) => l.lineId === lineId)
     const targeted = offer.dispatchMode === 'TARGETED'
 
-    const accept = () => {
-        if (!window.confirm(t.supplier.hallDetail.acceptConfirm(price ? M(price.total) : X, offer.supplierDueDate))) return
+    const accept = async () => {
+        if (!(await askConfirm(t.supplier.hallDetail.acceptConfirm(price ? M(price.total) : X, offer.supplierDueDate)))) return
         setBusy(true)
         acceptSupplierOffer(offer.id)
             .then(() => navigate('/supplier/orders', { replace: true }))
@@ -68,8 +70,8 @@ export function HallDetailPage() {
             .finally(() => setBusy(false))
     }
 
-    const decline = () => {
-        if (!window.confirm(t.supplier.hallDetail.declineConfirm)) return
+    const decline = async () => {
+        if (!(await askConfirm(t.supplier.hallDetail.declineConfirm, { danger: true }))) return
         setBusy(true)
         declineSupplierOffer(offer.id)
             .then(() => navigate('/supplier/hall', { replace: true }))
@@ -155,6 +157,7 @@ export function HallDetailPage() {
                     onClose={() => setPreview(null)}
                     onDownload={() => download(preview.lineId, preview.fileId)} />
             )}
+            {confirmDialog}
         </Page>
     )
 }

@@ -22,12 +22,14 @@ import {
     type OrderPrice, type SupplierOrderView,
 } from '../../services'
 import { cancelReason, lineSt, shortId, supplierOrderSt } from '../ops/dispatchStatus'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 /** 签完字之后才谈得上生产；取消的单什么都不做。 */
 const IN_PRODUCTION_FLOW = ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED']
 
 export function SupplierOrdersPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<SupplierOrderView[] | null>(null)
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
@@ -50,8 +52,8 @@ export function SupplierOrdersPage() {
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const sign = (o: SupplierOrderView) => {
-        if (!window.confirm(t.supplier.orders.waitingSignConfirm(M(prices[o.id]?.total ?? 0), o.supplierDueDate))) return
+    const sign = async (o: SupplierOrderView) => {
+        if (!(await askConfirm(t.supplier.orders.waitingSignConfirm(M(prices[o.id]?.total ?? 0), o.supplierDueDate)))) return
         setBusy(true)
         signSupplierOrder(o.id)
             .then(() => load(page))
@@ -59,8 +61,8 @@ export function SupplierOrdersPage() {
             .finally(() => setBusy(false))
     }
 
-    const withdraw = (o: SupplierOrderView) => {
-        if (!window.confirm(t.supplier.orders.withdrawConfirm)) return
+    const withdraw = async (o: SupplierOrderView) => {
+        if (!(await askConfirm(t.supplier.orders.withdrawConfirm, { danger: true }))) return
         setBusy(true)
         withdrawSupplierOrder(o.id)
             .then(() => load(page))
@@ -77,8 +79,8 @@ export function SupplierOrdersPage() {
             .finally(() => setBusy(false))
     }
 
-    const ship = (o: SupplierOrderView) => {
-        if (!window.confirm(t.supplier.orders.shipConfirm)) return
+    const ship = async (o: SupplierOrderView) => {
+        if (!(await askConfirm(t.supplier.orders.shipConfirm))) return
         act(() => shipSupplierOrder(o.id))
     }
 
@@ -227,6 +229,7 @@ export function SupplierOrdersPage() {
                     onClose={() => setPreview(null)}
                     onDownload={() => download(preview.orderId, preview.lineId, preview.fileId)} />
             )}
+            {confirmDialog}
         </Page>
     )
 }

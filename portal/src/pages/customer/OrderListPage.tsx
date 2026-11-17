@@ -15,9 +15,11 @@ import { fmtDate } from '../../mock/format'
 import { Pagination } from '../../components/Pagination'
 import { createOrder, deleteOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
+import { useConfirm } from '../../components/ConfirmDialog'
 
 export function OrderListPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)
     const [total, setTotal] = useState(0)
@@ -108,10 +110,10 @@ export function OrderListPage() {
                                             )}
                                             {o.status === 'DRAFT' && (
                                                 <button className="linkbtn" type="button"
-                                                    onClick={(e) => {
+                                                    onClick={async (e) => {
                                                         e.stopPropagation()
                                                         // 真删，没有撤销；点错就回不来
-                                                        if (window.confirm(t.customer.orders.deleteConfirm)) void remove(o.id)
+                                                        if ((await askConfirm(t.customer.orders.deleteConfirm, { danger: true }))) void remove(o.id)
                                                     }}>{t.customer.orders.deleteOrder}</button>
                                             )}
                                         </td>
@@ -134,6 +136,7 @@ export function OrderListPage() {
                     </CardBody>
                 )}
             </Card>
+            {confirmDialog}
         </Page>
     )
 }

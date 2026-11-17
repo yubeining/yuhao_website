@@ -13,7 +13,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
-import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
@@ -24,6 +24,7 @@ import { quoteSt } from './status'
 
 export function QuoteDetailPage() {
     const { t } = useMock()
+    const [askConfirm, confirmDialog] = useConfirm()
     const { id = '' } = useParams()
     const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
     const [missing, setMissing] = useState(false)
@@ -93,8 +94,8 @@ export function QuoteDetailPage() {
         setAsking(false)
     }
 
-    const reject = () => {
-        if (!window.confirm(t.customer.quotes.rejectConfirm)) return
+    const reject = async () => {
+        if (!(await askConfirm(t.customer.quotes.rejectConfirm, { danger: true }))) return
         void act(() => rejectQuote(quote.orderId, quote.id))
     }
 
@@ -194,6 +195,7 @@ export function QuoteDetailPage() {
                     onConfirm={() => { void confirm() }}
                 />
             )}
+            {confirmDialog}
         </Page>
     )
 }
