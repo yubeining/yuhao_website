@@ -88,3 +88,16 @@ export const SIGNIN_BY_TYPE: Record<PartyType, string> = {
     SUPPLIER: '/auth/signin',
     OPERATOR: '/auth/internal/signin',
 }
+
+/**
+ * 登录成功后的落点。回跳地址有两个来源：被路由守卫弹回来的带 `state.from`，
+ * 会话过期被 http 层强制登出的带 `?callbackUrl=`（见 services/core/http.ts forceSignOut）。
+ *
+ * ★ 只认本端前缀下的站内路径 —— 跨端地址会被守卫再弹一次；
+ *   `//evil.com` 这种协议相对地址会被浏览器当成外站，一律不认。
+ */
+export function landingAfterSignIn(type: PartyType, from: string | null | undefined): string {
+    const home = HOME_BY_TYPE[type]
+    const prefix = '/' + home.split('/')[1] + '/'
+    return from && from.startsWith(prefix) && !from.startsWith('//') ? from : home
+}

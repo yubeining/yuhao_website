@@ -10,14 +10,15 @@ import { useState } from 'react'
 import { BigButton, ErrMsg, Field, Input } from '../../components/form'
 import { opsLogin } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
-import { HOME_BY_TYPE, setSession } from '../../auth/session'
-import { useNavigate } from 'react-router-dom'
+import { landingAfterSignIn, setSession } from '../../auth/session'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { useI18n } from '../../i18n/I18nProvider'
 import { errorText } from '../../i18n/errorText'
 
 export function OpsSignInPage() {
     const { t } = useI18n()
     const navigate = useNavigate()
+    const location = useLocation()
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
     const [err, setErr] = useState<string | null>(null)
@@ -36,7 +37,10 @@ export function OpsSignInPage() {
                 displayName: token.displayName,
                 locale: token.locale,
             })
-            navigate(HOME_BY_TYPE.OPERATOR, { replace: true })
+            // 守卫弹回来的带 state.from，会话过期的带 ?callbackUrl= —— 登录后回原页面
+            const from = (location.state as { from?: string } | null)?.from
+                ?? new URLSearchParams(location.search).get('callbackUrl')
+            navigate(landingAfterSignIn('OPERATOR', from), { replace: true })
         } catch (e) {
             setErr(e instanceof ApiError && e.code === 401 ? t.opsLogin.badCredentials
                 : errorText(t, e, t.opsLogin.failed))

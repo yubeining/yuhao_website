@@ -22,7 +22,7 @@ import { useMock } from '../../mock/MockProvider'
 import { externalLogin, sendOtp, verifyOtp } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { errorText } from '../../i18n/errorText'
-import { HOME_BY_TYPE, setSession, type Session } from '../../auth/session'
+import { landingAfterSignIn, setSession, type Session } from '../../auth/session'
 
 type Mode = 'password' | 'code'
 
@@ -32,7 +32,8 @@ export function SignInPage() {
     const location = useLocation()
     const c = t.login
 
-    const [mode, setMode] = useState<Mode>('password')
+    // ★ 默认验证码（2026-11-17 需求方定）：自助注册的客户账号没有密码，默认密码模式等于让他们先撞一次错
+    const [mode, setMode] = useState<Mode>('code')
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
     const [code, setCode] = useState('')
@@ -49,13 +50,12 @@ export function SignInPage() {
         return () => window.clearTimeout(id)
     }, [countdown])
 
-    /** 登录成功后的落点：被守卫弹回来的人带着原地址，跨端地址不认（会再被弹一次）。 */
+    /** 登录成功后的落点：守卫弹回来的带 state.from，会话过期的带 ?callbackUrl=；跨端地址不认。 */
     const finish = (session: Session) => {
         setSession(session)
-        const home = HOME_BY_TYPE[session.partyType]
         const from = (location.state as { from?: string } | null)?.from
-        const prefix = '/' + home.split('/')[1]
-        navigate(from && from.startsWith(prefix) ? from : home, { replace: true })
+            ?? new URLSearchParams(location.search).get('callbackUrl')
+        navigate(landingAfterSignIn(session.partyType, from), { replace: true })
     }
 
     const submitPassword = async () => {
@@ -191,7 +191,7 @@ export function SignInPage() {
                         </>
                     )}
 
-                    {/* 两种登录方式并列，默认密码（老用户照旧），验证码是新增的。放在表单下面，不打断输入 */}
+                    {/* 两种登录方式并列，默认验证码，密码给运营建的账号用。放在表单下面，不打断输入 */}
                     <div style={{ display: 'flex', gap: 8, marginTop: 16 }}>
                         <button type="button" className={`btn sm${mode === 'password' ? ' pri' : ''}`}
                             onClick={() => { setMode('password'); setErr(null); setNeedsRegistration(false) }}>
@@ -204,9 +204,6 @@ export function SignInPage() {
                     </div>
 
                     <div className="fnote" style={{ marginTop: 12 }}>{c.note}</div>
-                    <div className="fnote" style={{ borderTop: '1px solid var(--line)', paddingTop: 12, marginTop: 12 }}>
-                        {c.staffPrompt}<Link to="/auth/internal/signin">{c.staffLink}</Link>
-                    </div>
                 </div>
             </div>
         </div>

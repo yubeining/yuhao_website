@@ -92,6 +92,10 @@ function UsersTab() {
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
+    // ★ 输入框里的字和「已生效的条件」分开：只有回车 / 点查询才生效并回第 1 页。
+    //   以前 load 直接依赖 q，每敲一个字就查一次，且停在原页码 —— 在第 4 页搜邮箱会显示「无用户」。
+    //   每次查询都换一个新对象，所以条件没变时点「查询」也会重新拉一次。
+    const [applied, setApplied] = useState({ q: '' })
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -99,18 +103,18 @@ function UsersTab() {
 
     const load = useCallback(async (pageNo: number) => {
         try {
-            const pg = await listAccounts(q, pageNo, PAGE_SIZE)
+            const pg = await listAccounts(applied.q, pageNo, PAGE_SIZE)
             setRows(pg.items)
             setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [q, t])
+    }, [applied, t])
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const search = () => { setPage(1); void load(1) }
+    const search = () => { setApplied({ q }); setPage(1) }
 
     const disable = async (row: AccountView) => {
         if (!window.confirm(a.confirmDisableUser(row.email))) return
@@ -262,6 +266,8 @@ function OrgsTab() {
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
+    // 输入与已生效条件分开，理由见 UsersTab
+    const [applied, setApplied] = useState({ q: '' })
     const [type, setType] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
@@ -271,18 +277,18 @@ function OrgsTab() {
 
     const load = useCallback(async (pageNo: number) => {
         try {
-            const pg = await listOrganizations(q, type, pageNo, PAGE_SIZE)
+            const pg = await listOrganizations(applied.q, type, pageNo, PAGE_SIZE)
             setRows(pg.items)
             setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [q, type, t])
+    }, [applied, type, t])
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const search = () => { setPage(1); void load(1) }
+    const search = () => { setApplied({ q }); setPage(1) }
 
     const typeLabel = (v: string) =>
         v === 'CUSTOMER' ? a.typeCustomer : v === 'SUPPLIER' ? a.typeSupplier : v === 'INTERNAL' ? a.typeInternal : '—'
@@ -373,7 +379,7 @@ function OrgsTab() {
                             <Input value={q} onChange={setQ} onEnter={search} style={{ width: 220 }} />
                         </FilterField>
                         <FilterField label={a.colType}>
-                            <select className="inp" value={type} onChange={(e) => setType(e.target.value)} style={{ width: 130 }}>
+                            <select className="inp" value={type} onChange={(e) => { setType(e.target.value); setPage(1) }} style={{ width: 130 }}>
                                 <option value="">{a.all}</option>
                                 <option value="CUSTOMER">{a.typeCustomer}</option>
                                 <option value="SUPPLIER">{a.typeSupplier}</option>
@@ -489,6 +495,8 @@ function StaffTab() {
     const [total, setTotal] = useState(0)
     const [page, setPage] = useState(1)
     const [q, setQ] = useState('')
+    // 输入与已生效条件分开，理由见 UsersTab
+    const [applied, setApplied] = useState({ q: '' })
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -497,14 +505,14 @@ function StaffTab() {
 
     const load = useCallback(async (pageNo: number) => {
         try {
-            const pg = await listStaff(q, pageNo, PAGE_SIZE)
+            const pg = await listStaff(applied.q, pageNo, PAGE_SIZE)
             setRows(pg.items)
             setTotal(pg.total)
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
         }
-    }, [q, t])
+    }, [applied, t])
 
     useEffect(() => { void load(page) }, [load, page])
 
@@ -515,7 +523,7 @@ function StaffTab() {
             .catch(() => undefined)
     }, [])
 
-    const search = () => { setPage(1); void load(1) }
+    const search = () => { setApplied({ q }); setPage(1) }
 
     const save = async () => {
         if (!form) return

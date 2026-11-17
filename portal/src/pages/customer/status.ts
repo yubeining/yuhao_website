@@ -6,10 +6,6 @@
  *
  * ★★ 已接后端的三种状态（订单 / 零件行 / 报价）做成了**工厂函数**：
  *   文案随语言变，所以不能是模块级常量 —— 常量在模块加载时就把中文定死了。
- *
- * ★★★ 兼容别名 `ORDER_ST` / `QUOTE_ST`：ops 端和供应商端还有几个页面没迁移文案，
- *   它们仍按「中文常量」在用。等那些页面迁完（inventory 第 4 批）删掉这两个别名，
- *   别让它们长期留着 —— 那是两份真相的开始。
  */
 
 import type { PillSpec } from '../../components/ui'
@@ -17,7 +13,7 @@ import type { LineStat, OrderStatus, PartExecStatus, Quote } from '../../mock/ty
 import type {
     LineFulfillmentStatus, OrderStatus as ApiOrderStatus, QuoteStatus as ApiQuoteStatus,
 } from '../../services'
-import { STRINGS, type Strings } from '../../i18n/strings'
+import type { Strings } from '../../i18n/strings'
 
 /** 真订单的状态（发货之后的状态等做到那一步再加）。 */
 export const orderSt = (t: Strings): Record<ApiOrderStatus, PillSpec> => ({
@@ -47,14 +43,6 @@ export const quoteSt = (t: Strings): Record<ApiQuoteStatus, PillSpec> => ({
     REJECTED: ['ba', t.status.quote.REJECTED],
     CONFIRMED: ['ok', t.status.quote.CONFIRMED],
 })
-
-// ---------- 兼容别名（待删）----------
-// ops / supplier 端还有页面没迁移文案，暂时用中文那一份。
-// ★ 迁移完那批页面就删掉这两行，别让新代码再用它们。
-/** @deprecated 用 orderSt(t) —— 这里固定返回中文 */
-export const ORDER_ST = orderSt(STRINGS.zh)
-/** @deprecated 用 quoteSt(t) —— 这里固定返回中文 */
-export const QUOTE_ST = quoteSt(STRINGS.zh)
 
 /** 订单状态。整条链就是它在推进。 */
 // i18n-exempt-start: 以下四张表服务于尚未迁移的原型页，随 mock 层一起删除

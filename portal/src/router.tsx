@@ -25,7 +25,6 @@ import { OpsQuoteWorkPage } from './pages/ops/QuoteWorkPage'
 import { OpsDispatchPage } from './pages/ops/DispatchPage'
 import { OpsProdPage } from './pages/ops/ProdPage'
 import { OpsProductionPage } from './pages/ops/ProductionPage'
-import { OpsOrdersPage } from './pages/ops/OrdersPage'
 import { OpsPartiesPage } from './pages/ops/PartiesPage'
 import { OpsAccountsPage } from './pages/ops/AccountsPage'
 
@@ -131,7 +130,9 @@ export const router = createBrowserRouter([
             // 生产订单详情。:id 是 PO- 开头的生产订单，不是客户订单 SO-
             { path: 'dispatch/:id', element: <OpsProdPage /> },
             { path: 'production', element: <OpsProductionPage /> },
-            { path: 'orders', element: <OpsOrdersPage /> },
+            // 客户订单页已删除（2026-11-17）：整页读 mock，「登记收款 / 标记交付」只改浏览器内存。
+            // 它本来就不在导航里；旧链接重定向到报价列表（那里就是按状态列的客户订单），不留 404
+            { path: 'orders', element: <Navigate to="/ops/quotes" replace /> },
             { path: 'parties', element: <OpsPartiesPage /> },
             // 账号管理的三个 tab 现在是可深链的子页
             { path: 'accounts', element: <Navigate to="/ops/accounts/users" replace /> },

@@ -5,7 +5,8 @@
 import { ApiError } from '../services'
 import type { Strings } from './strings'
 
-export function errorText(t: Strings, e: unknown, fallback = '操作失败，请重试'): string {
+// ★ 默认兜底必须走当前语言 —— 写死中文的话，欧洲客户恰好在出错时看到中文
+export function errorText(t: Strings, e: unknown, fallback = t.common.actionFailed): string {
     if (!(e instanceof ApiError)) return fallback
     const code = e.messageCode.startsWith('common.validation_failed') ? 'common.validation_failed' : e.messageCode
     return t.errors[code] ?? fallback

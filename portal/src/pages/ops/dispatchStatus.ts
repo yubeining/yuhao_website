@@ -58,10 +58,6 @@ export const cancelReason = (t: Strings): Record<CancelReason, string> => ({
 
 // ---------- 兼容别名（待删）----------
 // ops 端还有页面没迁移文案，先用中文那一份。迁完删掉。
-/** @deprecated 用 opsOrderSt(t) */
-export const OPS_ORDER_ST = opsOrderSt(STRINGS.zh)
-/** @deprecated 用 dispatchMode(t) */
-export const DISPATCH_MODE = dispatchMode(STRINGS.zh)
 /** @deprecated 用 offerSt(t) */
 export const OFFER_ST = offerSt(STRINGS.zh)
 /** @deprecated 用 supplierOrderSt(t) */

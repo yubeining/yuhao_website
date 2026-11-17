@@ -30,7 +30,7 @@ import {
     type FileView, type MarkupView, type OpsOrderView, type OpsQuoteView, type QuoteCurrency,
     type SendQuoteInput,
 } from '../../services'
-import { ORDER_ST, QUOTE_ST } from '../customer/status'
+import { orderSt, quoteSt } from '../customer/status'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
@@ -167,7 +167,7 @@ export function OpsQuoteWorkPage() {
             <Hello
                 back={back}
                 title={order.title || t.common.untitledOrder}
-                right={pill(ORDER_ST[order.status])}
+                right={pill(orderSt(t)[order.status])}
             />
 
             <div className="t2" style={{ marginTop: -6, marginBottom: 14 }}>
@@ -211,20 +211,19 @@ export function OpsQuoteWorkPage() {
                                         <td>{l.surfaceTreatment || X}</td>
                                         <td className="n">{l.quantity}</td>
                                         <td>
-                                            {l.revision.files.length ? (() => {
-                                                const f = l.revision.files[0]
-                                                const kind = previewKindOf(f.originalFilename)
-                                                return (
+                                            {/* 每个文件都列出来 —— 只给第一张的话，STEP 旁边那份标公差的 PDF 定价的人看不到。
+                                                能预览的开预览，CAD 等格式点了直接下载 */}
+                                            {l.revision.files.length ? l.revision.files.map((f) => (
+                                                <div key={f.id}>
                                                     <button className="btn qui sm" type="button"
-                                                        disabled={!kind}
-                                                        title={kind ? undefined : t.customer.partForm.previewUnsupported}
-                                                        onClick={() => void openPreview(l.id, f)}>
-                                                        {l.revision.files.length > 1
-                                                            ? t.quoteWork.viewDrawings(l.revision.files.length)
-                                                            : t.quoteWork.viewDrawing}
+                                                        title={previewKindOf(f.originalFilename) ? undefined : t.customer.partForm.previewUnsupported}
+                                                        onClick={() => previewKindOf(f.originalFilename)
+                                                            ? void openPreview(l.id, f)
+                                                            : void download(l.id, f.id)}>
+                                                        {f.originalFilename}
                                                     </button>
-                                                )
-                                            })() : X}
+                                                </div>
+                                            )) : X}
                                         </td>
                                         <td>
                                             {editable
@@ -284,7 +283,7 @@ export function OpsQuoteWorkPage() {
                                 {quotes.map((q) => (
                                     <tr key={q.id}>
                                         <td className="n">v{q.versionNo}</td>
-                                        <td>{pill(QUOTE_ST[q.status])}</td>
+                                        <td>{pill(quoteSt(t)[q.status])}</td>
                                         <td className="m">{q.currency}</td>
                                         <td className="n">{q.commitDate}</td>
                                         <td className="n">{t.quoteWork.markupTimes(q.markupRate)}</td>

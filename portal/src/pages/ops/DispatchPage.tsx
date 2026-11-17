@@ -20,7 +20,7 @@ import {
     allocateLine, createOpsDispatchOrder, dispatchPool, listOpsDispatchOrders,
     type OpsOrderSummary, type PoolLine,
 } from '../../services'
-import { DISPATCH_MODE, OPS_ORDER_ST, shortId } from './dispatchStatus'
+import { dispatchMode, opsOrderSt, shortId } from './dispatchStatus'
 import { Pagination } from '../../components/Pagination'
 
 export function OpsDispatchPage() {
@@ -195,8 +195,8 @@ export function OpsDispatchPage() {
                                 {orders.map((o) => (
                                     <tr className="clk" key={o.id} onClick={() => navigate(`/ops/dispatch/${o.id}`)}>
                                         <td className="m">{shortId(o.id)}</td>
-                                        <td>{pill(OPS_ORDER_ST[o.status])}</td>
-                                        <td>{o.dispatchMode ? DISPATCH_MODE[o.dispatchMode] : X}</td>
+                                        <td>{pill(opsOrderSt(t)[o.status])}</td>
+                                        <td>{o.dispatchMode ? dispatchMode(t)[o.dispatchMode] : X}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>
                                         <td className="n">{o.customerCount}</td>

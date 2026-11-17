@@ -109,6 +109,9 @@ export interface Strings {
             floating: (rateDate: string) => string
             noRate: string
             rejectConfirm: string
+            confirmTitle: string
+            confirmBody: (total: string, commitDate: string) => string
+            confirmCta: string
             rateNote: (rateDate: string) => string
             rejected: string
             confirmedAt: (when: string, rateDate: string) => string
@@ -133,7 +136,6 @@ export interface Strings {
         sendCode: string; codeSentTo: string; codeLabel: string
         backToEmail: string; resend: string; resendIn: (seconds: number) => string
         codeHint: string; needsRegistration: string
-        staffPrompt: string; staffLink: string
     }
     reg: {
         h: string; sub: string; subA: string
@@ -289,7 +291,7 @@ export interface Strings {
             fldDiscount: string; discountPlaceholder: string
             fldProcess: string; fldMaterial: string; fldSize: string; fldPrecision: string
             freeText: string; discountHint: string; saved: (name: string) => string
-            errDiscount: string; save: string
+            errDiscount: string; errDiscountRequired: string; save: string
         }
         accounts: {
             title: string
@@ -351,7 +353,6 @@ export interface Strings {
             quoteTitle: string; requoteTitle: string
             colPart: string; colMaterial: string; colSurface: string; colBasePrice: string
             context: (customer: string, wanted: string, qty: number) => string
-            viewDrawing: string; viewDrawings: (n: number) => string
             lblMarkup: string; lblCurrency: string; lblCommitDate: string
             markupUnset: string
             customerRev: (v: string) => string
@@ -446,7 +447,7 @@ export const STRINGS: Record<Lang, Strings> = {
             quotedBanner: '平台已报价，等你确认。', cancelledBanner: '订单已取消。',
             statusSubmitted: '运营正在核价，报价出来后可在「我的报价」确认。',
             statusQuoted: (amount, commitDate) => `报价已出 ${amount}（按确认当日汇率锁价）· 承诺交期 ${commitDate}`,
-            statusConfirmed: '已确认报价，正在生产。',
+            statusConfirmed: '已确认报价。',
             statusReady: '全部零件已完工。',
             statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
@@ -511,6 +512,9 @@ export const STRINGS: Record<Lang, Strings> = {
                 floating: (d) => `按 ${d} 汇率，确认前会变`,
                 noRate: '暂时取不到汇率，价格稍后显示',
                 rejectConfirm: '拒绝这份报价？订单会退回，等平台重新报价。',
+                confirmTitle: '确认这份报价？',
+                confirmBody: (total, commitDate) => `总价 ${total}，承诺交期 ${commitDate}。确认后汇率锁定，价格不再变动；确认后你无法自行撤回。`,
+                confirmCta: '确认报价',
                 rateNote: (d) => `价格按 ${d} 的汇率计算，确认前会随汇率变动；点「确认价格」时按当时显示的价格锁定。`,
                 rejected: '你已拒绝这份报价，订单已退回，等平台重新报价。新报价出来后会显示在这里。',
                 confirmedAt: (when, d) => `已于 ${when} 确认，价格已锁定（汇率日期 ${d}）。`,
@@ -532,7 +536,6 @@ export const STRINGS: Record<Lang, Strings> = {
             resendIn: (sec) => `${sec}s 后可重发`,
             codeHint: '验证码 5 分钟内有效，只能用一次。',
             needsRegistration: '这个邮箱还没有账号。',
-            staffPrompt: '内部员工？', staffLink: '从这里登录',
         },
         reg: {
             h: '注册', sub: '已有账号？', subA: '返回登录',
@@ -643,7 +646,7 @@ export const STRINGS: Record<Lang, Strings> = {
         supplierOrder: {
             ACCEPTED: '已接单 · 等合同', CONTRACT_PENDING: '待供应商签字',
             CONTRACTED: '已签字 · 待开工', IN_PRODUCTION: '生产中',
-            SHIPPED: '已到平台 · 待质检', FULFILLED: '已全部合格', CANCELLED: '已取消',
+            SHIPPED: '已发出 · 待平台质检', FULFILLED: '已全部合格', CANCELLED: '已取消',
         },
         line: {
             PENDING: '待开工', IN_PRODUCTION: '生产中', PRODUCED: '已完工 · 待发出',
@@ -719,7 +722,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 freeText: '自由填写',
                 discountHint: '折率录好这家就能被派单；能力可以以后补，只给派单时参考。',
                 saved: (name) => `「${name}」已保存`,
-                errDiscount: '折率请填大于 0、最多 4 位小数的数字，如 0.8', save: '保存',
+                errDiscount: '折率请填大于 0、最多 4 位小数的数字，如 0.8', errDiscountRequired: '已设置的折率不能清空，只能改成另一个数', save: '保存',
             },
             accounts: {
                 title: '账号管理',
@@ -795,7 +798,6 @@ export const STRINGS: Record<Lang, Strings> = {
             resendBtn: '重新发出', sendBtn: '发出报价',
             colPart: '零件', colMaterial: '材料', colSurface: '表面处理', colBasePrice: '原价 ¥/件',
             context: (customer, wanted, qty) => `客户 ${customer} · 期望交期 ${wanted} · 共 ${qty} 件`,
-            viewDrawing: '查看', viewDrawings: (n) => `查看 (${n})`,
             lblMarkup: '报价系数', lblCurrency: '币种', lblCommitDate: '承诺交期',
             markupUnset: '未设置',
             customerRev: (v) => ` · 客户标记 ${v}`,
@@ -978,7 +980,7 @@ export const STRINGS: Record<Lang, Strings> = {
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', cancelledBanner: 'Order cancelled.',
             statusSubmitted: 'We are pricing your order. The quote will appear in "My quotes" for you to confirm.',
             statusQuoted: (amount, commitDate) => `Quote ready: ${amount} (locked at the rate on the day you confirm) · delivery ${commitDate}`,
-            statusConfirmed: 'Quote confirmed. Production has started.',
+            statusConfirmed: 'Quote confirmed.',
             statusReady: 'All parts are finished.',
             statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
@@ -1043,6 +1045,9 @@ export const STRINGS: Record<Lang, Strings> = {
                 floating: (d) => `At the ${d} FX rate — subject to change until confirmed`,
                 noRate: 'FX rate unavailable; the price will appear shortly',
                 rejectConfirm: 'Reject this quote? The order goes back and we will re-quote.',
+                confirmTitle: 'Confirm this quote?',
+                confirmBody: (total, commitDate) => `Total ${total}, committed delivery ${commitDate}. Confirming locks the FX rate and the price will no longer change. You cannot undo this yourself.`,
+                confirmCta: 'Confirm quote',
                 rateNote: (d) => `The price uses the FX rate of ${d} and may change until you confirm. Clicking "Confirm price" locks the price shown at that moment.`,
                 rejected: 'You rejected this quote. The order has gone back and we will re-quote; the new quote will appear here.',
                 confirmedAt: (when, d) => `Confirmed on ${when}; price locked (FX date ${d}).`,
@@ -1065,7 +1070,6 @@ export const STRINGS: Record<Lang, Strings> = {
             resendIn: (sec) => `Resend in ${sec}s`,
             codeHint: 'The code is valid for 5 minutes and can be used once.',
             needsRegistration: 'This email does not have an account yet.',
-            staffPrompt: 'Staff member?', staffLink: 'Sign in here',
         },
         reg: {
             h: 'Sign up', sub: 'Already have an account? ', subA: 'Sign in',
@@ -1176,7 +1180,7 @@ export const STRINGS: Record<Lang, Strings> = {
         supplierOrder: {
             ACCEPTED: 'Accepted · awaiting contract', CONTRACT_PENDING: 'Awaiting your signature',
             CONTRACTED: 'Signed · production not started', IN_PRODUCTION: 'In production',
-            SHIPPED: 'Received · awaiting QC', FULFILLED: 'All parts passed QC', CANCELLED: 'Cancelled',
+            SHIPPED: 'Shipped · awaiting QC', FULFILLED: 'All parts passed QC', CANCELLED: 'Cancelled',
         },
         line: {
             PENDING: 'Not started', IN_PRODUCTION: 'In production', PRODUCED: 'Produced · ready to ship',
@@ -1253,7 +1257,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 freeText: 'Free text',
                 discountHint: 'A supplier can be dispatched once a discount rate is set; capabilities are optional and only used as a reference.',
                 saved: (name) => `${name} saved`,
-                errDiscount: 'Enter a discount rate greater than 0 with at most 4 decimals, e.g. 0.8', save: 'Save',
+                errDiscount: 'Enter a discount rate greater than 0 with at most 4 decimals, e.g. 0.8', errDiscountRequired: 'A discount rate that is set cannot be cleared, only changed to another number', save: 'Save',
             },
             accounts: {
                 title: 'Accounts',
@@ -1326,7 +1330,6 @@ export const STRINGS: Record<Lang, Strings> = {
             quoteTitle: 'Parts', requoteTitle: 'Re-quote',
             colPart: 'Part', colMaterial: 'Material', colSurface: 'Finishing', colBasePrice: 'Base ¥/pc',
             context: (customer, wanted, qty) => `Customer ${customer} · wanted ${wanted} · ${qty} pc${qty === 1 ? '' : 's'}`,
-            viewDrawing: 'View', viewDrawings: (n) => `View (${n})`,
             lblMarkup: 'Quote rate', lblCurrency: 'Currency', lblCommitDate: 'Delivery date',
             markupUnset: 'Not set',
             customerRev: (v) => ` · customer mark ${v}`,

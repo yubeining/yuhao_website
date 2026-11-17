@@ -18,7 +18,7 @@
  *   如果哪天有人提议"加个自动转换会方便点" —— 答案是不。
  */
 
-import { clearSession, getSession, setSession, type Session } from '../../auth/session'
+import { clearSession, getSession, setSession, SIGNIN_BY_TYPE, type Session } from '../../auth/session'
 
 /**
  * ★ 恒为相对路径。
@@ -155,12 +155,15 @@ async function withRefresh(send: () => Promise<Response>, skipAuth: boolean): Pr
  *   否则用户点「后退」会回到一个注定 401 的页面，再次跳登录，看起来像卡死。
  */
 function forceSignOut(): void {
+    // ★ 先记下是哪一端再清登录态：运营要回内部登录页，不能一律送去对外的 /auth/signin
+    const signIn = SIGNIN_BY_TYPE[getSession()?.partyType ?? 'CUSTOMER']
     clearSession()
-    if (location.pathname === '/auth/signin') {
+    if (location.pathname === signIn) {
         return
     }
+    // 两个登录页都读 callbackUrl，登录后回到原页面（同端前缀校验在登录页做）
     const callbackUrl = encodeURIComponent(location.pathname + location.search)
-    location.replace(`/auth/signin?callbackUrl=${callbackUrl}`)
+    location.replace(`${signIn}?callbackUrl=${callbackUrl}`)
 }
 
 /**

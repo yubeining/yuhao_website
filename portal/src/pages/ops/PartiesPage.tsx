@@ -72,6 +72,9 @@ export function OpsPartiesPage() {
         if (!current || !draft) return
         const raw = draft.discount.trim()
         if (raw && (!RATE_RE.test(raw) || Number(raw) <= 0)) return setErr(t.ops.parties.errDiscount)
+        // ★ 后端要求折率必填（DiscountRequest @NotNull），清不掉。以前清空后直接跳过还提示「已保存」，
+        //   运营以为去掉了折率（它还决定能不能派单），实际什么都没变。
+        if (!raw && current.discountRate != null) return setErr(t.ops.parties.errDiscountRequired)
         setBusy(true)
         try {
             if (raw && Number(raw) !== current.discountRate) {
@@ -152,6 +155,8 @@ export function OpsPartiesPage() {
                         <button className="btn" type="button" onClick={() => setEditing(null)}>{t.common.cancel}</button>
                         <button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{t.ops.parties.save}</button>
                     </>}>
+                    {/* 保存失败的提示放在弹框里 —— 页面上那条在遮罩后面，看起来像点了没反应 */}
+                    {err && <Banner tone="wa" style={{ marginBottom: 12 }}>{err}</Banner>}
                     <FieldRow cols={2}>
                         <Field label={t.ops.parties.fldDiscount}>
                             <Input value={draft.discount} onChange={set('discount')} placeholder={t.ops.parties.discountPlaceholder} />

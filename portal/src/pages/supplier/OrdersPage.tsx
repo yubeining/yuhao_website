@@ -120,11 +120,14 @@ export function SupplierOrdersPage() {
                                 <Fld k={t.supplier.orders.fldDue} v={o.supplierDueDate} mono />
                                 <Fld k={t.supplier.orders.fldTotal} v={p ? `¥ ${M(p.total)}` : X} mono />
                                 <Fld k={t.supplier.orders.fldAccepted} v={fmtDateTime(new Date(o.acceptedAt))} mono />
-                                {o.status !== 'CANCELLED' && (
-                                    <Fld k={o.status === 'CONTRACTED' ? t.supplier.orders.fldSigned : t.supplier.orders.fldSignDeadline}
-                                        v={o.status === 'CONTRACTED'
-                                            ? fmtDateTime(new Date(o.signedAt!))
-                                            : t.supplier.orders.signDeadlineNote(fmtDateTime(new Date(o.signByDeadline)))} mono />
+                                {/* 签过字就显示签字时间（开工、发出、合格之后也一样）；
+                                    签字期限只对还没签的两个状态有意义 —— 对已开工的单显示一个早已过去的期限，会被读成"我漏了什么" */}
+                                {o.status !== 'CANCELLED' && o.signedAt && (
+                                    <Fld k={t.supplier.orders.fldSigned} v={fmtDateTime(new Date(o.signedAt))} mono />
+                                )}
+                                {(o.status === 'ACCEPTED' || o.status === 'CONTRACT_PENDING') && (
+                                    <Fld k={t.supplier.orders.fldSignDeadline}
+                                        v={t.supplier.orders.signDeadlineNote(fmtDateTime(new Date(o.signByDeadline)))} mono />
                                 )}
                                 {o.status === 'CANCELLED' && (
                                     <Fld k={t.supplier.orders.fldCancel} v={`${o.cancelReason ? cancelReason(t)[o.cancelReason] : X} · ${o.cancelledAt ? fmtDateTime(new Date(o.cancelledAt)) : X}`} />
@@ -149,10 +152,12 @@ export function SupplierOrdersPage() {
                                                 {/* 取消的单不给图；已接 / 待签 / 已签都给 —— 签完才是最需要图纸的时候 */}
                                                 {o.status !== 'CANCELLED' && l.files.length ? l.files.map((f) => (
                                                     <div key={f.id}>
+                                                        {/* 能预览的（PDF / 图片）开预览；CAD 等格式浏览器渲染不了，点了直接下载 */}
                                                         <button className="btn qui sm" type="button"
-                                                            disabled={!previewKindOf(f.originalFilename)}
                                                             title={previewKindOf(f.originalFilename) ? undefined : t.customer.partForm.previewUnsupported}
-                                                            onClick={() => openPreview(o.id, l.id, f.originalFilename, f.id)}>
+                                                            onClick={() => previewKindOf(f.originalFilename)
+                                                                ? openPreview(o.id, l.id, f.originalFilename, f.id)
+                                                                : download(o.id, l.id, f.id)}>
                                                             {f.originalFilename}
                                                         </button>
                                                     </div>

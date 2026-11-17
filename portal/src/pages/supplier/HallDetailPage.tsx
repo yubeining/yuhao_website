@@ -129,10 +129,12 @@ export function HallDetailPage() {
                                     <td>
                                         {l.files.length ? l.files.map((f) => (
                                             <div key={f.id}>
+                                                {/* 能预览的（PDF / 图片）开预览；CAD 等格式浏览器渲染不了，点了直接下载 */}
                                                 <button className="btn qui sm" type="button"
-                                                    disabled={!previewKindOf(f.originalFilename)}
                                                     title={previewKindOf(f.originalFilename) ? undefined : t.customer.partForm.previewUnsupported}
-                                                    onClick={() => openPreview(l.id, f.originalFilename, f.id)}>
+                                                    onClick={() => previewKindOf(f.originalFilename)
+                                                        ? openPreview(l.id, f.originalFilename, f.id)
+                                                        : download(l.id, f.id)}>
                                                     {f.originalFilename}
                                                 </button>
                                             </div>

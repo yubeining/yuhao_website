@@ -19,7 +19,7 @@ import { useMock } from '../../mock/MockProvider'
 import { DatePicker } from '../../components/DatePicker'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
-import { fmtDate, fmtDateTime, X } from '../../mock/format'
+import { fmtDate, fmtDateTime, fmtMoney, X } from '../../mock/format'
 import {
     ApiError, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
     type CustomerQuoteView, type OrderView,
@@ -203,9 +203,9 @@ export function OrderDetailPage() {
             {order.status === 'QUOTED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>
                     <span className="bnr-row">
-                        <span>{quote
-                            ? t.customer.orderDetail.statusQuoted(
-                                `${quote.currency === 'EUR' ? '€' : '¥'}${quote.total ?? 0}`, quote.commitDate)
+                        {/* 没有总价（取不到汇率）时不编一个 0，退回不带金额的通用文案 */}
+                        <span>{quote && quote.total != null
+                            ? t.customer.orderDetail.statusQuoted(fmtMoney(quote.total, quote.currency), quote.commitDate)
                             : t.customer.orderDetail.quotedBanner}</span>
                         <Link className="btn sm" to={`/customer/quotes/${order.id}`}>
                             {t.customer.orderDetail.statusConfirmQuote}

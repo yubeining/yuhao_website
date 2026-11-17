@@ -13,6 +13,7 @@ import { Link, useParams } from 'react-router-dom'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { fmtDateTime, fmtMoney, X } from '../../mock/format'
@@ -29,6 +30,8 @@ export function QuoteDetailPage() {
     const [loadErr, setLoadErr] = useState<string | null>(null)
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
+    /** 确认是不可逆的（锁汇率、客户侧没有撤回的流转），所以点了先问一次；拒绝反而可以重报。 */
+    const [asking, setAsking] = useState(false)
 
     const load = useCallback(async () => {
         try {
@@ -83,10 +86,11 @@ export function QuoteDetailPage() {
         }
     }
 
-    const confirm = () => {
+    const confirm = async () => {
         if (!quote.rateDate) return
         const rateDate = quote.rateDate
-        void act(() => confirmQuote(quote.orderId, quote.id, rateDate))
+        await act(() => confirmQuote(quote.orderId, quote.id, rateDate))
+        setAsking(false)
     }
 
     const reject = () => {
@@ -173,13 +177,23 @@ export function QuoteDetailPage() {
                     <CardFoot
                         left={<button className="btn" type="button" onClick={reject} disabled={busy}>{t.customer.quotes.reject}</button>}
                         right={
-                            <button className="btn pri" type="button" onClick={confirm} disabled={busy || !quote.rateDate}>
+                            <button className="btn pri" type="button" onClick={() => setAsking(true)} disabled={busy || !quote.rateDate}>
                                 {t.customer.quotes.confirmPrice(fmtMoney(quote.total, quote.currency))}
                             </button>
                         }
                     />
                 )}
             </Card>
+            {asking && open && (
+                <ConfirmDialog
+                    title={t.customer.quotes.confirmTitle}
+                    message={t.customer.quotes.confirmBody(fmtMoney(quote.total, quote.currency), quote.commitDate)}
+                    confirmLabel={t.customer.quotes.confirmCta}
+                    busy={busy}
+                    onCancel={() => setAsking(false)}
+                    onConfirm={() => { void confirm() }}
+                />
+            )}
         </Page>
     )
 }
