@@ -103,6 +103,21 @@ class EstimateCalculatorTest {
         assertThat(b.complete()).isFalse();
     }
 
+    /** 模型抄费率名时常把全角括号写成半角、多加或少加空格：这种差别不该变成「缺费率」。 */
+    @Test
+    void rateNamesMatchAcrossFullWidthPunctuationAndSpacing() {
+        List<CostRateSnapshot> rates = List.of(
+                rate("MATERIAL", "steel", "KG", "9.00"),
+                rate("PROCESS", "数控铣（三轴）", "HOUR", "140.00"),
+                rate("OUTSOURCE", "MT + 退磁", "PIECE", "8000.00"));
+
+        EstimateBreakdown b = EstimateCalculator.calculate(1, ai(
+                "1", List.of(item("数控铣(三轴)", "1")), List.of(item("MT+退磁", "1")), "0"), rates);
+
+        assertThat(b.complete()).isTrue();
+        assertThat(b.unitCostCny()).isEqualByComparingTo("8149.00");
+    }
+
     @Test
     void missingFixedCostIsFlagged() {
         EstimateBreakdown b = EstimateCalculator.calculate(1, ai(

@@ -4,6 +4,7 @@
  * ★ 待确认的价格按最新汇率现算，每天会变；列表上写明汇率日期，确认时锁定（2026-09-17 拍板）。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
@@ -19,7 +20,7 @@ export function QuoteListPage() {
     const navigate = useNavigate()
     const [quotes, setQuotes] = useState<CustomerQuoteSummaryView[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     // 等报价的订单：报价还没生成，但它们在这页也必须有位置，否则有报价时它们会被吞掉
     const [waiting, setWaiting] = useState<OrderSummaryView[]>([])
     const [err, setErr] = useState<string | null>(null)

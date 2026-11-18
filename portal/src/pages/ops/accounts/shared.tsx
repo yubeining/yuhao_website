@@ -6,33 +6,44 @@
  *   行为与拆分前逐行一致，只是换了位置。
  */
 
-import { useCallback, useEffect, useState, type ReactNode } from 'react'
+import { useAutoClear } from '../../../components/useAutoClear'
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useSearchParams } from 'react-router-dom'
+import { usePageParam } from '../../../components/usePageParam'
 import { Pagination } from '../../../components/Pagination'
 import { Banner, Empty, Pending, Pill } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
 import { useMock } from '../../../mock/MockProvider'
+import { fmtDate } from '../../../mock/format'
 
 export const PAGE_SIZE = 20
 
-export const day = (iso: string | null) => (iso ? iso.slice(0, 10) : '—')
+/** 本地日期。以前直接截 ISO 字符串的前 10 位，那是 UTC 日期，东八区凌晨注册的会显示成前一天。 */
+export const day = (iso: string | null) => (iso ? fmtDate(new Date(iso)) : '—')
 
 /**
  * 一个分页列表的全部状态：数据、页码、搜索、错误 / 成功提示、busy。
  *
  * ★ 输入框里的字（q）和「已生效的条件」（applied）分开：只有回车 / 点查询才生效并回第 1 页。
  *   以前 load 直接依赖 q，每敲一个字就查一次，且停在原页码 —— 在第 4 页搜邮箱会显示「无用户」。
- *   每次查询都换一个新对象，所以条件没变时点「查询」也会重新拉一次。
+ *   条件没变时点「查询」也会重新拉一次（靠 searchTick）。
  * ★ fetchPage 要用 useCallback 包住；它变了（比如组织 tab 的类型筛选变了）就重新加载。
  */
 export function usePagedList<T>(fetchPage: (q: string, pageNo: number) => Promise<{ items: T[]; total: number }>) {
     const { t } = useMock()
     const [rows, setRows] = useState<T[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
-    const [q, setQ] = useState('')
-    const [applied, setApplied] = useState({ q: '' })
+    // ★ 页码和已生效的搜索词放在网址里（?q=...&page=3）：刷新、转发、从别处返回都不丢（2026-11-18）。
+    const [params, setParams] = useSearchParams()
+    const [page, setPage] = usePageParam()
+    const appliedQ = params.get('q') ?? ''
+    const [q, setQ] = useState(appliedQ)
+    /** 点一次「查询」加一：条件没变时也重新拉一次（网址没变，光靠它触发不了重新加载）。 */
+    const [searchTick, setSearchTick] = useState(0)
+    const applied = useMemo(() => ({ q: appliedQ, tick: searchTick }), [appliedQ, searchTick])
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
+    useAutoClear(ok, () => setOk(null))
     const [busy, setBusy] = useState(false)
 
     const load = useCallback(async (pageNo: number) => {
@@ -48,7 +59,15 @@ export function usePagedList<T>(fetchPage: (q: string, pageNo: number) => Promis
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const search = () => { setApplied({ q }); setPage(1) }
+    const search = () => {
+        setParams((prev) => {
+            const next = new URLSearchParams(prev)
+            if (q) next.set('q', q); else next.delete('q')
+            next.delete('page')
+            return next
+        }, { replace: true })
+        setSearchTick((n) => n + 1)
+    }
 
     /** 行内动作（禁用 / 启用）：busy → 调接口 → 成功提示 + 重新加载当前页；失败显示错误。 */
     const act = async (run: () => Promise<unknown>, okText: string) => {

@@ -103,7 +103,10 @@ public class AccountAdminService {
         if (hasText(displayName)) {
             u.setDisplayName(displayName.trim());
         }
-        u.setLocale(trimToNull(locale));
+        // 没传就不动：以前无条件写，只改姓名 / 状态的请求会把语言清空，之后邮件和界面回落成英文
+        if (hasText(locale)) {
+            u.setLocale(locale.trim());
+        }
         if (hasText(status)) {
             u.setStatus(parseStatus(status, ExternalUser.Status.class));
         }
@@ -223,7 +226,10 @@ public class AccountAdminService {
         if (hasText(displayName)) {
             u.setDisplayName(displayName.trim());
         }
-        u.setLocale(trimToNull(locale));
+        // 没传就不动：以前无条件写，只改姓名 / 状态的请求会把语言清空，之后邮件和界面回落成英文
+        if (hasText(locale)) {
+            u.setLocale(locale.trim());
+        }
         if (hasText(status)) {
             u.setStatus(parseStatus(status, OpsUser.Status.class));
         }

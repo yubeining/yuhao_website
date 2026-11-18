@@ -10,6 +10,7 @@
  * ★ 保存后写回 session，顶栏昵称立刻变，不用重新登录。
  */
 
+import { fmtDate } from '../mock/format'
 import { useCallback, useEffect, useState } from 'react'
 import {
     Banner, Card, CardBody, CardHead, Hello, Kv, KvRow, Page,
@@ -32,8 +33,8 @@ const PARTY_LABEL = (t: ReturnType<typeof useMock>['t']) => ({
     OPERATOR: t.nav.ops.internalOps,
 }) as const
 
-/** 只取日期部分：注册时间不需要时分秒。 */
-const day = (iso: string) => (iso ? iso.slice(0, 10) : '—')
+/** 只取日期部分（本地日期）：注册时间不需要时分秒。 */
+const day = (iso: string) => (iso ? fmtDate(new Date(iso)) : '—')
 
 export function AccountSettingsPage() {
     const { t, theme, setTheme } = useMock()
@@ -141,6 +142,14 @@ export function AccountSettingsPage() {
     return (
         <Page>
             <Hello title={ti.account.title} />
+
+            {/* 资料没加载出来：以前错误只在编辑弹框里显示，页面上只有一排横线，看不出是出错了 */}
+            {!profile && err && !editing && (
+                <Banner tone="wa" style={{ marginBottom: 14, maxWidth: 720 }}>
+                    {err}{' '}
+                    <button className="linkbtn" type="button" onClick={() => void load(session.partyType)}>{t.common.retry}</button>
+                </Banner>
+            )}
 
             <Card style={{ maxWidth: 720 }}>
                 <CardHead

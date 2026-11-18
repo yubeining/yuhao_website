@@ -2,8 +2,10 @@ package com.mfg.domain.quote;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.Normalizer;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -92,8 +94,15 @@ final class EstimateCalculator {
         return new EstimateBreakdown.Factors(new BigDecimal(material), new BigDecimal(machining), new BigDecimal(fixed));
     }
 
+    /**
+     * 匹配用的 key：全角 / 半角归一（NFKC）、去掉所有空白、不分大小写。
+     * 模型抄费率名时常把「（三轴）」写成「(三轴)」、把「MT + 退磁」写成「MT+退磁」，这种差别不该变成「缺费率」。
+     * 明细里显示的仍是模型给的原名。
+     */
     private static String key(String kind, String name) {
-        return kind + "\u0000" + (name == null ? "" : name.strip());
+        String n = name == null ? "" : Normalizer.normalize(name, Normalizer.Form.NFKC)
+                .replaceAll("\\s+", "").toLowerCase(Locale.ROOT);
+        return kind + "\u0000" + n;
     }
 
     private static <T> List<T> nullSafe(List<T> list) {

@@ -19,6 +19,9 @@ import {
     day, FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
 } from './shared'
 
+/** 报价系数：大于 0，最多 4 位小数（和后端的校验一致）。 */
+const RATE_RE = /^\d+(\.\d{1,4})?$/
+
 type OrgForm = { id?: string; type: string; name: string; country: string; markup: string }
 
 export function OrgsTab() {
@@ -51,7 +54,8 @@ export function OrgsTab() {
             getCustomerMarkup(row.id)
                 .then((view) => {
                     setMarkupView(view)
-                    setForm((f) => (f && f.id === row.id
+                    // 只在输入框还空着时填：请求回来得晚，不能把人已经敲进去的字盖掉
+                    setForm((f) => (f && f.id === row.id && f.markup === ''
                         ? { ...f, markup: view.markupRate != null ? String(view.markupRate) : '' }
                         : f))
                 })
@@ -59,8 +63,14 @@ export function OrgsTab() {
         }
     }
 
+    const markupRaw = form?.markup.trim() ?? ''
+    const markupBad = markupRaw !== '' && (!RATE_RE.test(markupRaw) || Number(markupRaw) <= 0)
+    /** 关弹框时把弹框里的错误一起清掉，不然它会留在页面顶部。 */
+    const closeForm = () => { setForm(null); list.setErr(null) }
+
     const save = async () => {
-        if (!form || !form.name.trim()) return
+        // 系数填得不对就整个不保存：以前先改了名字和国家，再因为系数报错，只存了一半
+        if (!form || !form.name.trim() || markupBad) return
         list.setBusy(true)
         try {
             if (form.id) {
@@ -158,10 +168,10 @@ export function OrgsTab() {
 
             {form && (
                 <Modal title={form.id ? a.editOrg : a.newOrg} busy={list.busy} width={400}
-                    onClose={() => setForm(null)}
+                    onClose={closeForm}
                     footer={<>
-                        <button className="btn" type="button" onClick={() => setForm(null)}>{a.cancel}</button>
-                        <button className="btn pri" type="button" disabled={list.busy || !form.name.trim()}
+                        <button className="btn" type="button" onClick={closeForm}>{a.cancel}</button>
+                        <button className="btn pri" type="button" disabled={list.busy || !form.name.trim() || markupBad}
                             onClick={() => void save()}>{a.save}</button>
                     </>}>
                     {/* 保存失败的提示放在弹框里 —— 页面上那条在遮罩后面，看起来像点了没反应 */}
@@ -184,15 +194,17 @@ export function OrgsTab() {
                     </Field>
                     {form.id && form.type === 'CUSTOMER' && (
                         <Field label={a.fldMarkup}>
-                            <Input value={form.markup} onChange={(v) => setForm({ ...form, markup: v })} />
+                            <Input value={form.markup} bad={markupBad} onChange={(v) => setForm({ ...form, markup: v })} />
                             <div className="t2" style={{ marginTop: 6 }}>
-                                {a.fldMarkupHint} ·
-                                {' '}
-                                {markupView?.markupRate != null
-                                    ? a.markupOwn(markupView.markupRate)
-                                    : markupView?.defaultRate != null
-                                        ? a.markupDefault(markupView.defaultRate)
-                                        : a.markupUnset}
+                                {a.fldMarkupHint}
+                                {/* 当前生效值查到了才说；还没回来 / 查失败时不能说成「未设置」 */}
+                                {markupView && (
+                                    <> · {markupView.markupRate != null
+                                        ? a.markupOwn(markupView.markupRate)
+                                        : markupView.defaultRate != null
+                                            ? a.markupDefault(markupView.defaultRate)
+                                            : a.markupUnset}</>
+                                )}
                             </div>
                         </Field>
                     )}

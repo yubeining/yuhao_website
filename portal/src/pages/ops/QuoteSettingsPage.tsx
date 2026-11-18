@@ -7,6 +7,7 @@
  * ★ 默认值存 app_setting 表，改完立刻生效，不用发版。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { Modal } from '../../components/Modal'
@@ -31,7 +32,7 @@ export function OpsQuoteSettingsPage() {
     const [defaultRate, setDefaultRate] = useState<number | null>(null)
     const [companies, setCompanies] = useState<QuoteCompanyRate[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     const [err, setErr] = useState<string | null>(null)
     const [flash, setFlash] = useState(false)
     const [busy, setBusy] = useState(false)
@@ -56,6 +57,7 @@ export function OpsQuoteSettingsPage() {
 
     const open = () => {
         setDraft(defaultRate != null ? String(defaultRate) : '')
+        setErr(null)
         setEditing(true)
     }
 
@@ -82,7 +84,7 @@ export function OpsQuoteSettingsPage() {
     return (
         <Page>
             <Hello title={q.title} sub={q.sub} />
-            {err && companies !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
+            {err && companies !== null && !editing && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
 
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={q.defaultTitle} right={
@@ -136,6 +138,8 @@ export function OpsQuoteSettingsPage() {
                         <button className="btn pri" type="button" disabled={busy || bad || !draft.trim()}
                             onClick={() => void save()}>{t.common.save}</button>
                     </>}>
+                    {/* 保存失败的提示放在弹框里 —— 页面上那条在遮罩后面，看起来像点了没反应 */}
+                    {err && <Banner tone="wa" style={{ marginBottom: 12 }}>{err}</Banner>}
                     <Input value={draft} style={{ width: 140 }} bad={bad} onChange={setDraft} />
                     <div className="t2" style={{ marginTop: 8 }}>{q.defaultHint}</div>
                 </Modal>

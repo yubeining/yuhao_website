@@ -7,6 +7,7 @@
  * ★ 本轮只有「原厂重做」一种补料；换一家做、差价扣款还没做，不要在这里假装有。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
 import { Banner, Card, CardBody, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
@@ -28,7 +29,7 @@ export function OpsProductionPage() {
     const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<OpsProductionOrder[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     const [counts, setCounts] = useState<Record<string, Counts>>({})
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -135,8 +136,9 @@ export function OpsProductionPage() {
                     </CardBody>
                 </Card>
             ))}
-            <Card><Pagination page={page} pageSize={20} total={total}
-                onChange={setPage} /></Card>
+            {/* 只有一页时分页不渲染，外面的卡片也别留一个空框 */}
+            {total > 20 && <Card><Pagination page={page} pageSize={20} total={total}
+                onChange={setPage} /></Card>}
             </>
         }
             {confirmDialog}

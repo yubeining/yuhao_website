@@ -143,7 +143,7 @@ export function StaffTab() {
                     <Field label={a.fldEmail}>
                         {form.id
                             ? <ReadOnly value={form.email} note={a.immutable} />
-                            : <Input value={form.email} placeholder="name@company.com"
+                            : <Input value={form.email}
                                 onChange={(v) => setForm({ ...form, email: v })} />}
                     </Field>
                     <Field label={a.fldName}>

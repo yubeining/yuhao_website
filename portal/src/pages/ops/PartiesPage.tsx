@@ -6,6 +6,8 @@
  * ★ 以前这一页是原型（级别、设备、可抢范围都是演示数据），已换成真数据；原型里的「级别」需求方没定过，不再显示。
  */
 
+import { useAutoClear } from '../../components/useAutoClear'
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
@@ -40,11 +42,12 @@ export function OpsPartiesPage() {
     const { t } = useMock()
     const [suppliers, setSuppliers] = useState<SupplierView[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     const [editing, setEditing] = useState<string | null>(null)
     const [draft, setDraft] = useState<Draft | null>(null)
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
+    useAutoClear(ok, () => setOk(null))
     const [busy, setBusy] = useState(false)
 
     const load = useCallback(async (pageNo: number) => {
@@ -52,6 +55,7 @@ export function OpsPartiesPage() {
             const pg = await listSuppliers(pageNo, 20)
             setSuppliers(pg.items)
             setTotal(pg.total)
+            setErr(null)   // 重新加载成功就收起之前的错误横幅
         } catch (e) {
             setErr(errorText(t, e))
         }

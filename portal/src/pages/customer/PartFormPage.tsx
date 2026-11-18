@@ -234,6 +234,7 @@ export function PartFormPage() {
     }
 
     const remove = async (file: FileView) => {
+        if (!(await askConfirm(t.customer.partForm.confirmRemoveFile(file.originalFilename), { danger: true }))) return
         try {
             await removeFile(file.id)
             await load(false)
@@ -268,11 +269,12 @@ export function PartFormPage() {
     return (
         <Page>
             <Hello
-                back={<Link className="btn sm qui" to={`/customer/orders/${order.id}`}
+                // 和底部「取消」走同一个 backOut：以前这里是个直接跳走的链接，填到一半点它不问就丢
+                back={<button className="btn sm qui" type="button" onClick={() => void backOut()}
                     title={order.title || t.common.untitledOrder}
-                    style={{ margin: '0 0 6px -9px' }}>← {t.customer.partForm.backToOrder}</Link>}
+                    style={{ margin: '0 0 6px -9px' }}>← {t.customer.partForm.backToOrder}</button>}
                 title={isNew ? t.customer.partForm.titleNew : draft ? t.customer.partForm.titleEdit : (line?.partName ?? t.customer.partForm.titlePart)}
-                sub={line ? `${line.code} · ${t.customer.partForm.versionOnly(line.revision.revNo)}` : undefined}
+                sub={line ? line.code : undefined}
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
@@ -280,7 +282,7 @@ export function PartFormPage() {
             {isNew && existing && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>
                     {reused
-                        ? t.customer.partForm.reuseExisting(existing.name, reused.revNo, reused.files.length)
+                        ? t.customer.partForm.reuseExisting(existing.name, reused.files.length)
                             + (queued.length ? t.customer.partForm.reuseNewVersionQueued : '')
                         : t.customer.partForm.reuseNewVersion(existing.name)}
                 </Banner>
@@ -315,7 +317,7 @@ export function PartFormPage() {
                             <Fld k={t.customer.partForm.fldCode.replace(' *', '')} v={line.code} mono />
                             <Fld k={t.common.table.name} v={line.partName} />
                             <Fld k={t.customer.quotes.colQty} v={line.quantity} mono />
-                            <Fld k={t.customer.orderDetail.colRevision} v={`v${line.revision.revNo}${line.revision.customerRev ? ` · ${line.revision.customerRev}` : ''}`} mono />
+                            <Fld k={t.customer.orderDetail.colRevision} v={line.revision.customerRev || X} mono />
                             <Fld k={t.customer.partForm.fldMaterial} v={line.material || X} />
                             <Fld k={t.customer.partForm.fldSurface} v={line.surfaceTreatment || X} />
                         </Fields>
@@ -324,7 +326,7 @@ export function PartFormPage() {
                     <div className="attach">
                         <div className="attach-hd">
                             <span className="attach-k">{t.customer.partForm.drawingTitle}<Req /></span>
-                            {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill(line.revision.revNo)}</Pill>}
+                            {line && locked && <Pill tone="ne" dot={false}>{t.customer.partForm.lockedPill}</Pill>}
                             <span className="sp" />
                             {draft && (
                                 <button className="btn sm" type="button" disabled={busy} onClick={() => picker.current?.click()}>

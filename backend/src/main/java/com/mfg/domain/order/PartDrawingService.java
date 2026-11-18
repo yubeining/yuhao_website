@@ -421,8 +421,10 @@ class PartDrawingService {
     /**
      * 读出一份图纸的内容，交给 AI 成本估算发给外部模型。顺序同签名 URL：「校验 → 写审计 → 读内容」，
      * 审计写不进去就不读（CLAUDE.md §3 铁律 6）。调用方已校验文件属于这张单的这一行。
+     *
+     * <p>★ 不开事务：审计那一行由仓库自己的短事务写完提交，之后读对象存储时不占数据库连接 ——
+     * 一份图纸几十 MB，存储慢的时候几次并发估算就能把连接池占住。
      */
-    @Transactional
     byte[] readForAi(UUID customerOrgId, UUID accessorUserId, UUID accessorOrgId, PartFile file, UUID orderId) {
         if (!file.getCustomerOrgId().equals(customerOrgId)
                 || file.getUploadStatus() != PartFile.UploadStatus.COMPLETED) {

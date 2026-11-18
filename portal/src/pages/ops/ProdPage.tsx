@@ -10,9 +10,11 @@
  *   签字之后锁定：收不回、作废不了。
  */
 
+import { DatePicker } from '../../components/DatePicker'
+import { useAutoClear } from '../../components/useAutoClear'
 import { useCallback, useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
-import { Checkbox, Input } from '../../components/form'
+import { Checkbox } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
@@ -42,6 +44,7 @@ export function OpsProdPage() {
     const [due, setDue] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
+    useAutoClear(ok, () => setOk(null))
     const [busy, setBusy] = useState(false)
 
     const load = useCallback(async () => {
@@ -71,7 +74,9 @@ export function OpsProdPage() {
     const assembling = order.status === 'ASSEMBLING'
     const open = order.status === 'OFFERED' || order.status === 'PUBLISHED'
     const accepted = order.supplierOrders.find((s) => s.status !== 'CANCELLED')
-    const signed = accepted?.status === 'CONTRACTED'
+    // 签过字之后的所有状态（和后端 SupplierOrder.isSigned 一致）：开工后合同和供应商都不能再收回，
+    // 以前只认 CONTRACTED，开工后按钮又亮起来，点了必然 409。
+    const signed = !!accepted && ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED'].includes(accepted.status)
     const currentOffers = order.offers.filter((o) => o.dispatchRound === order.dispatchRound)
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const dueProblem = !DATE_RE.test(due.trim()) ? t.prodDetail.dueProblem : null
@@ -228,7 +233,7 @@ export function OpsProdPage() {
                             left={
                                 <div className="fcell">
                                     <span className="t2">{t.prodDetail.offerDueLabel}</span>
-                                    <Input value={due} onChange={setDue} placeholder="2026-10-20" style={{ width: 130 }} />
+                                    <DatePicker value={due} onChange={setDue} />
                                 </div>
                             }
                             right={

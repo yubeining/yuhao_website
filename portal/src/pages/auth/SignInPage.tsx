@@ -204,7 +204,6 @@ export function SignInPage() {
                         </button>
                     </div>
 
-                    <div className="fnote" style={{ marginTop: 12 }}>{c.note}</div>
                 </div>
             </div>
         </div>

@@ -14,7 +14,6 @@ import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.notification.NotificationRequest;
 import com.mfg.platform.notification.NotificationService;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -169,7 +168,7 @@ class QuoteService {
         }
         quoteLines.saveAllAndFlush(lines);
         orders.markQuoted(order.customerOrgId(), orderId);
-        notifyQuoteSent(order.customerOrgId(), orderId, commitDate, currency);
+        notifyQuoteSent(order, commitDate, currency);
         return opsView(quote, lines, latestFx().orElse(null));
     }
 
@@ -177,16 +176,18 @@ class QuoteService {
      * 报价发出后给客户发邮件。
      *
      * <p>★ 走 {@code notifications.notify}（事务提交后异步发）：发信失败不该让运营的报价失败，
-     * 也不该在事务里等外部服务。收件人取该组织第一个可用成员 —— 现在没有"主联系人"这个概念。
+     * 也不该在事务里等外部服务。收件人是下单人（2026-11-18；以前取组织里随便第一个成员）。
      * ★ 金额这里不写死：SENT 状态的价是按最新汇率现算的，邮件里就写当时的试算价，正文里注明以门户为准。
      */
-    private void notifyQuoteSent(UUID customerOrgId, UUID orderId, LocalDate commitDate, Quote.Currency currency) {
-        externalUsers.findByOrgId(customerOrgId, PageRequest.of(0, 1)).stream()
+    private void notifyQuoteSent(QuotableOrder order, LocalDate commitDate, Quote.Currency currency) {
+        UUID customerOrgId = order.customerOrgId();
+        // 发给下单人（需求方 2026-11-18 定）。带上组织条件再取一次：下单人必须还在这家公司、账号还启用着，否则不发。
+        Optional.ofNullable(order.createdByUserId()).flatMap(externalUsers::findById)
+                .filter(u -> u.getOrgId().equals(customerOrgId))
                 .filter(u -> u.getStatus() == com.mfg.platform.identity.ExternalUser.Status.ACTIVE)
-                .findFirst()
                 .ifPresent(user -> {
-                    String amount = customerViewAmount(orderId, currency);
-                    String orderTitle = orderTitleOf(customerOrgId, orderId);
+                    String amount = customerViewAmount(order.id(), currency);
+                    String orderTitle = orderTitleOf(customerOrgId, order.id());
                     String[] mail = emailTemplate.render(user.getLocale(), orderTitle, amount,
                             currency.name(), commitDate.toString());
                     notifications.notify(NotificationRequest.email(user.getEmail(), mail[0], mail[1]));
@@ -195,7 +196,8 @@ class QuoteService {
 
     private String customerViewAmount(UUID orderId, Quote.Currency currency) {
         return quotes.findByCustomerOrderIdAndStatus(orderId, Quote.Status.SENT)
-                .map(q -> customerView(q, linesOf(q), null))
+                // ★ 要带上最新汇率才算得出对客价；以前传 null，邮件里的金额永远是「-」
+                .map(q -> customerView(q, linesOf(q), latestFx().orElse(null)))
                 .map(v -> v.total() == null ? "-" : v.total().toPlainString())
                 .orElse("-");
     }

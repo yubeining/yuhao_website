@@ -140,6 +140,33 @@ class AccountAdminIT {
         assertThat(denied.getStatusCode().value()).isEqualTo(401);
     }
 
+    /**
+     * 2026-11-18 review：PATCH 每次都把语言写成请求里的值，没传就写成空 ——
+     * 运营只是禁用 / 启用 / 改个名，这个人的语言设置就被清掉，之后邮件和界面回落成英文。
+     */
+    @Test
+    void updatingNameOrStatusKeepsTheLocale() throws Exception {
+        String orgId = createOrg("CUSTOMER", "Keep GmbH " + UUID.randomUUID());
+        String userId = json.readTree(rawPost("/ops/users", Map.of(
+                "orgId", orgId, "email", "keep-" + UUID.randomUUID() + "@example.com", "displayName", "Karl",
+                "password", "password123", "locale", "zh"), opsToken).getBody()).path("data").path("id").asText();
+
+        JsonNode renamed = json.readTree(rawPatch("/ops/users/" + userId,
+                Map.of("displayName", "Karl 2"), opsToken).getBody()).path("data");
+        assertThat(renamed.path("locale").asText()).isEqualTo("zh");
+        JsonNode disabled = json.readTree(rawPatch("/ops/users/" + userId,
+                Map.of("status", "DISABLED"), opsToken).getBody()).path("data");
+        assertThat(disabled.path("locale").asText()).isEqualTo("zh");
+
+        String intOrg = createOrg("INTERNAL", "Ops " + UUID.randomUUID());
+        String staffId = json.readTree(rawPost("/ops/staff", Map.of(
+                "orgId", intOrg, "email", "staff-" + UUID.randomUUID() + "@example.com", "displayName", "Sam",
+                "password", "password123", "locale", "zh"), opsToken).getBody()).path("data").path("id").asText();
+        JsonNode staff = json.readTree(rawPatch("/ops/staff/" + staffId,
+                Map.of("displayName", "Sam 2"), opsToken).getBody()).path("data");
+        assertThat(staff.path("locale").asText()).isEqualTo("zh");
+    }
+
     @Test
     void duplicateEmailIsRejected() throws Exception {
         String orgId = createOrg("CUSTOMER", "Dupe GmbH " + UUID.randomUUID());

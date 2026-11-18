@@ -77,7 +77,8 @@ export function EstimateCard({ orderId, lines, editable }: {
                                     <td className="n">{i + 1}</td>
                                     <td className="m">{l.code}</td>
                                     <td className="t1">{l.partName}</td>
-                                    <td className="n">{v ? money(v.unitCostCny) : X}</td>
+                                    {/* 一项都没算出来时合计是 0.00，那不是一个算出来的成本 —— 显示占位符 */}
+                                    <td className="n">{v && v.breakdown.items.some((it) => it.amount != null) ? money(v.unitCostCny) : X}</td>
                                     <td>{v ? result(v) : X}</td>
                                     <td className="n">{v ? fmtDateTime(new Date(v.estimatedAt)) : X}</td>
                                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>

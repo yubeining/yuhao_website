@@ -7,6 +7,7 @@
  * ★ 以前这一页是原型（目标价、合计金额都是编的公式），已换成真数据。对供价在生产订单详情里按各家折率看。
  */
 
+import { useAutoClear } from '../../components/useAutoClear'
 import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Input } from '../../components/form'
@@ -48,6 +49,7 @@ export function OpsDispatchPage() {
     const [split, setSplit] = useState<Record<string, string>>({})
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
+    useAutoClear(ok, () => setOk(null))
     const [busy, setBusy] = useState(false)
 
     const load = useCallback(async (poolPageNo: number, ordersPageNo: number) => {
@@ -62,6 +64,7 @@ export function OpsDispatchPage() {
             setOrders(o.items)
             setOrdersTotal(o.total)
             setAssembling(a.items)
+            setErr(null)   // 重新加载成功就收起之前的错误横幅
         } catch (e) {
             setErr(errorText(t, e))
         }

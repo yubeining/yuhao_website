@@ -93,8 +93,8 @@ class OrderQuotingService implements OrderQuoting {
                 .collect(Collectors.toMap(CustomerOrder::getId, CustomerOrder::getTitle));
     }
 
+    /** 不开事务：里面要从对象存储读几十 MB 的图纸，不能拿着数据库连接等（各次查询、审计各自一个短事务）。 */
     @Override
-    @Transactional
     public EstimateSource readForEstimate(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId,
                                           Predicate<String> readable, long maxBytes, int maxFiles) {
         CustomerOrder order = orders.findByIdAndSubmittedAtIsNotNull(orderId)
@@ -145,6 +145,7 @@ class OrderQuotingService implements OrderQuoting {
                 .map(l -> new QuotableLine(l.getId(), partById.get(l.getPartDesignId()).getCode(), l.getPartName(),
                         l.getQuantity()))
                 .toList();
-        return new QuotableOrder(order.getId(), orgId, order.getStatus().name(), quotable);
+        return new QuotableOrder(order.getId(), orgId, order.getCreatedByUserId(), order.getStatus().name(),
+                quotable);
     }
 }

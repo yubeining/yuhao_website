@@ -11,7 +11,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
-import { BigButton, Checkbox, ErrMsg, Field, Form, Input } from '../../components/form'
+import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
 import { useMock } from '../../mock/MockProvider'
 import { registerWithCode, sendOtp } from '../../services/auth'
@@ -30,7 +30,6 @@ export function RegisterPage() {
     /** 重发倒计时（秒）。0 = 可以发。 */
     const [countdown, setCountdown] = useState(0)
     const [company, setCompany] = useState('')
-    const [agree, setAgree] = useState(false)
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
 
@@ -60,7 +59,6 @@ export function RegisterPage() {
         if (busy) return
         if (!/^\d{6}$/.test(code.trim())) return setErr(c.errCode)
         if (!company.trim()) return setErr(c.errCompany)
-        if (!agree) return setErr(c.errAgree)
         setErr(null)
         setBusy(true)
         try {
@@ -115,11 +113,6 @@ export function RegisterPage() {
 
                         <ErrMsg>{err}</ErrMsg>
 
-                        <div className="inprow">
-                            <Checkbox checked={agree} onChange={(v) => { setAgree(v); setErr(null) }}>
-                                {c.agree}
-                            </Checkbox>
-                        </div>
                         <BigButton type="submit">{busy ? '…' : c.submit}</BigButton>
                     </Form>
                     <div className="fnote" style={{ marginTop: 12 }}>{c.hint}</div>

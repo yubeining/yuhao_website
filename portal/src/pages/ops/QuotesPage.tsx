@@ -108,7 +108,7 @@ export function OpsQuotesPage() {
                                         <td>{pill(orderSt(t)[o.status])}</td>
                                         <td>
                                             {latest[o.id]
-                                                ? <>{pill(quoteSt(t)[latest[o.id].latestStatus])} <span className="t2">{t.ops.quotes.version(latest[o.id].latestVersionNo)}</span></>
+                                                ? pill(quoteSt(t)[latest[o.id].latestStatus])
                                                 : <span className="t2">{t.ops.quotes.never}</span>}
                                         </td>
                                     </tr>

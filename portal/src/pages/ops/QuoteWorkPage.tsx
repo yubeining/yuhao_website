@@ -15,7 +15,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useLocation, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Input, Select } from '../../components/form'
 import { DatePicker } from '../../components/DatePicker'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
@@ -40,6 +40,7 @@ const PRICE_RE = /^\d+(\.\d{1,2})?$/
 export function OpsQuoteWorkPage() {
     const { t } = useMock()
     const location = useLocation()
+    const navigate = useNavigate()
     const [askConfirm, confirmDialog] = useConfirm()
     const { id = '' } = useParams()
     const [order, setOrder] = useState<OpsOrderView | null>(null)
@@ -57,6 +58,8 @@ export function OpsQuoteWorkPage() {
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
     /** 点过「发出报价」才提示缺什么，输入过程中不实时报错 */
     const [tried, setTried] = useState(false)
+    /** 填了还没发出的改动：点返回时先问一句，免得一桌子价格白填 */
+    const [dirty, setDirty] = useState(false)
 
     /** prefill = true：用最近一版报价填输入框（首次加载、发出之后）。 */
     const load = useCallback(async (prefill: boolean) => {
@@ -86,7 +89,13 @@ export function OpsQuoteWorkPage() {
 
     // 从列表点进来时带着列表地址（含筛选和页码），返回就回到原样；直接打开的链接退回列表首页
     const backState = (location.state as { back?: string } | null)?.back
-    const back = <Link className="btn sm qui" to={backState?.startsWith('/ops/quotes') ? backState : '/ops/quotes'} style={{ margin: '0 0 6px -9px' }}>{t.quoteWork.back}</Link>
+    const backTo = backState?.startsWith('/ops/quotes') ? backState : '/ops/quotes'
+    const back = <Link className="btn sm qui" to={backTo} style={{ margin: '0 0 6px -9px' }}
+        onClick={(e) => {
+            if (!dirty) return
+            e.preventDefault()
+            void askConfirm(t.customer.partForm.discardConfirm, { danger: true }).then((yes) => { if (yes) navigate(backTo) })
+        }}>{t.quoteWork.back}</Link>
 
     if (missing) {
         return (
@@ -127,6 +136,7 @@ export function OpsQuoteWorkPage() {
     const edit = (fn: () => void) => {
         fn()
         setOk(null)
+        setDirty(true)
     }
 
     const run = async (fn: () => Promise<void>) => {
@@ -149,9 +159,10 @@ export function OpsQuoteWorkPage() {
             : t.quoteWork.confirmSend
         if (!(await askConfirm(msg))) return
         void run(async () => {
-            const q = await sendQuote(order.id, input)
+            await sendQuote(order.id, input)
             setTried(false)
-            setOk(t.quoteWork.sentVersion(q.versionNo))
+            setDirty(false)
+            setOk(t.quoteWork.sent)
             await load(false)
         })
     }
@@ -278,7 +289,7 @@ export function OpsQuoteWorkPage() {
 
             {quotes.length > 0 && (
                 <Card>
-                    <CardHead title={t.quoteWork.historyTitle} rid={t.quoteWork.versionCount(quotes.length)} />
+                    <CardHead title={t.quoteWork.historyTitle} />
                     <CardBody flush>
                         <TableWrap>
                             <thead>

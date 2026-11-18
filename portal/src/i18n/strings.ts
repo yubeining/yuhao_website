@@ -74,7 +74,7 @@ export interface Strings {
             colRevision: string; colMaterial: string; colDrawing: string; colProgress: string
             colCode: string; colQty: string
             customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
-            remove: string; emptyParts: string; emptyPartsSub: string
+            remove: string; confirmRemoveLine: (code: string) => string; emptyParts: string; emptyPartsSub: string
             submit: string; submitConfirmTitle: string; submitConfirmBody: string; submitConfirmCta: string
             needDrawings: (n: number) => string; needCompany: string; fillCompany: string
             /** 一个零件都没有时的提交按钮文案 */
@@ -83,18 +83,17 @@ export interface Strings {
         partForm: {
             uploadFailed: string; errRequired: string; notFound: string
             titleNew: string; titleEdit: string; titlePart: string
-            versionLine: (code: string, rev: number) => string; versionOnly: (rev: number) => string
             lockedBanner: string
-            reuseExisting: (name: string, rev: number, files: number) => string
+            reuseExisting: (name: string, files: number) => string
             reuseNewVersionQueued: string; reuseNewVersion: (name: string) => string
             infoTitle: string
             fldCode: string; codeHint: string
             fldMaterial: string; fldSurface: string
             drawingTitle: string; drawingMissing: string
             drawingUploadedCount: (n: number) => string; drawingQueuedCount: (n: number) => string
-            lockedPill: (rev: number) => string
+            lockedPill: string
             chooseDrawing: string; replaceDrawing: string
-            download: string; removeTitle: string; preview: string; previewUnsupported: string
+            download: string; removeTitle: string; confirmRemoveFile: (name: string) => string; preview: string; previewUnsupported: string
             cancel: string; backToOrder: string; discardConfirm: string
             addToOrder: string; addHint: string; saveEdit: string
         }
@@ -134,7 +133,6 @@ export interface Strings {
         h: string; sub: string; subA: string
         email: string; pw: string; forgot: string; submit: string; or: string
         wx: string
-        note: string
         /** 两种登录方式 */
         modePassword: string; modeCode: string
         sendCode: string; codeSentTo: string; codeLabel: string
@@ -147,9 +145,9 @@ export interface Strings {
         sendCode: string; resend: string; resendIn: (seconds: number) => string
         codeSentTo: (email: string) => string
         hint: string
-        agree: string; submit: string
+        submit: string
         /** 本地校验提示（后端没这几种） */
-        errRequired: string; errCode: string; errAgree: string; errCompany: string
+        errRequired: string; errCode: string; errCompany: string
         company: string; companyHint: string
         errTaken: string; errFailed: string
         otherCountry: string
@@ -273,7 +271,7 @@ export interface Strings {
             title: string; filterAll: string; tabSubmitted: string; tabQuoted: string; tabConfirmed: string
             orderCount: (n: number) => string
             colQty: string; colLead: string; colSubmitted: string; colQuote: string
-            leadDays: (n: number) => string; version: (n: number) => string; never: string; empty: string
+            leadDays: (n: number) => string; never: string; empty: string
         }
         production: {
             title: string; sub: string; empty: string; emptySub: string
@@ -352,7 +350,7 @@ export interface Strings {
             back: string; title: string; notFound: string; notFoundSub: string
             errCurrency: string; errCommitDate: string; errPrice: (code: string) => string
             confirmResend: string; confirmSend: string
-            sentVersion: (n: number) => string
+            sent: string
             lockedBanner: string; cancelledBanner: string
             quoteTitle: string; requoteTitle: string
             colPart: string; colMaterial: string; colSurface: string; colBasePrice: string
@@ -362,7 +360,7 @@ export interface Strings {
             customerRev: (v: string) => string
             needMarkup: string
             resendBtn: string; sendBtn: string
-            historyTitle: string; versionCount: (n: number) => string
+            historyTitle: string
             colVersion: string; colCurrency: string; colLead: string; colMarkup: string
             colTotal: string; colRate: string; colSentAt: string
             markupTimes: (v: number) => string
@@ -489,6 +487,7 @@ export const STRINGS: Record<Lang, Strings> = {
             colCode: '图号', colQty: '数量',
             customerRev: (v) => `客户标记 ${v}`,
             drawingUploaded: '图纸已传', drawingMissing: '缺图纸', remove: '删除',
+            confirmRemoveLine: (code) => `删除零件「${code}」？这一行的图纸会一起移除。`,
             emptyParts: '暂无零件', emptyPartsSub: '录入零件并传好图纸后提交',
             submit: '提交订单',
             submitConfirmTitle: '确认提交订单？',
@@ -504,10 +503,8 @@ export const STRINGS: Record<Lang, Strings> = {
             errRequired: '图号、名称、数量为必填项，数量至少为 1',
             notFound: '零件不存在',
             titleNew: '添加零件', titleEdit: '编辑零件', titlePart: '零件',
-            versionLine: (code, rev) => `${code} · 第 ${rev} 版`,
-            versionOnly: (rev) => `第 ${rev} 版`,
             lockedBanner: '订单已提交或已取消，不能再添加零件。',
-            reuseExisting: (name, rev, files) => `已有零件「${name}」：加进订单后沿用上次提交的第 ${rev} 版图纸（${files} 个文件）。`,
+            reuseExisting: (name, files) => `已有零件「${name}」：加进订单后沿用上次提交的图纸（${files} 个文件）。`,
             reuseNewVersionQueued: '你选了新文件，会为这张订单开一个新版本。',
             reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
@@ -518,9 +515,9 @@ export const STRINGS: Record<Lang, Strings> = {
             drawingMissing: '未上传 · 订单提交前需上传',
             drawingUploadedCount: (n) => `已上传 ${n} 个文件`,
             drawingQueuedCount: (n) => `待上传 ${n} 个文件`,
-            lockedPill: (rev) => `第 ${rev} 版 · 已锁定`,
+            lockedPill: '已锁定',
             chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
-            download: '下载', removeTitle: '移除',
+            download: '下载', removeTitle: '移除', confirmRemoveFile: (name) => `移除图纸「${name}」？`,
             preview: '预览', previewUnsupported: '该格式无法在线预览，请下载后用 CAD 软件打开',
             cancel: '取消', backToOrder: '返回订单',
             discardConfirm: '放弃未保存的修改？',
@@ -559,7 +556,6 @@ export const STRINGS: Record<Lang, Strings> = {
             h: '登录', sub: '还没有账号？', subA: '注册',
             email: '企业邮箱', pw: '密码', forgot: '忘记密码？', submit: '登录', or: '或',
             wx: '微信登录',
-            note: '继续即表示同意服务条款与隐私政策。',
             modePassword: '密码登录', modeCode: '验证码登录',
             sendCode: '发送验证码', codeSentTo: '验证码已发送至', codeLabel: '6 位验证码',
             backToEmail: '← 换个邮箱', resend: '重新发送',
@@ -574,11 +570,9 @@ export const STRINGS: Record<Lang, Strings> = {
             resendIn: (sec) => `${sec} 秒后重发`,
             codeSentTo: (email) => `验证码已发送至 ${email}`,
             hint: '验证码 5 分钟内有效、只能用一次。账号不设密码，以后用邮箱验证码登录。',
-            agree: '我已阅读并同意服务条款与隐私政策',
             submit: '创建账号',
             errRequired: '请先填写邮箱',
             errCode: '请输入 6 位验证码',
-            errAgree: '请先同意服务条款与隐私政策',
             errCompany: '请先填写公司名称',
             company: '公司名称',
             companyHint: '会显示在报价单与合同上',
@@ -625,7 +619,7 @@ export const STRINGS: Record<Lang, Strings> = {
             cardTitle: (id) => `订单 ${id}`,
             fldDue: '交期', fldTotal: '合计', fldAccepted: '接单时间',
             fldSigned: '签字时间', fldSignDeadline: '签字期限',
-            signDeadlineNote: (when) => `${when}（接单起 7 天）`,
+            signDeadlineNote: (when) => `${when}`,
             fldCancel: '取消',
             reworkLine: '返工 / 重做件',
             start: '开工', produced: '完工',
@@ -723,7 +717,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 title: '报价', filterAll: '全部', tabSubmitted: '待报价', tabQuoted: '待客户确认', tabConfirmed: '已确认',
                 orderCount: (n) => `${n} 单`,
                 colQty: '总件数', colLead: '客户期望交期', colSubmitted: '提交时间', colQuote: '报价',
-                leadDays: (n) => `${n} 天（仅参考）`, version: (n) => `第 ${n} 版`, never: '未报过',
+                leadDays: (n) => `${n} 天（仅参考）`, never: '未报过',
                 empty: '暂无订单',
             },
             production: {
@@ -739,7 +733,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 confirmQc: (pass, rework, scrap) => `判定：合格 ${pass} / 返工 ${rework} / 报废 ${scrap}。返工件和报废件会从这一行拆出去。`,
             },
             parties: {
-                title: '交易方', suppliers: '供应商', supplierCount: (n) => `${n} 家`,
+                title: '供应商', suppliers: '供应商', supplierCount: (n) => `${n} 家`,
                 colCompany: '企业', colDiscount: '折率', colProcess: '工艺', colMaterial: '材料',
                 colSize: '尺寸范围', colPrecision: '精度等级', colDispatchable: '可派单', colOnboarded: '入驻',
                 disabled: '已停用', notSet: '未设置', canDispatch: '可派单', missingDiscount: '缺折率',
@@ -818,7 +812,7 @@ export const STRINGS: Record<Lang, Strings> = {
             errPrice: (code) => `「${code}」的原价请填大于 0、最多两位小数的数字`,
             confirmResend: '重新发出报价？客户手上待确认的那一版会作废。',
             confirmSend: '发出报价？客户会看到按最新汇率计算的价格，确认前随汇率变动。',
-            sentVersion: (n) => `第 ${n} 版报价已发出`,
+            sent: '报价已发出',
             lockedBanner: '客户已确认报价，价格和汇率已锁定，这一页只读。',
             cancelledBanner: '订单已取消，不能报价。',
             quoteTitle: '零件', requoteTitle: '重新报价',
@@ -829,7 +823,7 @@ export const STRINGS: Record<Lang, Strings> = {
             lblMarkup: '报价系数', lblCurrency: '币种', lblCommitDate: '承诺交期',
             markupUnset: '未设置',
             customerRev: (v) => ` · 客户标记 ${v}`,
-            historyTitle: '报价记录', versionCount: (n) => `${n} 版`,
+            historyTitle: '报价记录',
             colVersion: '版本', colCurrency: '币种', colLead: '承诺交期', colMarkup: '报价系数',
             colTotal: '对客总计', colRate: '汇率', colSentAt: '发出时间',
             markupTimes: (v) => `× ${v}`,
@@ -897,14 +891,14 @@ export const STRINGS: Record<Lang, Strings> = {
         deleteEmpty: '删除这张空单',
         priceTitle: '各家对供价（按当前折率，接单时锁定）',
         colSupplier: '供应商', colDiscount: '折率', colSupplierTotal: '对供合计 ¥',
-        noSupplierAvailable: '还没有可派单的供应商', noSupplierAvailableSub: '到「交易方」给供应商录折率',
+        noSupplierAvailable: '还没有可派单的供应商', noSupplierAvailableSub: '到「供应商」给供应商录折率',
         offerDueLabel: '对供交期',
         publishBtn: '挂全市场', offerSelected: (n) => `定向派给选中的 ${n} 家`,
         offersOpen: '派单中', offersAccepted: '已被接下',
         colOfferedTo: '这一轮派给',
         marketNote: '挂在全市场，所有可派单的供应商都看得到，谁先接给谁。',
         acceptedNote: (name, when, due) => `「${name}」于 ${when} 接单，对供交期 ${due}。`,
-        awaitingContract: (deadline) => `还没建合同。签字期限 ${deadline}（接单起 7 天），到点还没签字，系统会自动取消这张单、退回待派。`,
+        awaitingContract: (deadline) => `还没建合同。签字期限 ${deadline}，到点还没签字，系统会自动取消这张单、退回待派。`,
         awaitingSignature: (created, deadline) => `合同已建（${created}），等供应商签字。签字期限 ${deadline}，到点没签自动取消退回待派。`,
         signedNote: (when) => `供应商已于 ${when} 签字，单据锁定：收不回、改不了。生产、质检、发货还没做。`,
         createContract: '建合同', dropContract: '作废合同', recall: '收回',
@@ -949,7 +943,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'quote.not_open': '这份报价已失效（已确认、已拒绝或已被新报价取代），请刷新',
             'quote.price_changed': '汇率刚刚更新，价格已变化，请核对新价格后再确认',
             'quote.fx_unavailable': '暂时取不到汇率，价格无法计算，请稍后再试',
-            'quote.markup_missing': '这个客户还没设加成率，先设加成率再报价',
+            'quote.markup_missing': '这个客户还没设报价系数，先设报价系数再报价',
             'quote.lines_mismatch': '报价的零件行和订单不一致，请刷新后重填',
             'organization.not_found': '客户不存在',
             'auth.invite_invalid': '邀请链接无效：可能已过期、已被使用或已作废，请联系运营重新发',
@@ -1055,6 +1049,7 @@ export const STRINGS: Record<Lang, Strings> = {
             colCode: 'Drawing no.', colQty: 'Qty',
             customerRev: (v) => `Customer mark ${v}`,
             drawingUploaded: 'Drawing attached', drawingMissing: 'No drawing', remove: 'Remove',
+            confirmRemoveLine: (code) => `Remove part "${code}"? Its drawings are removed with it.`,
             emptyParts: 'No parts yet', emptyPartsSub: 'Add parts and drawings, then submit',
             submit: 'Submit order',
             submitConfirmTitle: 'Submit this order?',
@@ -1070,10 +1065,8 @@ export const STRINGS: Record<Lang, Strings> = {
             errRequired: 'Drawing no., name and quantity are required; quantity must be at least 1',
             notFound: 'Part not found',
             titleNew: 'Add part', titleEdit: 'Edit part', titlePart: 'Part',
-            versionLine: (code, rev) => `${code} · rev ${rev}`,
-            versionOnly: (rev) => `Rev ${rev}`,
             lockedBanner: 'The order has been submitted or cancelled; parts can no longer be added.',
-            reuseExisting: (name, rev, files) => `Part "${name}" already exists. Adding it to this order reuses revision ${rev} (${files} file${files === 1 ? '' : 's'}).`,
+            reuseExisting: (name, files) => `Part "${name}" already exists. Adding it to this order reuses the drawings submitted last time (${files} file${files === 1 ? '' : 's'}).`,
             reuseNewVersionQueued: 'You selected new files, so a new revision will be created for this order.',
             reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
@@ -1084,9 +1077,9 @@ export const STRINGS: Record<Lang, Strings> = {
             drawingMissing: 'Not uploaded yet — required before submitting the order',
             drawingUploadedCount: (n) => `${n} file${n === 1 ? '' : 's'} uploaded`,
             drawingQueuedCount: (n) => `${n} file${n === 1 ? '' : 's'} queued`,
-            lockedPill: (rev) => `Rev ${rev} · locked`,
+            lockedPill: 'Locked',
             chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
-            download: 'Download', removeTitle: 'Remove',
+            download: 'Download', removeTitle: 'Remove', confirmRemoveFile: (name) => `Remove the drawing "${name}"?`,
             preview: 'Preview', previewUnsupported: 'This format cannot be previewed; download it and open it in CAD',
             cancel: 'Cancel', backToOrder: 'Back to order',
             discardConfirm: 'Discard unsaved changes?',
@@ -1126,7 +1119,6 @@ export const STRINGS: Record<Lang, Strings> = {
             email: 'Work email', pw: 'Password', forgot: 'Forgot password?',
             submit: 'Sign in', or: 'or',
             wx: 'Continue with WeChat',
-            note: 'By continuing you agree to our Terms and Privacy Policy.',
             modePassword: 'Password', modeCode: 'Verification code',
             sendCode: 'Send code', codeSentTo: 'Code sent to', codeLabel: '6-digit code',
             backToEmail: '← Use another email', resend: 'Resend',
@@ -1141,11 +1133,9 @@ export const STRINGS: Record<Lang, Strings> = {
             resendIn: (sec) => `Resend in ${sec}s`,
             codeSentTo: (email) => `Code sent to ${email}`,
             hint: 'The code is valid for 5 minutes and can be used once. Accounts have no password — you sign in with an email code.',
-            agree: 'I agree to the Terms and Privacy Policy',
             submit: 'Create account',
             errRequired: 'Please enter your email first',
             errCode: 'Enter the 6-digit code',
-            errAgree: 'Please accept the Terms and Privacy Policy first',
             errCompany: 'Please enter your company name',
             company: 'Company name',
             companyHint: 'Shown on quotes and contracts',
@@ -1192,7 +1182,7 @@ export const STRINGS: Record<Lang, Strings> = {
             cardTitle: (id) => `Order ${id}`,
             fldDue: 'Due date', fldTotal: 'Total', fldAccepted: 'Accepted at',
             fldSigned: 'Signed at', fldSignDeadline: 'Sign by',
-            signDeadlineNote: (when) => `${when} (7 days after accepting)`,
+            signDeadlineNote: (when) => `${when}`,
             fldCancel: 'Cancelled',
             reworkLine: 'Rework / remake',
             start: 'Start', produced: 'Mark produced',
@@ -1291,7 +1281,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 title: 'Quotes', filterAll: 'All', tabSubmitted: 'To quote', tabQuoted: 'Awaiting customer', tabConfirmed: 'Confirmed',
                 orderCount: (n) => `${n} order${n === 1 ? '' : 's'}`,
                 colQty: 'Total qty', colLead: 'Requested lead time', colSubmitted: 'Submitted', colQuote: 'Quote',
-                leadDays: (n) => `${n} days (reference)`, version: (n) => `v${n}`, never: 'Never quoted',
+                leadDays: (n) => `${n} days (reference)`, never: 'Never quoted',
                 empty: 'No orders yet',
             },
             production: {
@@ -1307,7 +1297,7 @@ export const STRINGS: Record<Lang, Strings> = {
                 confirmQc: (pass, rework, scrap) => `Result: passed ${pass} / rework ${rework} / scrap ${scrap}. Rework and scrap pieces are split off this line.`,
             },
             parties: {
-                title: 'Parties', suppliers: 'Suppliers', supplierCount: (n) => `${n}`,
+                title: 'Suppliers', suppliers: 'Suppliers', supplierCount: (n) => `${n}`,
                 colCompany: 'Company', colDiscount: 'Discount', colProcess: 'Processes', colMaterial: 'Materials',
                 colSize: 'Size range', colPrecision: 'Precision', colDispatchable: 'Dispatchable', colOnboarded: 'Joined',
                 disabled: 'Disabled', notSet: 'Not set', canDispatch: 'Dispatchable', missingDiscount: 'No discount rate',
@@ -1385,7 +1375,7 @@ export const STRINGS: Record<Lang, Strings> = {
             errPrice: (code) => `Enter a base price above 0 with at most 2 decimals for ${code}`,
             confirmResend: 'Send the quote again? The version awaiting the customer will be superseded.',
             confirmSend: 'Send this quote? The customer sees prices at the latest FX rate; they may change until confirmed.',
-            sentVersion: (n) => `Quote v${n} sent`,
+            sent: 'Quote sent',
             lockedBanner: 'The customer confirmed this quote. Prices and FX are locked; this page is read-only.',
             cancelledBanner: 'The order was cancelled and cannot be quoted.',
             quoteTitle: 'Parts', requoteTitle: 'Re-quote',
@@ -1396,7 +1386,7 @@ export const STRINGS: Record<Lang, Strings> = {
             customerRev: (v) => ` · customer mark ${v}`,
             needMarkup: 'No quote rate yet — set the global default in Quote settings',
             resendBtn: 'Send again', sendBtn: 'Send quote',
-            historyTitle: 'Quote history', versionCount: (n) => `${n} version${n === 1 ? '' : 's'}`,
+            historyTitle: 'Quote history',
             colVersion: 'Version', colCurrency: 'Currency', colLead: 'Delivery date', colMarkup: 'Quote rate',
             colTotal: 'Customer total', colRate: 'FX rate', colSentAt: 'Sent at',
             markupTimes: (v) => `× ${v}`,
@@ -1464,14 +1454,14 @@ export const STRINGS: Record<Lang, Strings> = {
         deleteEmpty: 'Delete this empty order',
         priceTitle: 'Supplier prices (at current discount rates, locked on acceptance)',
         colSupplier: 'Supplier', colDiscount: 'Discount', colSupplierTotal: 'Supplier total ¥',
-        noSupplierAvailable: 'No dispatchable suppliers yet', noSupplierAvailableSub: 'Set discount rates under “Parties”',
+        noSupplierAvailable: 'No dispatchable suppliers yet', noSupplierAvailableSub: 'Set discount rates under “Suppliers”',
         offerDueLabel: 'Supplier due date',
         publishBtn: 'Publish to market', offerSelected: (n) => `Offer to ${n} selected`,
         offersOpen: 'Dispatching', offersAccepted: 'Accepted',
         colOfferedTo: 'Offered to',
         marketNote: 'Published to the open market — every dispatchable supplier can see it, first come first served.',
         acceptedNote: (name, when, due) => `${name} accepted on ${when}, supplier due date ${due}.`,
-        awaitingContract: (deadline) => `No contract yet. Signature deadline ${deadline} (7 days after acceptance); if unsigned by then the order is cancelled and re-dispatched automatically.`,
+        awaitingContract: (deadline) => `No contract yet. Signature deadline ${deadline}; if unsigned by then the order is cancelled and re-dispatched automatically.`,
         awaitingSignature: (created, deadline) => `Contract created (${created}), awaiting the supplier's signature. Deadline ${deadline}; if unsigned by then the order is cancelled and re-dispatched.`,
         signedNote: (when) => `Signed by the supplier on ${when}. The order is locked: it cannot be revoked or changed. Production, QC and shipping are not built yet.`,
         createContract: 'Create contract', dropContract: 'Cancel contract', recall: 'Withdraw',
@@ -1516,7 +1506,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'quote.not_open': 'This quote is no longer open. Please refresh',
             'quote.price_changed': 'The exchange rate was just updated and the price changed. Please review the new price before confirming',
             'quote.fx_unavailable': 'Exchange rates are temporarily unavailable, so the price cannot be calculated. Please try again later',
-            'quote.markup_missing': 'Set a markup for this customer before quoting',
+            'quote.markup_missing': 'Set a quote rate for this customer before quoting',
             'quote.lines_mismatch': 'The quoted lines do not match the order. Refresh and try again',
             'organization.not_found': 'Customer not found',
             'auth.invite_invalid': 'This invitation link is invalid: it may have expired, been used or been revoked',

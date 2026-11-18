@@ -6,6 +6,7 @@
  * ★ 以前这一页是原型（抢单截止、材料筛选、付款条件都是演示数据），已换成真数据。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
@@ -20,7 +21,7 @@ export function HallPage() {
     const navigate = useNavigate()
     const [offers, setOffers] = useState<SupplierOfferSummary[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     const [prices, setPrices] = useState<Record<string, OfferPrice>>({})
     const [err, setErr] = useState<string | null>(null)
 

@@ -72,6 +72,9 @@ class QuoteFlowIT {
     @Autowired
     private TestRestTemplate rest;
 
+    @org.springframework.test.context.bean.override.mockito.MockitoSpyBean
+    private com.mfg.platform.notification.NotificationService notifications;
+
     @Autowired
     private ObjectMapper json;
 
@@ -552,6 +555,34 @@ class QuoteFlowIT {
         assertThat(jdbc.queryForObject(
                 "select count(*) from part_file_access_log where access_type = 'READ_FOR_AI' and context_id = ?",
                 Long.class, UUID.fromString(o.id()))).isZero();
+    }
+
+    /**
+     * 报价发出的通知邮件：发给下单人（需求方 2026-11-18 定），金额是按最新汇率的试算价。
+     * 以前发给公司里随便第一个成员，金额因为没带汇率永远是「-」。
+     */
+    @Test
+    void theQuoteEmailGoesToWhoeverPlacedTheOrderAndCarriesTheAmount() throws Exception {
+        Customer first = register("mailto");
+        String ops = opsToken();
+        setMarkup(ops, first.orgId(), "1.2");
+        String buyerEmail = "buyer-" + UUID.randomUUID() + "@example.com";
+        rawPost("/ops/users", Map.of("orgId", first.orgId().toString(), "email", buyerEmail,
+                "displayName", "Bea", "password", "password123"), ops);
+        String buyerToken = post("/auth/login",
+                new ExternalAuthController.ExternalLoginRequest(buyerEmail, "password123"), null)
+                .path("data").path("accessToken").asText();
+        Order o = submittedOrder(new Customer(buyerToken, first.orgId(), null), 3);
+        org.mockito.Mockito.clearInvocations(notifications);
+
+        sendQuote(ops, o, "EUR", 25, "100.00");
+
+        org.mockito.ArgumentCaptor<com.mfg.platform.notification.NotificationRequest> sent =
+                org.mockito.ArgumentCaptor.forClass(com.mfg.platform.notification.NotificationRequest.class);
+        org.mockito.Mockito.verify(notifications).notify(sent.capture());
+        assertThat(sent.getValue().recipient()).isEqualTo(buyerEmail);
+        // 100 × 1.2 / 7.738 = 15.51 → × 3 = 46.53
+        assertThat(sent.getValue().body()).contains("46.53");
     }
 
     @Test

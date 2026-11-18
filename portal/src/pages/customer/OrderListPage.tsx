@@ -4,8 +4,9 @@
  * ★ 数据全部来自后端（2026-09-14 起客户端不再读假数据）。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
     Banner, Card, CardBody, Empty, Hello, Page, Pending, Pill, pill, TableWrap,
 } from '../../components/ui'
@@ -23,7 +24,8 @@ export function OrderListPage() {
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
+    const location = useLocation()
     const [creating, setCreating] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
@@ -32,6 +34,7 @@ export function OrderListPage() {
             const pg = await listOrders(pageNo, 20)
             setOrders(pg.items)
             setTotal(pg.total)
+            setErr(null)   // 重新加载成功就收起之前的错误横幅
         } catch (e) {
             setErr(errorText(t, e))
         }
@@ -68,7 +71,7 @@ export function OrderListPage() {
                 sub={t.customer.orders.sub}
                 right={
                     <>
-                        {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(orders.length)}</Pill>}
+                        {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(total)}</Pill>}
                         {/* ★ 空态时隐藏：中央那个按钮已经能建单，两个入口指向同一个动作 */}
                         {orders && orders.length > 0 && (
                             <button className="btn pri" type="button" disabled={creating} onClick={() => void createDraft()}>
@@ -95,7 +98,9 @@ export function OrderListPage() {
                             </thead>
                             <tbody>
                                 {orders.map((o) => (
-                                    <tr className="clk" key={o.id} onClick={() => navigate(`/customer/orders/${o.id}`)}>
+                                    <tr className="clk" key={o.id}
+                                        // 带上列表地址（含页码），详情页的「返回」就回到原来那一页
+                                        onClick={() => navigate(`/customer/orders/${o.id}`, { state: { back: location.pathname + location.search } })}>
                                         <td className="t1">{o.title || t.common.untitledOrder}</td>
                                         <td className="n">{o.lineCount}</td>
                                         <td className="n">{o.totalQuantity}</td>

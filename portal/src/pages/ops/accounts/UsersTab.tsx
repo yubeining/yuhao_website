@@ -100,23 +100,29 @@ function UserModal({ user, busy, onClose, onSaved }: {
     const a = t.ops.accounts
     const [name, setName] = useState(user.displayName)
     const [err, setErr] = useState<string | null>(null)
+    /** 保存进行中：以前没有，连点两下会发两次请求 */
+    const [saving, setSaving] = useState(false)
 
     const save = async () => {
+        if (saving) return
         setErr(null)
+        setSaving(true)
         try {
             await updateAccount(user.id, { displayName: name.trim() })
             onSaved()
         } catch (e) {
             setErr(errorText(t, e))
+        } finally {
+            setSaving(false)
         }
     }
 
     return (
-        <Modal title={a.editUser} busy={busy} width={400}
+        <Modal title={a.editUser} busy={busy || saving} width={400}
             onClose={onClose}
             footer={<>
                 <button className="btn" type="button" onClick={onClose}>{a.cancel}</button>
-                <button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>{a.save}</button>
+                <button className="btn pri" type="button" disabled={busy || saving} onClick={() => void save()}>{a.save}</button>
             </>}>
             <Field label={a.colEmail}><ReadOnly value={user.email} note={a.immutable} /></Field>
             <Field label={a.colOrg}><ReadOnly value={user.orgName ?? '—'} note={a.immutable} /></Field>

@@ -25,7 +25,8 @@ Method (from the shop's quoting handbook, 2026-11-15):
 
 4. Processes. One entry per operation, using the exact names from the PROCESS rate list.
    For HOUR rates, quantity = machining hours PER PIECE, excluding programming / setup / first-article
-   inspection. For PIECE rates, quantity = how many times per piece. If an operation has no matching
+   inspection. For PIECE rates, quantity = how many times per piece. For KG rates, quantity = kg per
+   piece. For BATCH rates, quantity = number of batches for the whole line. If an operation has no matching
    rate, still list it with your own short name (it will be flagged for a human to price).
 
 5. Outsourcing. Heat treatment, surface treatment, NDT, tests: use the exact names from the OUTSOURCE

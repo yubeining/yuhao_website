@@ -9,7 +9,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
@@ -17,7 +17,7 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { useMock } from '../../mock/MockProvider'
 import { DatePicker } from '../../components/DatePicker'
-import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, fmtMoney, X } from '../../mock/format'
 import {
@@ -30,6 +30,9 @@ export function OrderDetailPage() {
     const { t } = useMock()
     const navigate = useNavigate()
     const { id = '' } = useParams()
+    // 从列表点进来时带着列表地址（含页码）；直接打开的链接退回列表首页
+    const backState = (useLocation().state as { back?: string } | null)?.back
+    const backTo = backState?.startsWith('/customer/orders') ? backState : '/customer/orders'
     const [order, setOrder] = useState<OrderView | null>(null)
     const [missing, setMissing] = useState(false)
     const [loadErr, setLoadErr] = useState<string | null>(null)
@@ -39,6 +42,7 @@ export function OrderDetailPage() {
     const [orgName, setOrgName] = useState<string | null>(null)
     const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
     const [confirmSubmit, setConfirmSubmit] = useState(false)
+    const [askConfirm, confirmDialog] = useConfirm()
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
@@ -105,7 +109,9 @@ export function OrderDetailPage() {
     const inProduction = order.status === 'CONFIRMED' || order.status === 'READY'
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
-    const missingCompany = !orgName?.trim()
+    // 只有「查到了、确实是空的」才算缺公司名。没查到（请求失败 / 还在路上）不拦按钮 ——
+    // 以前这种情况按钮直接变灰又不说原因；真缺的话提交时后端也会拒绝并给出原因。
+    const missingCompany = orgName !== null && !orgName.trim()
     // 期望交期必填（2026-11-15）：报价的承诺交期从它起，提交前必须有
     const missingWantedDate = !order.wantedDate
     const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany && !missingWantedDate
@@ -137,7 +143,9 @@ export function OrderDetailPage() {
         }
     }
 
-    const remove = async (lineId: string) => {
+    /** 删行前先问：以前点一下就删了，这一行传过的图纸也跟着没了。 */
+    const remove = async (lineId: string, code: string) => {
+        if (!(await askConfirm(t.customer.orderDetail.confirmRemoveLine(code), { danger: true }))) return
         try {
             await removeLine(order.id, lineId)
             await load()
@@ -149,7 +157,7 @@ export function OrderDetailPage() {
     return (
         <Page>
             <Hello
-                back={<Link className="btn sm qui" to="/customer/orders" style={{ margin: '0 0 6px -9px' }}>{t.customer.orderDetail.backToOrders}</Link>}
+                back={<Link className="btn sm qui" to={backTo} style={{ margin: '0 0 6px -9px' }}>{t.customer.orderDetail.backToOrders}</Link>}
                 title={order.title || t.common.untitledOrder}
                 right={
                     <>
@@ -167,6 +175,12 @@ export function OrderDetailPage() {
                                         {t.customer.orderDetail.needWantedDate}
                                     </span>
                                 )}
+                                {missingCompany && !missingWantedDate && order.lines.length > 0 && (
+                                    <span className="t2" style={{ color: 'var(--muted)' }}>
+                                        {t.customer.orderDetail.needCompany}
+                                        {' '}<Link className="linkbtn" to="/customer/settings">{t.customer.orderDetail.fillCompany}</Link>
+                                    </span>
+                                )}
                                 <button className="btn pri" type="button" onClick={() => setConfirmSubmit(true)} disabled={!canSubmit || busy}>
                                     {t.customer.orderDetail.submit}
                                 </button>
@@ -180,6 +194,7 @@ export function OrderDetailPage() {
             {draft && noDrawing > 0 && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
             )}
+            {confirmDialog}
             {confirmSubmit && (
                 <ConfirmDialog
                     title={t.customer.orderDetail.submitConfirmTitle}
@@ -279,8 +294,8 @@ export function OrderDetailPage() {
                                         <td><span className="m">{l.code}</span></td>
                                         <td className="t1">{l.partName}</td>
                                         <td>
-                                            <span className="m">v{l.revision.revNo}</span>
-                                            {l.revision.customerRev && <div className="t2">{t.customer.orderDetail.customerRev(l.revision.customerRev)}</div>}
+                                            {/* 只显示客户自己标的版本；系统内部的第 N 版对客户没有意义（2026-11-18 去掉） */}
+                                            {l.revision.customerRev || X}
                                         </td>
                                         <td>{l.material || X}</td>
                                         <td className="n">{l.quantity}</td>
@@ -291,7 +306,7 @@ export function OrderDetailPage() {
                                         <td style={{ textAlign: 'right' }}>
                                             {draft
                                                 ? <button className="linkbtn" type="button"
-                                                    onClick={(e) => { e.stopPropagation(); void remove(l.id) }}>{t.customer.orderDetail.remove}</button>
+                                                    onClick={(e) => { e.stopPropagation(); void remove(l.id, l.code) }}>{t.customer.orderDetail.remove}</button>
                                                 : <span style={{ color: 'var(--faint)' }}>›</span>}
                                         </td>
                                     </tr>

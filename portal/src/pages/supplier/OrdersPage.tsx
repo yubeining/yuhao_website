@@ -9,6 +9,7 @@
  *   整单全部完工才能「发给平台」。质检判返工 / 重做的行会以新行出现在这张单里，做完再发一次。
  */
 
+import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
 import { Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
@@ -32,7 +33,7 @@ export function SupplierOrdersPage() {
     const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<SupplierOrderView[] | null>(null)
     const [total, setTotal] = useState(0)
-    const [page, setPage] = useState(1)
+    const [page, setPage] = usePageParam()
     const [prices, setPrices] = useState<Record<string, OrderPrice>>({})
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
@@ -53,7 +54,9 @@ export function SupplierOrdersPage() {
     useEffect(() => { void load(page) }, [load, page])
 
     const sign = async (o: SupplierOrderView) => {
-        if (!(await askConfirm(t.supplier.orders.waitingSignConfirm(M(prices[o.id]?.total ?? 0), o.supplierDueDate)))) return
+        if (!(await askConfirm(t.supplier.orders.waitingSignConfirm(
+            // 价格没取到就显示占位符 —— 以前回落成 ¥ 0.00，在一个不可撤销的签字确认里是个假数字
+            prices[o.id]?.total != null ? M(prices[o.id]!.total) : X, o.supplierDueDate)))) return
         setBusy(true)
         signSupplierOrder(o.id)
             .then(() => load(page))
@@ -221,8 +224,9 @@ export function SupplierOrdersPage() {
                     </Card>
                 )
             })}
-            <Card><Pagination page={page} pageSize={20} total={total}
-                onChange={setPage} /></Card>
+            {/* 只有一页时分页不渲染，外面的卡片也别留一个空框 */}
+            {total > 20 && <Card><Pagination page={page} pageSize={20} total={total}
+                onChange={setPage} /></Card>}
             </>
         }
             {preview && (
