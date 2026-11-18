@@ -10,9 +10,11 @@ import org.springframework.ai.chat.prompt.Prompt;
 import org.springframework.ai.content.Media;
 import org.springframework.ai.openai.OpenAiChatOptions;
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.util.MimeType;
 
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -27,9 +29,16 @@ import java.util.List;
 public class SealosAiProvider implements AiProvider {
 
     private final ChatModel chatModel;
+    private final Duration timeout;
 
-    public SealosAiProvider(ChatModel chatModel) {
+    /**
+     * ★ 超时要在每次调用的 options 里显式带上：Spring AI 2.x 的 OpenAiChatOptions 自带一个 60 秒的默认超时，
+     *   每次 new 一个 options，这 60 秒就盖掉了 {@code spring.ai.openai.timeout} —— 配多少都还是 60 秒
+     *   （2026-11-18 线上把超时调到 180 秒仍在 60 秒断开，本地对着不回应的端口实测确认）。
+     */
+    public SealosAiProvider(ChatModel chatModel, @Value("${spring.ai.openai.timeout:60s}") Duration timeout) {
         this.chatModel = chatModel;
+        this.timeout = timeout;
     }
 
     @Override
@@ -48,7 +57,7 @@ public class SealosAiProvider implements AiProvider {
                 .toList();
         messages.add(UserMessage.builder().text(request.user()).media(media).build());
 
-        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder();
+        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder().timeout(timeout);
         if (request.model() != null && !request.model().isBlank()) {
             options.model(request.model());
         }
