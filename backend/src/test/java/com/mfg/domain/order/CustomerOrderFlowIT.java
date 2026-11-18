@@ -278,6 +278,66 @@ class CustomerOrderFlowIT {
         assertThat(firstRevisionIdOf(first)).isEqualTo(firstLine.path("revision").path("id").asText());
     }
 
+    /**
+     * 2026-11-18 review 发现：删草稿把各行指向的图纸版本整个删掉，不管它是不是已锁定、是不是被已提交的订单用着。
+     * 再次下单沿用的正是上次锁定的版本，所以「再下一单 → 删掉这张草稿」会把原订单的图纸一起删了。
+     */
+    @Test
+    void deletingADraftKeepsTheLockedRevisionItReused() throws Exception {
+        Customer c = register("deldraft");
+        String code = uniqueCode();
+        String first = createOrder(c);
+        JsonNode firstLine = addLine(c, first, code, "Bracket", 10);
+        UUID fileId = uploadPdf(c, firstLine);
+        post("/customer/orders/" + first + "/submit", null, c.token());
+        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+
+        String draft = createOrder(c);
+        addLine(c, draft, code, "Bracket", 20);
+        // 草稿里另一行是全新的图号：它自己的未锁定版本应该跟着草稿一起删掉
+        JsonNode fresh = addLine(c, draft, uniqueCode(), "Plate", 1);
+        UUID freshFile = uploadPdf(c, fresh);
+        assertThat(rawDelete("/customer/orders/" + draft, c.token()).getStatusCode().value()).isEqualTo(204);
+
+        JsonNode kept = get("/customer/orders/" + first, c.token()).path("data");
+        assertThat(kept.path("lines").get(0).path("revision").path("files").get(0).path("id").asText())
+                .isEqualTo(fileId.toString());
+        assertThat(storage.exists(key)).isTrue();
+        assertThat(jdbc.queryForObject("select count(*) from part_file where id = ?", Long.class, freshFile)).isZero();
+        assertThat(jdbc.queryForObject("select count(*) from part_revision where id = ?::uuid", Long.class,
+                fresh.path("revision").path("id").asText())).isZero();
+    }
+
+    /**
+     * 2026-11-18 review：上传用的签名 PUT 链接在有效期内可以反复用。上传完成、订单提交锁定之后，
+     * 客户再往同一个链接传一份别的文件，运营和供应商看到的「已锁定图纸」就被悄悄换掉了。
+     * 现在完成那一刻把对象挪到客户不知道的新地址，旧地址删掉。
+     */
+    @Test
+    void reusingTheUploadUrlAfterCompletionCannotReplaceTheDrawing() throws Exception {
+        Customer c = register("pin");
+        String orderId = createOrder(c);
+        JsonNode line = addLine(c, orderId, uniqueCode(), "Bracket", 1);
+        JsonNode ticket = post("/customer/parts/" + line.path("partId").asText() + "/revisions/"
+                        + line.path("revision").path("id").asText() + "/files",
+                new CustomerPartController.RequestUploadRequest("drawing.pdf", "application/pdf"), c.token());
+        UUID fileId = UUID.fromString(ticket.path("data").path("fileId").asText());
+        String uploadKey = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+        storage.put(uploadKey, new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
+        post("/customer/files/" + fileId + "/complete", null, c.token());
+        post("/customer/orders/" + orderId + "/submit", null, c.token());
+
+        // 客户拿着还没过期的上传链接再传一次
+        byte[] other = "%PDF-1.7\nSOMETHING ELSE ENTIRELY\n".getBytes(StandardCharsets.US_ASCII);
+        storage.put(uploadKey, new ByteArrayInputStream(other), other.length, "application/pdf");
+
+        String finalKey = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+        assertThat(finalKey).isNotEqualTo(uploadKey);
+        try (java.io.InputStream in = storage.get(finalKey)) {
+            assertThat(in.readAllBytes()).isEqualTo(PDF);
+        }
+    }
+
     @Test
     void newRevisionIsOnlyForALockedRevision() throws Exception {
         Customer c = register("newrev");

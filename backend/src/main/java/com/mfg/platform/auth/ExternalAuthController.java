@@ -11,6 +11,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import java.time.Instant;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -33,10 +34,14 @@ public class ExternalAuthController {
     private final RefreshTokenService refreshTokens;
     private final AuthTokenIssuer tokenIssuer;
     private final OtpService otpService;
+    private final boolean passwordRegisterEnabled;
 
     public ExternalAuthController(IdentityService identityService, AuthService authService,
                                   RefreshTokenService refreshTokens, AuthTokenIssuer tokenIssuer,
-                                  OtpService otpService) {
+                                  OtpService otpService,
+                                  @Value("${app.auth.password-register-enabled:false}")
+                                  boolean passwordRegisterEnabled) {
+        this.passwordRegisterEnabled = passwordRegisterEnabled;
         this.identityService = identityService;
         this.authService = authService;
         this.refreshTokens = refreshTokens;
@@ -47,10 +52,19 @@ public class ExternalAuthController {
     public record ExternalLoginRequest(@NotBlank String account, @NotBlank String password) {
     }
 
-    /** 自助注册:建组织 + 首个用户。按来源 IP 限流(防批量刷号)。 */
+    /**
+     * 「邮箱 + 密码」自助注册。<b>默认关闭</b>（{@code app.auth.password-register-enabled}），关着时是 404。
+     *
+     * <p>★ 这条路不验证邮箱归属：任何人都能用别人的邮箱 + 自己的密码抢先建号，对方以后用验证码登录进的就是这个号，
+     * 抢注的人一直能用密码进去看图纸和订单（2026-11-18 review）。注册的唯一入口是下面的验证码注册；
+     * 保留这个方法只因为集成测试靠它建账号（test profile 里打开）。
+     */
     @RateLimit(scope = "register", limit = "20", windowSeconds = "3600")
     @PostMapping("/register")
     public UserView register(@Valid @RequestBody RegisterRequest request) {
+        if (!passwordRegisterEnabled) {
+            throw BusinessException.notFound("auth.password_register_disabled");
+        }
         ExternalUser created = identityService.register(request);
         return UserView.of(created);
     }

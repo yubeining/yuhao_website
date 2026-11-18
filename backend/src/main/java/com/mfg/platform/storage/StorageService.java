@@ -42,6 +42,16 @@ public interface StorageService {
      */
     InputStream get(String key);
 
+    /**
+     * 在存储内部把一个对象复制到另一个 key（服务端复制，内容不经过应用）。目标已存在则覆盖。
+     *
+     * <p>用途：浏览器直传完成后把对象挪到客户不知道的地址 —— 签名 PUT 链接在有效期内可以反复用，
+     * 不挪走的话，客户提交订单之后还能往原地址再传一份，把已锁定的图纸换掉。
+     *
+     * @throws StorageException 源对象不存在或复制失败
+     */
+    void copy(String sourceKey, String targetKey);
+
     /** 对象是否存在。 */
     boolean exists(String key);
 

@@ -36,7 +36,8 @@ public interface OrderQuoting {
     void markRejected(UUID customerOrgId, UUID orderId);
 
     /**
-     * AI 成本估算读一行的图纸。订单不存在 / 是草稿 → 404；行不属于这张单 → 404。
+     * AI 成本估算读一行的图纸。订单不存在 / 是草稿 → 404；不是「已提交 / 已报价」→ 409 {@code order.not_quotable}；
+     * 行不属于这张单 → 404。
      * 只读这一行锁定版本下传完的文件，{@code readable} 判格式，单份超过 {@code maxBytes} 或超过 {@code maxFiles} 份的不读；
      * 每读一份落一行审计（{@code READ_FOR_AI}）。
      */

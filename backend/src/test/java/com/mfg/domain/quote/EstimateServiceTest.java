@@ -144,6 +144,73 @@ class EstimateServiceTest {
         assertThat(reason).isEqualTo("AiException: AI chat call failed <- RuntimeException: HTTP 404 - {\"error\":\"model not found\"}");
     }
 
+    // ---------- 模型输出不可信：坏数一律当成「没给出可用结果」，不保存 ----------
+
+    @Test
+    void negativeHoursAreRejectedInsteadOfLoweringTheCost() throws IOException {
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":2,"
+                + "\"processes\":[{\"rate\":\"milling\",\"quantity\":-50}],\"outsource\":[],\"fixedCostCny\":0}");
+    }
+
+    @Test
+    void negativeWeightOrFixedCostIsRejected() throws IOException {
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":-1,"
+                + "\"processes\":[],\"outsource\":[],\"fixedCostCny\":0}");
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":1,"
+                + "\"processes\":[],\"outsource\":[],\"fixedCostCny\":-300}");
+    }
+
+    @Test
+    void nullListElementIsRejectedNotA500() throws IOException {
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":1,"
+                + "\"processes\":[null],\"outsource\":[],\"fixedCostCny\":0}");
+    }
+
+    @Test
+    void itemWithoutARateNameIsRejected() throws IOException {
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":1,"
+                + "\"processes\":[{\"quantity\":1}],\"outsource\":[],\"fixedCostCny\":0}");
+    }
+
+    /** 没按约定写零件类型时不能当成「非机加件」—— 那是对零件下了一个模型没下过的结论。 */
+    @Test
+    void unknownOrMissingPartTypeIsRejectedNotTreatedAsNotMachined() throws IOException {
+        assertBadOutput("{\"partType\":\"Machined part\",\"partTypeReason\":\"r\"}");
+        assertBadOutput("{\"partTypeReason\":\"r\"}");
+    }
+
+    /** price_estimate.unit_cost_cny 是 numeric(12,2)：放不下的数不能等到入库才炸成 500。 */
+    @Test
+    void amountsTooLargeForTheColumnAreRejected() throws IOException {
+        assertBadOutput("{\"partType\":\"MACHINED\",\"materialRate\":\"steel\",\"blankWeightKg\":1,"
+                + "\"processes\":[{\"rate\":\"milling\",\"quantity\":1000000000}],\"outsource\":[],\"fixedCostCny\":0}");
+    }
+
+    @Test
+    void thirdConcurrentEstimateIsTurnedAwayWithoutReadingAnything() {
+        service.slots().acquireUninterruptibly(EstimateService.MAX_CONCURRENT);
+        try {
+            assertThatThrownBy(() -> service.estimate(USER, OPS_ORG, ORDER, LINE))
+                    .isInstanceOf(BusinessException.class)
+                    .hasFieldOrPropertyWithValue("code", 429)
+                    .hasFieldOrPropertyWithValue("messageCode", "estimate.busy");
+            verify(orders, never()).readForEstimate(any(), any(), any(), any(), any(), anyLong(), anyInt());
+        } finally {
+            service.slots().release(EstimateService.MAX_CONCURRENT);
+        }
+    }
+
+    private void assertBadOutput(String aiJson) throws IOException {
+        givenDrawings(List.of(new DrawingContent(UUID.randomUUID(), "a.png", png())), List.of());
+        givenAiReplies(aiJson);
+
+        assertThatThrownBy(() -> service.estimate(USER, OPS_ORG, ORDER, LINE))
+                .isInstanceOf(BusinessException.class)
+                .hasFieldOrPropertyWithValue("code", 502)
+                .hasFieldOrPropertyWithValue("messageCode", "estimate.ai_bad_output");
+        verify(repo, never()).save(any());
+    }
+
     @Test
     void extractJsonStripsFencesAndChatter() {
         assertThat(EstimateService.extractJson("here:\n```json\n{\"a\":{\"b\":1}}\n```\nbye"))

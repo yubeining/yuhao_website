@@ -47,6 +47,17 @@ class DrawingImagesTest {
         assertThat(decoded.getWidth()).isEqualTo(800);
     }
 
+    /** 像素极多的图片解码一次就要上 GB 内存：先读尺寸，超过上限的不解码。 */
+    @Test
+    void hugeImageIsSkippedWithoutBeingDecoded() throws IOException {
+        // 1 位色深，8000 × 8000 = 6400 万像素，文件和测试内存都很小，但解成 RGB 要 190 MB
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ImageIO.write(new BufferedImage(8000, 8000, BufferedImage.TYPE_BYTE_BINARY), "png", out);
+
+        assertThat((long) 8000 * 8000).isGreaterThan(DrawingImages.MAX_IMAGE_PIXELS);
+        assertThat(DrawingImages.render("huge.png", out.toByteArray(), 2)).isEmpty();
+    }
+
     @Test
     void unsupportedTypesAreNotRendered() {
         assertThat(DrawingImages.supports("part.step")).isFalse();

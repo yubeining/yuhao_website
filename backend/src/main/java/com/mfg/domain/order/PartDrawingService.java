@@ -154,26 +154,49 @@ class PartDrawingService {
         }
         requireUnlocked(customerOrgId, file.getPartRevisionId());
 
-        long size = storage.head(file.getStorageKey())
+        if (storage.head(file.getStorageKey()).isEmpty()) {
+            throw BusinessException.conflict("part.file_object_missing");
+        }
+        // ★ 先把对象挪到客户不知道的新地址，后面的类型校验、大小、状态都以这份为准。
+        //   签名 PUT 链接在有效期内可以反复用：不挪走的话，客户 complete、提交锁定之后还能往原地址再传一份，
+        //   运营报价、供应商加工用的「已锁定图纸」就被悄悄换掉了，类型校验也跟着被绕过（2026-11-18 review）。
+        String uploadKey = file.getStorageKey();
+        String pinnedKey = "drawing/" + UUID.randomUUID();
+        storage.copy(uploadKey, pinnedKey);
+        long size = storage.head(pinnedKey)
                 .orElseThrow(() -> BusinessException.conflict("part.file_object_missing"))
                 .sizeBytes();
         DrawingTypeGuard.Verdict verdict = typeGuard.inspect(file.getOriginalFilename(),
-                storage.readRange(file.getStorageKey(), 0, HEAD_BYTES));
+                storage.readRange(pinnedKey, 0, HEAD_BYTES));
 
         if (!verdict.accepted()) {
+            storage.delete(pinnedKey);
             // 先把 REJECTED 落库、再删对象：反过来的话，删完对象而状态没写进去，这一行会永远卡在 PENDING
             int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
                     List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.REJECTED,
                     verdict.detectedType(), size, null);
             if (changed == 1) {
-                storage.delete(file.getStorageKey());
+                storage.delete(uploadKey);
                 throw BusinessException.badRequest("part.file_type_not_allowed");
             }
             return settledOutcome(customerOrgId, fileId);
         }
-        int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
-                List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.COMPLETED,
-                verdict.detectedType(), size, Instant.now());
+        int changed;
+        try {
+            changed = completeLockingRevision(customerOrgId, file.getPartRevisionId(), fileId, pinnedKey,
+                    verdict.detectedType(), size, Instant.now());
+        } catch (RuntimeException e) {
+            // 版本已锁定 / 不存在：这份副本没人会引用了
+            storage.delete(pinnedKey);
+            throw e;
+        }
+        if (changed == 1) {
+            // 行已经指向新地址，上传地址上的那份不再需要；删不掉只留一个没人引用的对象，不影响正确性
+            deleteQuietly(uploadKey);
+        } else {
+            // 并发的另一次 complete 抢先了：它挪的那份才是这一行指向的，我们这份丢掉
+            storage.delete(pinnedKey);
+        }
         // 从建 PENDING 行（= 发签名 URL 那一刻）到完成校验的间隔 ≈ 浏览器上传耗时
         long elapsedMs = Math.max(1, java.time.Duration.between(file.getCreatedAt(), Instant.now()).toMillis());
         log.info("part.file.upload_completed fileId={} sizeBytes={} elapsedMs={} throughputKBps={}",
@@ -323,6 +346,28 @@ class PartDrawingService {
      * 在一个短事务里：锁住版本行 → 已锁定就 409 → 条件更新文件状态。
      * 锁版本是为了和订单提交互斥（提交会先锁同一批版本再检查图纸），条件更新是为了并发 / 重试只有一个生效。
      */
+    private int completeLockingRevision(UUID customerOrgId, UUID revisionId, UUID fileId, String storageKey,
+                                        String detectedType, Long sizeBytes, Instant completedAt) {
+        Integer changed = tx.execute(status -> {
+            PartRevision revision = revisions.lockByIdAndCustomerOrgId(revisionId, customerOrgId)
+                    .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
+            if (revision.isLocked()) {
+                throw BusinessException.conflict("part.revision_locked");
+            }
+            return files.completeIfRevisionUnlocked(fileId, customerOrgId, storageKey, detectedType, sizeBytes,
+                    completedAt, Instant.now());
+        });
+        return changed == null ? 0 : changed;
+    }
+
+    private void deleteQuietly(String key) {
+        try {
+            storage.delete(key);
+        } catch (RuntimeException e) {
+            log.warn("failed to delete upload object after pinning: key={} reason={}", key, e.toString());
+        }
+    }
+
     private int transitionLockingRevision(UUID customerOrgId, UUID revisionId, UUID fileId,
                                           List<PartFile.UploadStatus> from, PartFile.UploadStatus to,
                                           String detectedType, Long sizeBytes, Instant completedAt) {

@@ -99,6 +99,11 @@ class OrderQuotingService implements OrderQuoting {
                                           Predicate<String> readable, long maxBytes, int maxFiles) {
         CustomerOrder order = orders.findByIdAndSubmittedAtIsNotNull(orderId)
                 .orElseThrow(() -> BusinessException.notFound("order.not_found"));
+        // 只有还能报价的单才值得估（和 lockForQuoting 同一个判据）。不判的话，直接调接口就能让已确认 / 已取消的单
+        // 把图纸读出来发给外部模型 —— 页面上那个按钮本来就不显示。
+        if (order.getStatus() != CustomerOrder.Status.SUBMITTED && order.getStatus() != CustomerOrder.Status.QUOTED) {
+            throw BusinessException.conflict("order.not_quotable");
+        }
         UUID orgId = order.getCustomerOrgId();
         CustomerOrderPart line = lines.findByIdAndCustomerOrderIdAndCustomerOrgId(lineId, orderId, orgId)
                 .orElseThrow(() -> BusinessException.notFound("order.line_not_found"));

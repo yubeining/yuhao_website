@@ -25,13 +25,20 @@ class DispatchLineDetails {
      * （只有供应商订单的叶子行有，派单池 / 生产订单的行一律 null）。
      */
     record Row(UUID id, UUID customerOrderPartId, int quantity, String status, UUID replacesPartId,
-               UUID supersededBy) {
+               UUID supersededBy, UUID partDesignId) {
 
         /** 还没进生产的行（派单池、生产订单）。 */
         static Row plain(UUID id, UUID customerOrderPartId, int quantity) {
-            return new Row(id, customerOrderPartId, quantity, null, null, null);
+            return new Row(id, customerOrderPartId, quantity, null, null, null, null);
         }
     }
+
+    /*
+     * ★ 上游可能已经不在了：供应商订单取消后，运营撤回分配会物理删除生产订单零件行，
+     *   这时 customerOrderPartId 是 null（已取消订单的叶子行找不回客户零件行）。
+     *   这种行只显示它自己还有的东西 —— 图号（按 partDesignId 取）、件数、状态；名称 / 材料 / 图纸留空。
+     *   2026-11-18 之前这里直接空指针，那家供应商的订单列表从此一直 500。
+     */
 
     private final CustomerOrderPartRepository customerLines;
     private final CustomerOrderRepository customerOrders;
@@ -58,8 +65,14 @@ class DispatchLineDetails {
         Map<UUID, String> names = organizations.findAllById(
                         byId.values().stream().map(CustomerOrderPart::getCustomerOrgId).collect(Collectors.toSet()))
                 .stream().collect(Collectors.toMap(Organization::getId, Organization::getName));
+        Map<UUID, String> orphanCodes = orphanCodes(rows, byId);
         return rows.stream().map(r -> {
-            CustomerOrderPart l = byId.get(r.customerOrderPartId());
+            CustomerOrderPart l = lineOf(byId, r);
+            if (l == null) {
+                return new DispatchViews.OpsLine(r.id(), null, null, null, null, null,
+                        orphanCodes.get(r.partDesignId()), null, r.quantity(), null, null, r.status(),
+                        r.replacesPartId(), r.supersededBy());
+            }
             CustomerOrder o = orders.get(l.getCustomerOrderId());
             return new DispatchViews.OpsLine(r.id(), l.getId(), l.getCustomerOrderId(), l.getCustomerOrgId(),
                     names.get(l.getCustomerOrgId()), o == null ? null : o.getTitle(), codes.get(l.getPartDesignId()),
@@ -76,8 +89,13 @@ class DispatchLineDetails {
                 .collect(Collectors.groupingBy(CustomerOrderPart::getCustomerOrgId,
                         Collectors.mapping(CustomerOrderPart::getPartRevisionId, Collectors.toSet())))
                 .forEach((orgId, revisionIds) -> files.putAll(drawings.completedFilesByRevision(orgId, revisionIds)));
+        Map<UUID, String> orphanCodes = orphanCodes(rows, byId);
         return rows.stream().map(r -> {
-            CustomerOrderPart l = byId.get(r.customerOrderPartId());
+            CustomerOrderPart l = lineOf(byId, r);
+            if (l == null) {
+                return new DispatchViews.SupplierLine(r.id(), orphanCodes.get(r.partDesignId()), null,
+                        r.quantity(), null, null, List.of(), r.status(), r.replacesPartId());
+            }
             return new DispatchViews.SupplierLine(r.id(), codes.get(l.getPartDesignId()), l.getPartName(),
                     r.quantity(), l.getMaterial(), l.getSurfaceTreatment(),
                     files.getOrDefault(l.getPartRevisionId(), List.of()), r.status(), r.replacesPartId());
@@ -85,12 +103,29 @@ class DispatchLineDetails {
     }
 
     private Map<UUID, CustomerOrderPart> customerLines(List<Row> rows) {
-        Set<UUID> ids = rows.stream().map(Row::customerOrderPartId).collect(Collectors.toSet());
+        Set<UUID> ids = rows.stream().map(Row::customerOrderPartId).filter(java.util.Objects::nonNull)
+                .collect(Collectors.toSet());
         if (ids.isEmpty()) {
             return Map.of();
         }
         return customerLines.findByIdIn(ids).stream()
                 .collect(Collectors.toMap(CustomerOrderPart::getId, Function.identity()));
+    }
+
+    /** 不可变 Map（{@code Map.of()}）对 null key 的 get / containsKey 会抛空指针，所以先判 null。 */
+    private static CustomerOrderPart lineOf(Map<UUID, CustomerOrderPart> byId, Row r) {
+        return r.customerOrderPartId() == null ? null : byId.get(r.customerOrderPartId());
+    }
+
+    /** 找不回客户零件行的那些行的图号，按它们自己记着的 partDesignId 取。 */
+    private Map<UUID, String> orphanCodes(List<Row> rows, Map<UUID, CustomerOrderPart> byId) {
+        Set<UUID> partIds = rows.stream()
+                .filter(r -> lineOf(byId, r) == null && r.partDesignId() != null)
+                .map(Row::partDesignId).collect(Collectors.toSet());
+        if (partIds.isEmpty()) {
+            return Map.of();
+        }
+        return parts.findByIdIn(partIds).stream().collect(Collectors.toMap(PartDesign::getId, PartDesign::getCode));
     }
 
     private Map<UUID, String> codes(Collection<CustomerOrderPart> lines) {

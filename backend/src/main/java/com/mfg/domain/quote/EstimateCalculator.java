@@ -51,7 +51,9 @@ final class EstimateCalculator {
         List<EstimateBreakdown.Item> items = new ArrayList<>();
 
         String materialName = ai.materialRate() != null ? ai.materialRate() : ai.material();
-        items.add(priced(MATERIAL, materialName, ai.blankWeightKg(), byKey.get(key(MATERIAL, ai.materialRate())),
+        // 毛坯重 0 不是真实的毛坯：当成缺数量标出来，而不是算成 0 元材料费
+        BigDecimal blank = ai.blankWeightKg() != null && ai.blankWeightKg().signum() > 0 ? ai.blankWeightKg() : null;
+        items.add(priced(MATERIAL, materialName, blank, byKey.get(key(MATERIAL, ai.materialRate())),
                 f.material(), quantity, null));
         for (AiEstimate.Item p : nullSafe(ai.processes())) {
             CostRateSnapshot rate = byKey.get(key(PROCESS, p.rate()));

@@ -26,6 +26,13 @@ interface CustomerOrderPartRepository extends JpaRepository<CustomerOrderPart, U
     /** 运营端跨客户：派单池列行、分配时按 id 取行。调用方是运营，id 来自运营自己的列表。 */
     List<CustomerOrderPart> findByCustomerOrderIdInOrderByCreatedAtAsc(Collection<UUID> customerOrderIds);
 
+    /** 这些图纸版本里，哪些还被别的订单的行用着 —— 硬删草稿时这些版本不能动。 */
+    @Query("select distinct l.partRevisionId from CustomerOrderPart l where l.partRevisionId in :revisionIds"
+            + " and l.customerOrgId = :orgId and l.customerOrderId <> :orderId")
+    List<UUID> findRevisionIdsUsedByOtherOrders(@Param("revisionIds") Collection<UUID> revisionIds,
+                                                @Param("orgId") UUID customerOrgId,
+                                                @Param("orderId") UUID customerOrderId);
+
     /** 硬删草稿：这个订单下的所有行。 */
     void deleteByCustomerOrderId(UUID customerOrderId);
 

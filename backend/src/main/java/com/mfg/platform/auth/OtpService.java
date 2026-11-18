@@ -114,12 +114,18 @@ public class OtpService {
         }
         // 第二层（同 IP 20 次/小时）在控制器上用 @RateLimit 做，见 AuthOtpController。
 
-        // 第三层：全局每日预算 —— 防有人用海量不同邮箱把发信额度刷爆（费用熔断）
-        long used = redis.increment(
-                CacheKeys.otpDailyBudget(channel.name(), UTC_DAY.format(Instant.now())), 24 * 3600);
-        if (used > dailyBudget) {
-            audit("send", channel, normalized, "budget_exhausted");
-            throw new BusinessException(429, "auth.otp_rate_limited");
+        // 第三层：全局每日预算 —— 防有人用海量不同邮箱把发信额度刷爆（费用熔断）。
+        // ★ 已注册的邮箱不占、也不受这个预算限制（2026-11-18，需求方批准）：预算是全站合计的，
+        //   以前有人拿一堆不存在的邮箱刷满它，当天所有人都收不到码，只用验证码登录的账号就完全进不来。
+        //   已注册邮箱的数量有限，且每个仍受第一层「20 次 / 小时」限制，刷不出无限费用。
+        //   代价：预算刷满期间，已注册（200）和未注册（429）的响应不同，可以据此探测邮箱是否注册过。
+        if (auth.findExternalByEmail(normalized).isEmpty()) {
+            long used = redis.increment(
+                    CacheKeys.otpDailyBudget(channel.name(), UTC_DAY.format(Instant.now())), 24 * 3600);
+            if (used > dailyBudget) {
+                audit("send", channel, normalized, "budget_exhausted");
+                throw new BusinessException(429, "auth.otp_rate_limited");
+            }
         }
 
         String code = String.format("%06d", random.nextInt(CODE_BOUND));

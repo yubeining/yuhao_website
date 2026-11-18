@@ -177,10 +177,7 @@ class CustomerOrderService {
         CustomerOrder order = requireDraft(customerOrgId, orderId);
         List<CustomerOrderPart> rows =
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, customerOrgId);
-        List<UUID> revisionIds = rows.stream()
-                .map(CustomerOrderPart::getPartRevisionId)
-                .filter(java.util.Objects::nonNull)
-                .toList();
+        List<UUID> revisionIds = disposableRevisionIds(customerOrgId, orderId, rows);
         if (!revisionIds.isEmpty()) {
             List<PartFile> fileRows = files.findByPartRevisionIdIn(revisionIds);
             if (!fileRows.isEmpty()) {
@@ -199,6 +196,29 @@ class CustomerOrderService {
         }
         lines.deleteByCustomerOrderId(orderId);
         orders.delete(order);
+    }
+
+    /**
+     * 删草稿时可以一起删掉的图纸版本：<b>未锁定、且没有别的订单在用</b>的那些。
+     *
+     * <p>★ 再次下单沿用的是上次<b>已锁定</b>的版本（见 {@link #addLine}），它属于已提交的订单。
+     * 2026-11-18 之前这里不分青红皂白全删，「再下一单 → 删掉这张草稿」会把原订单的图纸、文件、审计一起删掉。
+     */
+    private List<UUID> disposableRevisionIds(UUID customerOrgId, UUID orderId, List<CustomerOrderPart> rows) {
+        List<UUID> all = rows.stream()
+                .map(CustomerOrderPart::getPartRevisionId)
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .toList();
+        if (all.isEmpty()) {
+            return List.of();
+        }
+        java.util.Set<UUID> usedElsewhere = new java.util.HashSet<>(
+                lines.findRevisionIdsUsedByOtherOrders(all, customerOrgId, orderId));
+        return revisions.findByIdInAndCustomerOrgId(all, customerOrgId).stream()
+                .filter(r -> !r.isLocked() && !usedElsewhere.contains(r.getId()))
+                .map(PartRevision::getId)
+                .toList();
     }
 
     // ---------- 零件行 ----------

@@ -96,10 +96,17 @@ spring:
     openai:
       base-url: ${SEALOS_AI_BASE_URL:https://aiproxy.bja.sealos.run}
       api-key: ${SEALOS_AI_API_KEY:not-configured}
+      # ★ 模型调用必须有上限：不设的话网关一卡，请求线程就一直挂着，页面永远停在「估价中…」。
+      #   60 秒是工程取值（看图模型一次十几到几十秒），不重试 —— 重试默认最多 10 次、间隔逐次放大，
+      #   会把一次失败拖成几分钟，而且每次都重新计费。失败就直接告诉运营，由人决定要不要再点。
+      timeout: 60s
+      max-retries: 0
       chat:
         options:
           model: ${SEALOS_AI_MODEL:deepseek-chat}
           temperature: 0.2
+    retry:
+      max-attempts: 1
     # 关掉对不需要的模型类型的自动装配探测，避免多余告警
     embedding:
       openai:

@@ -52,7 +52,7 @@ class SupplierOrderViews {
         return ps.stream()
                 .map(sp -> new DispatchLineDetails.Row(sp.getId(), upstreamCustomerLine.get(sp.getUpstreamPartId()),
                         sp.getQuantity(), sp.getFulfillmentStatus().name(), sp.getReplacesPartId(),
-                        sp.getSupersededBy()))
+                        sp.getSupersededBy(), sp.getPartDesignId()))
                 .toList();
     }
 }

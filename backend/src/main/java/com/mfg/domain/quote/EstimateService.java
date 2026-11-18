@@ -20,12 +20,14 @@ import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.Semaphore;
 
 /**
  * AI 成本估算（需求方 2026-11-17 拍板）：运营点按钮 → 读这一行的图纸 → 看图模型给出零件类型、重量、工时、外协 →
@@ -45,6 +47,10 @@ class EstimateService {
     static final int MAX_FILES = 3;
     static final int MAX_PDF_PAGES = 2;
     static final int MAX_IMAGES = 4;
+    /** 同时进行的估算上限：每个要在内存里放几十 MB 图纸、占一个请求线程等模型。超出的直接让稍后再试。工程取值。 */
+    static final int MAX_CONCURRENT = 2;
+    /** price_estimate.unit_cost_cny 是 numeric(12,2)，能存的最大值。 */
+    private static final BigDecimal MAX_AMOUNT = new BigDecimal("9999999999.99");
 
     private final OrderQuoting orders;
     private final CostRateService rates;
@@ -53,6 +59,7 @@ class EstimateService {
     private final ObjectMapper json;
     private final String model;
     private final String systemPrompt;
+    private final Semaphore slots = new Semaphore(MAX_CONCURRENT);
 
     EstimateService(OrderQuoting orders, CostRateService rates, PriceEstimateRepository estimates, AiService ai,
                     ObjectMapper json, @Value("${app.estimate.model}") String model) {
@@ -66,6 +73,21 @@ class EstimateService {
     }
 
     public PriceEstimateView estimate(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId) {
+        if (!slots.tryAcquire()) {
+            throw new BusinessException(429, "estimate.busy");
+        }
+        try {
+            return doEstimate(opsUserId, opsOrgId, orderId, lineId);
+        } finally {
+            slots.release();
+        }
+    }
+
+    Semaphore slots() {
+        return slots;
+    }
+
+    private PriceEstimateView doEstimate(UUID opsUserId, UUID opsOrgId, UUID orderId, UUID lineId) {
         EstimateSource src = orders.readForEstimate(opsUserId, opsOrgId, orderId, lineId,
                 DrawingImages::supports, MAX_FILE_BYTES, MAX_FILES);
         List<AiImage> images = new ArrayList<>();
@@ -99,6 +121,7 @@ class EstimateService {
         try {
             raw = json.readTree(extractJson(result.content()));
             parsed = json.treeToValue(raw, AiEstimate.class);
+            parsed.validate();
         } catch (JacksonException | IllegalArgumentException e) {
             log.warn("AI estimate output is not the expected JSON: line={} length={}", lineId,
                     result.content() == null ? 0 : result.content().length());
@@ -108,6 +131,12 @@ class EstimateService {
         EstimateBreakdown breakdown = parsed.machined()
                 ? EstimateCalculator.calculate(src.quantity(), parsed, rateSnapshot)
                 : new EstimateBreakdown(EstimateCalculator.factorsFor(src.quantity()), List.of(), null, false);
+        if (breakdown.items().stream().map(EstimateBreakdown.Item::amount)
+                .anyMatch(a -> a != null && a.compareTo(MAX_AMOUNT) > 0)
+                || (breakdown.unitCostCny() != null && breakdown.unitCostCny().compareTo(MAX_AMOUNT) > 0)) {
+            log.warn("AI estimate amount does not fit the column: line={}", lineId);
+            throw new BusinessException(502, "estimate.ai_bad_output");
+        }
         PriceEstimate saved = estimates.save(new PriceEstimate(src.orderId(), src.lineId(), src.customerOrgId(),
                 parsed.machined() ? PriceEstimate.Outcome.ESTIMATED : PriceEstimate.Outcome.NOT_MACHINED,
                 breakdown.unitCostCny(), breakdown.complete(),

@@ -30,11 +30,47 @@ record AiEstimate(String partType, String partTypeReason, String material, Strin
                   List<String> assumptions, List<String> toConfirm) {
 
     static final String MACHINED = "MACHINED";
+    static final String OTHER = "OTHER";
 
     record Item(String rate, BigDecimal quantity, String note) {
     }
 
     boolean machined() {
         return MACHINED.equals(partType);
+    }
+
+    /**
+     * 模型输出不可信（图纸上的文字也能影响它）：不合约定的一律拒绝，由调用方报「AI 没有给出可用的结果」。
+     * 负数会从成本里扣钱，空元素会空指针，没按约定写的零件类型会被误判成「非机加件」（2026-11-18 review）。
+     *
+     * @throws IllegalArgumentException 不合约定
+     */
+    void validate() {
+        if (!MACHINED.equals(partType) && !OTHER.equals(partType)) {
+            throw new IllegalArgumentException("partType is neither MACHINED nor OTHER");
+        }
+        if (!machined()) {
+            return;
+        }
+        requireNotNegative(netWeightKg);
+        requireNotNegative(blankWeightKg);
+        requireNotNegative(fixedCostCny);
+        for (List<Item> items : java.util.Arrays.asList(processes, outsource)) {
+            if (items == null) {
+                continue;
+            }
+            for (Item item : items) {
+                if (item == null || item.rate() == null || item.rate().isBlank()) {
+                    throw new IllegalArgumentException("item without a rate name");
+                }
+                requireNotNegative(item.quantity());
+            }
+        }
+    }
+
+    private static void requireNotNegative(BigDecimal v) {
+        if (v != null && v.signum() < 0) {
+            throw new IllegalArgumentException("negative quantity");
+        }
     }
 }

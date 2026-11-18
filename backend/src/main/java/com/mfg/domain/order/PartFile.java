@@ -44,7 +44,8 @@ class PartFile extends BaseEntity {
     @Column(name = "customer_org_id", columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID customerOrgId;
 
-    @Column(name = "storage_key", nullable = false, updatable = false)
+    // 上传完成时会换成服务端挪过去的新地址（PartFileRepository#completeIfRevisionUnlocked），所以不是只写一次
+    @Column(name = "storage_key", nullable = false)
     private String storageKey;
 
     @Column(name = "original_filename", nullable = false, updatable = false)

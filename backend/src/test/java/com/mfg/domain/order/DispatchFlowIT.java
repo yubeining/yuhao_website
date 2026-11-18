@@ -261,6 +261,29 @@ class DispatchFlowIT {
         assertThat(detail.path("supplierOrders")).hasSize(2);
     }
 
+    /**
+     * 2026-11-18 review：供应商退单后运营撤回这一行的分配，生产订单零件行被物理删除，
+     * 但已取消的供应商订单还指着它 —— 列表和详情顺着上游找客户零件行时空指针，这家供应商的订单列表从此一直 500。
+     */
+    @Test
+    void aCancelledSupplierOrderStillListsAfterItsLineIsUnallocated() throws Exception {
+        Confirmed order = confirmedOrder("orphan", new int[] {2}, "10.00");
+        Supplier s1 = supplier("o1", "1");
+        String a = createOpsOrder();
+        allocate(order.lineIds().get(0), Map.of(a, 2));
+        ok(rawPost("/ops/ops-orders/" + a + "/publish", new PublishBody(LocalDate.now().plusDays(5)), ops));
+        String so = post("/supplier/offers/" + a + "/accept", null, s1.token()).path("id").asText();
+        post("/supplier/orders/" + so + "/withdraw", null, s1.token());
+        ok(rawPost("/ops/dispatch/unallocate", Map.of("customerOrderPartId", order.lineIds().get(0)), ops));
+
+        ok(rawGet("/supplier/orders", s1.token()));
+        JsonNode detail = get("/supplier/orders/" + so, s1.token());
+        assertThat(detail.path("status").asText()).isEqualTo("CANCELLED");
+        assertThat(detail.path("lines")).hasSize(1);
+        assertThat(detail.path("lines").get(0).path("quantity").asInt()).isEqualTo(2);
+        ok(rawGet("/ops/ops-orders/" + a, ops));
+    }
+
     @Test
     void recallingAnOfferHidesItAgain() throws Exception {
         Confirmed order = confirmedOrder("recall", new int[] {1}, "10.00");

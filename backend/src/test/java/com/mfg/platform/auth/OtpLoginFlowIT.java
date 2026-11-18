@@ -1,5 +1,6 @@
 package com.mfg.platform.auth;
 
+import com.mfg.common.cache.CacheKeys;
 import com.mfg.platform.identity.ExternalUser;
 import com.mfg.platform.identity.ExternalUserRepository;
 import com.mfg.platform.identity.Organization;
@@ -58,6 +59,9 @@ class OtpLoginFlowIT {
     @Autowired
     private StringRedisTemplate redis;
 
+    @Autowired
+    private com.mfg.common.service.RedisService redisService;
+
     @BeforeEach
     void resetRedis() {
         // 限流计数和码都在 Redis 里，测试之间必须清 —— 否则上一个用例的计数会漏到下一个
@@ -93,6 +97,26 @@ class OtpLoginFlowIT {
         ResponseEntity<String> sixth = rawPost("/auth/otp/send", body("EMAIL", email));
         // 每地址 20/小时 和 每 IP 20/小时 都是 20，第 21 次两条限流谁先触发不一定 —— 只断言 429，不锁消息
         assertThat(sixth.getStatusCode().value()).isEqualTo(429);
+    }
+
+    /**
+     * 每日发信预算是全站合计的费用熔断。2026-11-18 之前它不分人：有人用一堆不存在的邮箱把它刷满，
+     * 当天所有人都收不到验证码，而只用验证码登录的账号就完全进不来。
+     * 现在已注册的邮箱不占、也不受这个预算限制（仍受「每邮箱每小时 20 次」限制）；刷满只挡新注册。
+     */
+    @Test
+    void exhaustedDailyBudgetStillLetsRegisteredUsersGetACode() throws Exception {
+        String known = newCustomer();
+        String key = CacheKeys.otpDailyBudget("EMAIL",
+                java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd").withZone(java.time.ZoneOffset.UTC)
+                        .format(java.time.Instant.now()));
+        for (int i = 0; i < 100; i++) {
+            redisService.increment(key, 3600);
+        }
+
+        assertThat(rawPost("/auth/otp/send", body("EMAIL", known)).getStatusCode().value()).isEqualTo(200);
+        assertThat(rawPost("/auth/otp/send", body("EMAIL", "nobody-" + UUID.randomUUID() + "@example.com"))
+                .getStatusCode().value()).isEqualTo(429);
     }
 
     // ---------- 校验 ----------

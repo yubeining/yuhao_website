@@ -55,6 +55,15 @@ public class MemoryStorageService implements StorageService {
     }
 
     @Override
+    public void copy(String sourceKey, String targetKey) {
+        Entry e = store.get(sourceKey);
+        if (e == null) {
+            throw new StorageException("object not found: " + sourceKey, null);
+        }
+        store.put(targetKey, e);
+    }
+
+    @Override
     public InputStream get(String key) {
         Entry e = store.get(key);
         if (e == null) {

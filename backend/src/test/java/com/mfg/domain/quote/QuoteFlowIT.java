@@ -531,6 +531,29 @@ class QuoteFlowIT {
                 new MarkupBody(BigDecimal.ONE), ops).getStatusCode().value()).isEqualTo(404);
     }
 
+    /**
+     * AI 成本估算只对还能报价的单开放（已提交 / 已报价），和页面上按钮的显示规则一致。
+     * 2026-11-18 之前只有前端藏按钮：直接调接口，已确认的单也会把图纸读出来发给外部模型。
+     */
+    @Test
+    void aConfirmedOrderCannotBeEstimatedAndNoDrawingIsRead() throws Exception {
+        Customer c = register("estconfirmed");
+        Order o = submittedOrder(c, 3);
+        String ops = opsToken();
+        setMarkup(ops, c.orgId(), "1.2");
+        String quoteId = sendQuote(ops, o, "EUR", 25, "100.00").path("id").asText();
+        assertThat(confirm(c, o, quoteId, DAY1).getStatusCode().value()).isEqualTo(200);
+
+        ResponseEntity<String> res = rawPost("/ops/customer-orders/" + o.id() + "/lines/" + o.lineIds().get(0)
+                + "/estimates", null, ops);
+
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(409);
+        assertThat(json.readTree(res.getBody()).path("message").asText()).isEqualTo("order.not_quotable");
+        assertThat(jdbc.queryForObject(
+                "select count(*) from part_file_access_log where access_type = 'READ_FOR_AI' and context_id = ?",
+                Long.class, UUID.fromString(o.id()))).isZero();
+    }
+
     @Test
     void previewPricesTheLinesWithoutSendingAnything() throws Exception {
         Customer c = register("preview");

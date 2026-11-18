@@ -92,6 +92,17 @@ class EstimateCalculatorTest {
         assertThat(b.unitCostCny()).isEqualByComparingTo("140.00");
     }
 
+    /** 毛坯重 0 不是一个真实的毛坯：算成 0 元材料费还显示「完整」会让人以为材料白送。 */
+    @Test
+    void zeroBlankWeightFlagsTheMaterialInsteadOfPricingItAtZero() {
+        EstimateBreakdown b = EstimateCalculator.calculate(1, ai(
+                "0", List.of(item("milling", "1")), List.of(), "0"), RATES);
+
+        assertThat(b.items().get(0).missing()).isTrue();
+        assertThat(b.items().get(0).amount()).isNull();
+        assertThat(b.complete()).isFalse();
+    }
+
     @Test
     void missingFixedCostIsFlagged() {
         EstimateBreakdown b = EstimateCalculator.calculate(1, ai(

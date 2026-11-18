@@ -10,6 +10,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import javax.imageio.ImageIO;
+import javax.imageio.ImageReader;
+import javax.imageio.stream.ImageInputStream;
 import java.awt.Graphics2D;
 import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
@@ -17,6 +19,7 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Locale;
 
@@ -30,6 +33,12 @@ import java.util.Locale;
 final class DrawingImages {
 
     static final int MAX_SIDE_PX = 1600;
+
+    /**
+     * 原图像素上限。解码是按原图尺寸整张展开的：一张几 MB 的 PNG 可以是 20000 × 20000，解出来要 1 GB 以上内存。
+     * 所以先只读文件头里的宽高，超过上限的不解码、当作读不了。4000 万像素约等于 A0 图纸 200 DPI 扫描件，工程取值。
+     */
+    static final long MAX_IMAGE_PIXELS = 40_000_000L;
 
     private static final Logger log = LoggerFactory.getLogger(DrawingImages.class);
     private static final String PNG = "image/png";
@@ -49,6 +58,10 @@ final class DrawingImages {
                 return renderPdf(content, maxPdfPages);
             }
             if (isImage(ext)) {
+                if (!withinPixelLimit(content)) {
+                    log.warn("drawing image skipped for AI: too many pixels or unreadable header, ext={}", ext);
+                    return List.of();
+                }
                 BufferedImage img = ImageIO.read(new ByteArrayInputStream(content));
                 return img == null ? List.of() : List.of(png(fit(img)));
             }
@@ -56,6 +69,23 @@ final class DrawingImages {
             log.warn("drawing could not be rendered for AI: ext={} reason={}", ext, e.toString());
         }
         return List.of();
+    }
+
+    /** 只读文件头拿宽高，不解码像素。读不出宽高的一律当作超限。 */
+    private static boolean withinPixelLimit(byte[] content) throws IOException {
+        try (ImageInputStream in = ImageIO.createImageInputStream(new ByteArrayInputStream(content))) {
+            Iterator<ImageReader> readers = in == null ? null : ImageIO.getImageReaders(in);
+            if (readers == null || !readers.hasNext()) {
+                return false;
+            }
+            ImageReader reader = readers.next();
+            try {
+                reader.setInput(in, true, true);
+                return (long) reader.getWidth(0) * reader.getHeight(0) <= MAX_IMAGE_PIXELS;
+            } finally {
+                reader.dispose();
+            }
+        }
     }
 
     private static List<AiImage> renderPdf(byte[] content, int maxPages) throws IOException {

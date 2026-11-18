@@ -41,6 +41,11 @@ app:
   api:
     prefix: ""
 
+  # 「邮箱 + 密码」注册在生产默认关闭（不验证邮箱归属，可被抢注）。集成测试靠它建账号，所以这里打开；
+  # 生产行为由 PasswordRegisterDisabledIT 钉住。
+  auth:
+    password-register-enabled: true
+
   # 签字超时扫描在测试里手动触发（ContractFlowIT 调 runOnce），不让定时器插进来
   dispatch:
     sign-timeout-scan-enabled: false
