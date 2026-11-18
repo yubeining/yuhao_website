@@ -137,6 +137,14 @@ class EstimateServiceTest {
     }
 
     @Test
+    void failureReasonIsWrittenAsTextIncludingTheCauseChain() {
+        String reason = EstimateService.describe(new AiException("AI chat call failed",
+                new RuntimeException("HTTP 404 -\n {\"error\":\"model not found\"}")));
+
+        assertThat(reason).isEqualTo("AiException: AI chat call failed <- RuntimeException: HTTP 404 - {\"error\":\"model not found\"}");
+    }
+
+    @Test
     void extractJsonStripsFencesAndChatter() {
         assertThat(EstimateService.extractJson("here:\n```json\n{\"a\":{\"b\":1}}\n```\nbye"))
                 .isEqualTo("{\"a\":{\"b\":1}}");
