@@ -94,7 +94,11 @@ spring:
   #   真正调 AI 才会因假 key 失败（本地/CI 不调 AI 就不受影响）。
   ai:
     openai:
-      base-url: ${SEALOS_AI_BASE_URL:https://aiproxy.bja.sealos.run}
+      # ★ 末尾的 /v1 不能少，而且写在这里、不写进环境变量：Spring AI 2.x 的 OpenAI 客户端直接在 base-url 后面拼
+      #   /chat/completions，不会自己加 /v1。少了它网关返回一个光秃秃的「404 page not found」
+      #   （2026-11-18 线上第一次调模型就是这样失败的；带上 /v1 用假密钥实测返回 401，说明地址对了）。
+      #   SEALOS_AI_BASE_URL 只填网关根地址，不带 /v1。
+      base-url: ${SEALOS_AI_BASE_URL:https://aiproxy.bja.sealos.run}/v1
       api-key: ${SEALOS_AI_API_KEY:not-configured}
       # ★ 模型调用必须有上限：不设的话网关一卡，请求线程就一直挂着，页面永远停在「估价中…」。
       #   60 秒是工程取值（看图模型一次十几到几十秒），不重试 —— 重试默认最多 10 次、间隔逐次放大，
