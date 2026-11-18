@@ -101,10 +101,11 @@ spring:
       base-url: ${SEALOS_AI_BASE_URL:https://aiproxy.bja.sealos.run}/v1
       api-key: ${SEALOS_AI_API_KEY:not-configured}
       # ★ 模型调用必须有上限：不设的话网关一卡，请求线程就一直挂着，页面永远停在「估价中…」。
-      #   60 秒是工程取值（看图模型一次十几到几十秒），不重试 —— 重试默认最多 10 次、间隔逐次放大，
+      #   180 秒（需求方 2026-11-18 定）：qwen3.8-flash 读一张图纸实测约 2 分钟，原来的 60 秒每次都被掐断。
+      #   不重试 —— 重试默认最多 10 次、间隔逐次放大，
       #   会把一次失败拖成几分钟，而且每次都重新计费。失败就直接告诉运营，由人决定要不要再点。
       #   线上可用环境变量 SPRING_AI_OPENAI_TIMEOUT 覆盖（SealosAiProvider 会把它带进每次调用）。
-      timeout: 60s
+      timeout: 180s
       max-retries: 0
       chat:
         options:

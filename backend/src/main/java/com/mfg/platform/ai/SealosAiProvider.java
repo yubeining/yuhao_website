@@ -36,7 +36,7 @@ public class SealosAiProvider implements AiProvider {
      *   每次 new 一个 options，这 60 秒就盖掉了 {@code spring.ai.openai.timeout} —— 配多少都还是 60 秒
      *   （2026-11-18 线上把超时调到 180 秒仍在 60 秒断开，本地对着不回应的端口实测确认）。
      */
-    public SealosAiProvider(ChatModel chatModel, @Value("${spring.ai.openai.timeout:60s}") Duration timeout) {
+    public SealosAiProvider(ChatModel chatModel, @Value("${spring.ai.openai.timeout:180s}") Duration timeout) {
         this.chatModel = chatModel;
         this.timeout = timeout;
     }
