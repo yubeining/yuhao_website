@@ -1,6 +1,7 @@
 package com.mfg.platform.auth;
 
 import com.mfg.common.exception.BusinessException;
+import com.mfg.common.service.RateLimiter;
 import com.mfg.common.security.PartyType;
 import com.mfg.common.security.UserPrincipal;
 import com.mfg.common.util.SensitiveData;
@@ -9,11 +10,13 @@ import com.mfg.platform.notification.NotificationRequest;
 import com.mfg.platform.notification.NotificationService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Map;
 import java.util.Optional;
@@ -23,8 +26,9 @@ import java.util.regex.Pattern;
  * 忘记密码（客户 / 供应商）与已登录改密码（三端）。都凭<b>邮件验证码</b>证明身份。
  *
  * <p>规则全部来自需求方 2026-11-23 的回复（changelog/2026-11-23_password-reset），不是工程取值：
- * 码 5 分钟有效、错 5 次作废、重新申请旧码作废、申请不设次数限制、不计发信每日预算、
+ * 码 5 分钟有效、错 5 次作废、重新申请旧码作废、不计发信每日预算、
  * 改密 / 重置后所有设备都要重新登录、重置成功直接登录、改完发通知邮件。
+ * 忘记密码的限流后来改成和登录验证码同一套阈值（本人 2026-11-23 拍板，推翻「申请不设次数限制」）。
  *
  * <h3>不泄露账号是否存在</h3>
  * <p>忘记密码的申请对任何邮箱都返回同样的结果。码只发给可用的外部账号，
@@ -51,16 +55,23 @@ class PasswordService {
     private final AuthService auth;
     private final AuthTokenIssuer tokenIssuer;
     private final RefreshTokenService refreshTokens;
+    private final RateLimiter rateLimiter;
     private final SecureRandom random = new SecureRandom();
 
+    private final int identifierLimit;
+
     PasswordService(PasswordCodeStore store, OtpEmailTemplate templates, NotificationService notifications,
-                    AuthService auth, AuthTokenIssuer tokenIssuer, RefreshTokenService refreshTokens) {
+                    AuthService auth, AuthTokenIssuer tokenIssuer, RefreshTokenService refreshTokens,
+                    RateLimiter rateLimiter,
+                    @Value("${app.auth.otp.identifier-limit:20}") int identifierLimit) {
         this.store = store;
         this.templates = templates;
         this.notifications = notifications;
         this.auth = auth;
         this.tokenIssuer = tokenIssuer;
         this.refreshTokens = refreshTokens;
+        this.rateLimiter = rateLimiter;
+        this.identifierLimit = identifierLimit;
     }
 
     // ---------- 忘记密码 ----------
@@ -71,12 +82,18 @@ class PasswordService {
      */
     void sendResetCode(String email, String localeHint) {
         String normalized = normalize(email);
+        String subject = resetSubject(normalized);
+        // 同一邮箱每小时发几次码，和登录验证码同一个阈值（本人 2026-11-23 拍板）。
+        // ★ 在查账号之前限：存在 / 不存在的邮箱一样被限，429 不泄露账号是否存在。
+        if (!rateLimiter.tryAcquire("password-reset-send", subject, identifierLimit, Duration.ofHours(1))) {
+            audit("reset_request", normalized, "rate_limited");
+            throw new BusinessException(429, "auth.otp_rate_limited");
+        }
         Optional<AuthService.Authenticated> account = auth.findExternalByEmail(normalized);
         if (account.isEmpty()) {
             audit("reset_request", normalized, "no_account");
             return;
         }
-        String subject = resetSubject(normalized);
         String code = newCode(PasswordCodeStore.Purpose.RESET, subject);
         String locale = Optional.ofNullable(account.get().principal().locale()).orElse(localeHint);
         notifications.notify(codeEmail(normalized, locale, code));

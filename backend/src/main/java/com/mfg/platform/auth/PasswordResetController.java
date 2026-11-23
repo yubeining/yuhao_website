@@ -1,5 +1,6 @@
 package com.mfg.platform.auth;
 
+import com.mfg.platform.ratelimit.RateLimit;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -13,7 +14,9 @@ import org.springframework.web.bind.annotation.RestController;
  * 忘记密码 —— 只给客户 / 供应商（需求方 2026-11-23：运营登录页不加忘记密码）。
  *
  * <p>公开端点（{@code /auth/**} 在 SecurityConfig 里 permitAll）。
- * <b>不加限流</b>是需求方的决定（2026-11-23），不是遗漏；单条码错 5 次作废由 service 管。
+ * 限流和登录验证码同一套阈值（本人 2026-11-23 拍板，推翻了最初的「不设限流」）：
+ * 原先发新码会清零试错次数、申请又不限次，循环「申请 → 猜 5 次」可以无限猜。
+ * 同 IP 的两层在这里；同一邮箱每小时发几次在 service 里。单条码错 5 次作废也在 service 里。
  */
 @RestController
 @RequestMapping("/auth/password")
@@ -37,6 +40,7 @@ class PasswordResetController {
     public record ForgotResponse(boolean sent) {
     }
 
+    @RateLimit(scope = "password-forgot-ip", limit = "${app.auth.otp.ip-limit:20}", windowSeconds = "3600")
     @PostMapping("/forgot")
     ForgotResponse forgot(@Valid @RequestBody ForgotRequest request,
                           @RequestHeader(value = "Accept-Language", required = false) String acceptLanguage) {
@@ -45,6 +49,7 @@ class PasswordResetController {
     }
 
     /** 重置成功直接登录（需求方 2026-11-23），返回和登录接口同样的登录态。 */
+    @RateLimit(scope = "password-reset-ip", limit = "${app.auth.otp.verify-ip-limit:60}", windowSeconds = "3600")
     @PostMapping("/reset")
     TokenResponse reset(@Valid @RequestBody ResetRequest request) {
         return service.reset(request.email(), request.code(), request.newPassword());
