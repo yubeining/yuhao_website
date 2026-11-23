@@ -71,12 +71,12 @@ export function OpsQuotesPage() {
             <Hello
                 title={t.ops.quotes.title}
                 right={
-                    <>
-                        {filters(t).map(([st, label]) => (
-                            <button key={st} type="button" className={`btn${tab === st ? ' pri' : ''}`}
-                                onClick={() => setTab(st)}>{label}</button>
-                        ))}
-                    </>
+                    // 状态筛选用下拉框，不摆一排按钮（需求方 2026-11-23）；样式同费率表的类别筛选
+                    <select className="inp" value={tab} style={{ width: 140 }}
+                        aria-label={t.common.table.status}
+                        onChange={(e) => setTab(e.target.value as OrderStatus | 'ALL')}>
+                        {filters(t).map(([st, label]) => <option key={st} value={st}>{label}</option>)}
+                    </select>
                 }
             />
             <Card>
