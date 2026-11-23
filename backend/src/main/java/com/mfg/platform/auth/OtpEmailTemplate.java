@@ -40,6 +40,34 @@ class OtpEmailTemplate {
         };
     }
 
+    private final Map<String, String[]> named = new ConcurrentHashMap<>();
+
+    /**
+     * 按模板名渲染其他认证邮件（改密 / 重置）：{@code i18n/<name>-<语言>.txt}，
+     * 正文里的 {@code {key}} 用 {@code vars} 替换。缺该语言回退英文。
+     *
+     * <p>和 {@link #render} 不同，英文也缺时<b>抛异常</b>：那是打包漏了资源，
+     * 这些邮件没有一句"兜底文案"能代替（不像验证码，至少能把码发出去）。
+     */
+    String[] renderNamed(String name, String locale, Map<String, String> vars) {
+        String lang = normalize(locale);
+        String[] raw = named.computeIfAbsent(name + ":" + lang, key -> {
+            String[] parsed = read("i18n/" + name + "-" + lang + ".txt");
+            if (parsed == null && !FALLBACK.equals(lang)) {
+                parsed = read("i18n/" + name + "-" + FALLBACK + ".txt");
+            }
+            if (parsed == null) {
+                throw new IllegalStateException("missing email template i18n/" + name + "-" + FALLBACK + ".txt");
+            }
+            return parsed;
+        });
+        String body = raw[1];
+        for (Map.Entry<String, String> e : vars.entrySet()) {
+            body = body.replace("{" + e.getKey() + "}", e.getValue());
+        }
+        return new String[]{raw[0], body};
+    }
+
     private String[] load(String locale) {
         return cache.computeIfAbsent(locale, key -> {
             String[] parsed = read("i18n/otp-email-" + key + ".txt");

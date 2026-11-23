@@ -37,9 +37,6 @@ import java.util.stream.Collectors;
 @Service
 public class AccountAdminService {
 
-    private static final int PASSWORD_MIN = 8;
-    private static final int PASSWORD_MAX = 100;
-
     private final ExternalUserRepository externalUsers;
     private final OpsUserRepository opsUsers;
     private final OrganizationRepository organizations;
@@ -267,10 +264,7 @@ public class AccountAdminService {
     }
 
     private static String requirePassword(String raw) {
-        if (raw == null || raw.length() < PASSWORD_MIN || raw.length() > PASSWORD_MAX) {
-            throw new BusinessException(400, "auth.password_invalid");
-        }
-        return raw;
+        return PasswordPolicy.require(raw);
     }
 
     private static String normalizeEmail(String email) {

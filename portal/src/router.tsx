@@ -5,6 +5,7 @@ import { CustomerShell, OpsShell, SupplierShell } from './components/AppShell'
 import { SignInPage } from './pages/auth/SignInPage'
 import { OpsSignInPage } from './pages/auth/OpsSignInPage'
 import { RegisterPage } from './pages/auth/RegisterPage'
+import { ForgotPasswordPage } from './pages/auth/ForgotPasswordPage'
 
 import { QuoteListPage } from './pages/customer/QuoteListPage'
 import { QuoteDetailPage } from './pages/customer/QuoteDetailPage'
@@ -61,6 +62,7 @@ export const router = createBrowserRouter([
             { path: 'signin', element: <SignInPage /> },
             { path: 'internal/signin', element: <OpsSignInPage /> },
             { path: 'register', element: <RegisterPage /> },
+            { path: 'forgot', element: <ForgotPasswordPage /> },
         ],
     },
 

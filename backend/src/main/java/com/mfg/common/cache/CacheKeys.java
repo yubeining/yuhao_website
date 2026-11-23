@@ -105,6 +105,29 @@ public final class CacheKeys {
         return global("auth", "refresh", token);
     }
 
+    /**
+     * 某个用户名下当前有效的 refresh token 集合 —— 改密 / 重置时据此一次吊销他的全部会话。
+     * 只是索引，token 是否有效仍以 {@link #refreshToken} 那条 key 在不在为准。
+     */
+    public static String refreshIndex(String portal, String userId) {
+        return global("auth", "refresh-index", portal, userId);
+    }
+
+    // ---------- 改密码 / 忘记密码验证码 ----------
+
+    /**
+     * 改密 / 重置用的验证码 key。{@code purpose} 把它和登录验证码（{@link #otpCode}）分开 ——
+     * 同一个命名空间的话，登录码能拿来重置、重置码能拿来登录。{@code subject} 是哈希，不放邮箱原文。
+     */
+    public static String passwordCode(String purpose, String subject) {
+        return global("auth", "pwcode", "code", purpose, subject);
+    }
+
+    /** 同一条改密 / 重置验证码的「已试错次数」。 */
+    public static String passwordCodeAttempts(String purpose, String subject) {
+        return global("auth", "pwcode", "attempts", purpose, subject);
+    }
+
     // ---------- 登录验证码（OTP）----------
 
     /**

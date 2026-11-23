@@ -8,10 +8,14 @@
  * ★ 偏好（语言/主题）即时生效，不需要保存按钮。
  * ★ 只有昵称/公司/国家可改：邮箱是登录标识，身份由组织类型推出，注册时间不可变。
  * ★ 保存后写回 session，顶栏昵称立刻变，不用重新登录。
+ * ★ 改密码（2026-11-23）：弹框里先发邮件验证码，再输码 + 新密码。成功后所有设备（含当前）
+ *   都已被后端退出，这里清登录态跳登录页。卡片上不显示密码状态 —— 验证码注册的账号没有密码，
+ *   显示 ****** 就是假内容。
  */
 
 import { fmtDate } from '../mock/format'
 import { useCallback, useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     Banner, Card, CardBody, CardHead, Hello, Kv, KvRow, Page,
 } from '../components/ui'
@@ -22,8 +26,10 @@ import { countryName } from '../i18n/countries'
 import { useMock } from '../mock/MockProvider'
 import { useI18n } from '../i18n/I18nProvider'
 import { useSession } from '../auth/useSession'
-import { setSession } from '../auth/session'
-import { getMyProfile, updateMyNickname, type MyProfile } from '../services/auth'
+import { clearSession, setSession, SIGNIN_BY_TYPE } from '../auth/session'
+import {
+    changeMyPassword, getMyProfile, sendMyPasswordCode, updateMyNickname, type MyProfile,
+} from '../services/auth'
 import { getMyOrganization, renameMyOrganization } from '../services/customer/organization'
 import { errorText } from '../i18n/errorText'
 
@@ -52,6 +58,23 @@ export function AccountSettingsPage() {
     const [err, setErr] = useState<string | null>(null)
     const [saved, setSaved] = useState(false)
     const [busy, setBusy] = useState(false)
+    const navigate = useNavigate()
+
+    // ---------- 改密码弹框 ----------
+    const [pwOpen, setPwOpen] = useState(false)
+    const [pwCodeSent, setPwCodeSent] = useState(false)
+    const [pwCode, setPwCode] = useState('')
+    const [pwNew, setPwNew] = useState('')
+    const [pwNew2, setPwNew2] = useState('')
+    const [pwErr, setPwErr] = useState<string | null>(null)
+    const [pwBusy, setPwBusy] = useState(false)
+    const [pwCountdown, setPwCountdown] = useState(0)
+
+    useEffect(() => {
+        if (pwCountdown <= 0) return
+        const id = window.setTimeout(() => setPwCountdown((n) => n - 1), 1000)
+        return () => window.clearTimeout(id)
+    }, [pwCountdown])
 
     const load = useCallback(async (partyType: NonNullable<typeof session>['partyType']) => {
         try {
@@ -139,6 +162,52 @@ export function AccountSettingsPage() {
         }
     }
 
+    const openPassword = () => {
+        setPwCodeSent(false)
+        setPwCode('')
+        setPwNew('')
+        setPwNew2('')
+        setPwErr(null)
+        setPwOpen(true)
+    }
+
+    const sendPasswordCode = async () => {
+        if (pwBusy || pwCountdown > 0) return
+        setPwErr(null)
+        setPwBusy(true)
+        try {
+            await sendMyPasswordCode(session.partyType)
+            setPwCodeSent(true)
+            setPwCountdown(60)
+        } catch (e) {
+            setPwErr(errorText(t, e))
+        } finally {
+            setPwBusy(false)
+        }
+    }
+
+    const canChangePassword = pwCodeSent && pwCode.length === 6 && !!pwNew && !!pwNew2 && !pwBusy
+
+    const changePassword = async () => {
+        if (!canChangePassword) return
+        if (pwNew !== pwNew2) {
+            setPwErr(p.mismatch)
+            return
+        }
+        setPwErr(null)
+        setPwBusy(true)
+        try {
+            await changeMyPassword(session.partyType, pwCode, pwNew)
+            // 后端已吊销该账号全部会话（含当前设备），本地登录态也要清掉
+            const signIn = SIGNIN_BY_TYPE[session.partyType]
+            clearSession()
+            navigate(signIn, { replace: true })
+        } catch (e) {
+            setPwErr(errorText(t, e))
+            setPwBusy(false)
+        }
+    }
+
     return (
         <Page>
             <Hello title={ti.account.title} />
@@ -195,6 +264,53 @@ export function AccountSettingsPage() {
                         </Field>
                     )}
                     {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
+                </Modal>
+            )}
+
+            <Card style={{ maxWidth: 720, marginTop: 18 }}>
+                <CardHead
+                    title={p.password}
+                    right={<button className="btn sm" type="button" onClick={openPassword}>{p.changePassword}</button>}
+                />
+                <CardBody>
+                    <div className="fnote">{p.passwordHint}</div>
+                </CardBody>
+            </Card>
+
+            {pwOpen && (
+                <Modal title={p.changePassword} width={400} busy={pwBusy} onClose={() => setPwOpen(false)}
+                    footer={<>
+                        <button className="btn" type="button" onClick={() => setPwOpen(false)}>{p.cancel}</button>
+                        <button className="btn pri" type="button" disabled={!canChangePassword}
+                            onClick={() => void changePassword()}>
+                            {pwBusy ? '…' : p.save}
+                        </button>
+                    </>}>
+                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', marginBottom: 12 }}>
+                        <button className="btn sm" type="button" disabled={pwBusy || pwCountdown > 0}
+                            onClick={() => void sendPasswordCode()}>
+                            {pwCountdown > 0 ? p.resendIn(pwCountdown) : pwCodeSent ? p.resend : p.sendCode}
+                        </button>
+                    </div>
+                    {pwCodeSent && profile && (
+                        <div className="fnote" style={{ marginBottom: 12 }}>
+                            {p.codeSentTo(profile.email)}
+                        </div>
+                    )}
+                    <Field label={p.code}>
+                        <Input type="text" autoComplete="one-time-code" value={pwCode}
+                            onChange={(v) => { setPwCode(v.replace(/\D/g, '').slice(0, 6)); setPwErr(null) }} />
+                    </Field>
+                    <Field label={p.newPw}>
+                        <Input type="password" autoComplete="new-password" value={pwNew}
+                            onChange={(v) => { setPwNew(v); setPwErr(null) }} />
+                        <div className="fnote" style={{ marginTop: 4 }}>{p.passwordRule}</div>
+                    </Field>
+                    <Field label={p.confirmPw}>
+                        <Input type="password" autoComplete="new-password" value={pwNew2}
+                            onChange={(v) => { setPwNew2(v); setPwErr(null) }} />
+                    </Field>
+                    {pwErr && <Banner tone="wa" style={{ marginTop: 12 }}>{pwErr}</Banner>}
                 </Modal>
             )}
 

@@ -189,6 +189,28 @@ public class RedisService {
         return value == null ? 0L : value;
     }
 
+    // ---------- 集合 ----------
+    //
+    // ★ 这三个不吞异常（和 increment 一样）：它们用于吊销会话，
+    //   失败了要让调用方知道，不能像缓存那样静默降级成"什么都没发生"。
+
+    /** 往集合里加一个成员，并把整个集合的 TTL 设为 {@code ttlSeconds}。 */
+    public void setAdd(String key, String member, int ttlSeconds) {
+        String k = prefixed(key);
+        redis.opsForSet().add(k, member);
+        redis.expire(k, Duration.ofSeconds(ttlSeconds));
+    }
+
+    public void setRemove(String key, String member) {
+        redis.opsForSet().remove(prefixed(key), member);
+    }
+
+    /** @return 集合成员；不存在返回空集合。 */
+    public java.util.Set<String> setMembers(String key) {
+        java.util.Set<String> members = redis.opsForSet().members(prefixed(key));
+        return members == null ? java.util.Set.of() : members;
+    }
+
     private String prefixed(String key) {
         return keyPrefix + key;
     }

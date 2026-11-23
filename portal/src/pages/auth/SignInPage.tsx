@@ -152,6 +152,9 @@ export function SignInPage() {
                             </Field>
                             <ErrMsg>{err}</ErrMsg>
                             <BigButton type="submit">{busy ? '…' : c.submit}</BigButton>
+                            <div className="fnote" style={{ marginTop: 12 }}>
+                                <Link to="/auth/forgot">{c.forgot}</Link>
+                            </div>
                         </Form>
                     ) : codeSent ? (
                         <Form onSubmit={() => void submitCode()}>

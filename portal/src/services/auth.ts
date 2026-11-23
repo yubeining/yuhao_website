@@ -145,3 +145,41 @@ const LOCALE_PATH: Record<PartyType, string> = {
 export function updateMyLocale(partyType: PartyType, locale: string): Promise<void> {
     return http.patch<void>(LOCALE_PATH[partyType], { locale })
 }
+
+// ---------- 改密码 / 忘记密码（2026-11-23） ----------
+
+/**
+ * 忘记密码第一步：申请邮件验证码。只给客户 / 供应商（运营登录页不加忘记密码）。
+ *
+ * ★ 响应对任何邮箱都一样 —— 页面不能据此说"已发送到你的邮箱"，只能说"如果已注册会收到"。
+ */
+export function forgotPassword(email: string): Promise<{ sent: boolean }> {
+    return publicRequest<{ sent: boolean }>('/auth/password/forgot', {
+        method: 'POST',
+        body: { email },
+    })
+}
+
+/** 忘记密码第二步：凭码设新密码。成功直接返回登录态（需求方 2026-11-23：重置后直接登录）。 */
+export function resetPassword(email: string, code: string, newPassword: string): Promise<TokenResponse> {
+    return publicRequest<TokenResponse>('/auth/password/reset', {
+        method: 'POST',
+        body: { email, code, newPassword },
+    })
+}
+
+const PASSWORD_PATH: Record<PartyType, string> = {
+    CUSTOMER: '/customer/me/password',
+    SUPPLIER: '/supplier/me/password',
+    OPERATOR: '/ops/me/password',
+}
+
+/** 已登录改密码第一步：向本人账号邮箱发验证码。 */
+export function sendMyPasswordCode(partyType: PartyType): Promise<{ sent: boolean }> {
+    return http.post<{ sent: boolean }>(`${PASSWORD_PATH[partyType]}/code`)
+}
+
+/** 已登录改密码第二步。成功后所有设备（含当前）都已退出，调用方要清登录态。 */
+export function changeMyPassword(partyType: PartyType, code: string, newPassword: string): Promise<void> {
+    return http.put<void>(PASSWORD_PATH[partyType], { code, newPassword })
+}

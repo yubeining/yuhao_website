@@ -31,6 +31,7 @@ public class RefreshTokenService {
     public String issue(PartyType portal, UUID userId) {
         String token = UUID.randomUUID().toString().replace("-", "");
         redis.set(CacheKeys.refreshToken(token), portal.name() + ":" + userId, ttlSeconds);
+        redis.setAdd(CacheKeys.refreshIndex(portal.name(), userId.toString()), token, ttlSeconds);
         return token;
     }
 
@@ -53,8 +54,27 @@ public class RefreshTokenService {
     /** 撤销(登出),幂等。 */
     public void revoke(String token) {
         if (token != null && !token.isBlank()) {
+            String value = redis.get(CacheKeys.refreshToken(token), String.class);
+            redis.delete(CacheKeys.refreshToken(token));
+            Resolved owner = parse(value);
+            if (owner != null) {
+                redis.setRemove(indexKey(owner), token);
+            }
+        }
+    }
+
+    /**
+     * 吊销某个用户的<b>全部</b> refresh token(改密 / 重置密码后用)。
+     *
+     * <p>★ 只能吊销上线这个索引之后签发的 token。之前签发的不在索引里,会活到自然过期
+     * (最长 refresh TTL);access token 本来就撤不掉,最长活 access TTL(需求方 2026-11-23 已接受)。
+     */
+    public void revokeAll(PartyType portal, UUID userId) {
+        String index = CacheKeys.refreshIndex(portal.name(), userId.toString());
+        for (String token : redis.setMembers(index)) {
             redis.delete(CacheKeys.refreshToken(token));
         }
+        redis.delete(index);
     }
 
     private Resolved consume(String token) {
@@ -66,15 +86,32 @@ public class RefreshTokenService {
             throw new BusinessException(401, "auth.refresh_invalid");
         }
         redis.delete(CacheKeys.refreshToken(token));   // 一次性 + 轮换
+        Resolved resolved = parse(value);
+        if (resolved == null) {
+            throw new BusinessException(401, "auth.refresh_invalid");
+        }
+        redis.setRemove(indexKey(resolved), token);
+        return resolved;
+    }
+
+    /** {@code 受众:userId} → Resolved;格式不对返回 null。 */
+    private static Resolved parse(String value) {
+        if (value == null) {
+            return null;
+        }
         int sep = value.indexOf(':');
         if (sep <= 0) {
-            throw new BusinessException(401, "auth.refresh_invalid");
+            return null;
         }
         try {
             return new Resolved(PartyType.valueOf(value.substring(0, sep)),
                     UUID.fromString(value.substring(sep + 1)));
         } catch (IllegalArgumentException e) {
-            throw new BusinessException(401, "auth.refresh_invalid");
+            return null;
         }
+    }
+
+    private static String indexKey(Resolved owner) {
+        return CacheKeys.refreshIndex(owner.portal().name(), owner.userId().toString());
     }
 }

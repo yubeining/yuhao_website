@@ -167,6 +167,35 @@ public class AuthService {
                 () -> opsUsers.findById(userId).ifPresent(o -> o.setDisplayName(nickname)));
     }
 
+    /**
+     * 设新密码。<b>只能在身份已经校验过之后调</b>（改密 / 重置的验证码已通过）。
+     *
+     * <p>按受众选表，不像 {@link #updateNickname} 那样两张表轮着试 —— 调用方明确知道是谁。
+     * 新密码与当前密码相同 → 400 {@code auth.password_same_as_current}（需求方 2026-11-23：禁止）；
+     * 当前没有密码（验证码注册的账号）就不比。
+     */
+    @Transactional
+    public void setPassword(PartyType portal, UUID userId, String rawPassword) {
+        com.mfg.platform.identity.PasswordPolicy.require(rawPassword);
+        if (portal == PartyType.OPERATOR) {
+            OpsUser u = opsUsers.findById(userId)
+                    .orElseThrow(() -> new BusinessException(404, "common.not_found"));
+            requireDifferent(rawPassword, u.getPasswordHash());
+            u.setPasswordHash(passwordEncoder.encode(rawPassword));
+            return;
+        }
+        ExternalUser u = externalUsers.findById(userId)
+                .orElseThrow(() -> new BusinessException(404, "common.not_found"));
+        requireDifferent(rawPassword, u.getPasswordHash());
+        u.setPasswordHash(passwordEncoder.encode(rawPassword));
+    }
+
+    private void requireDifferent(String rawPassword, String currentHash) {
+        if (matches(rawPassword, currentHash)) {
+            throw new BusinessException(400, "auth.password_same_as_current");
+        }
+    }
+
     /** 验证码登录成功：记下「这个邮箱已被证明归属」。幂等，已记过就不覆盖。 */
     @Transactional
     public void markEmailVerified(UUID userId, Instant at) {

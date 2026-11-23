@@ -139,6 +139,13 @@ export interface Strings {
         backToEmail: string; resend: string; resendIn: (seconds: number) => string
         codeHint: string; needsRegistration: string
     }
+    /** 忘记密码（2026-11-23）。只有客户 / 供应商登录页有入口。 */
+    forgotPw: {
+        h: string; back: string
+        email: string; sendCode: string; codeSentHint: string
+        code: string; newPw: string; confirmPw: string; mismatch: string; passwordRule: string
+        submit: string; resend: string; resendIn: (seconds: number) => string
+    }
     reg: {
         h: string; sub: string; subA: string
         email: string; code: string
@@ -238,6 +245,11 @@ export interface Strings {
         title: string; basic: string; nickname: string; email: string; role: string
         joined: string; edit: string; save: string; cancel: string; saved: string
         company: string; country: string; companyMissing: string; companyFill: string
+        /** 改密码（2026-11-23）：邮件验证码 + 新密码，成功后所有设备都要重新登录 */
+        password: string; changePassword: string; passwordHint: string
+        sendCode: string; resend: string; resendIn: (seconds: number) => string
+        codeSentTo: (email: string) => string
+        code: string; newPw: string; confirmPw: string; mismatch: string; passwordRule: string
     }
     /** 通用页面（404 / 设置） */
     misc: {
@@ -571,6 +583,15 @@ export const STRINGS: Record<Lang, Strings> = {
             codeHint: '验证码 5 分钟内有效，只能用一次。',
             needsRegistration: '这个邮箱还没有账号。',
         },
+        forgotPw: {
+            h: '重置密码', back: '← 返回登录',
+            email: '企业邮箱', sendCode: '发送验证码',
+            codeSentHint: '如果这个邮箱已注册，验证码已发到邮箱，5 分钟内有效。',
+            code: '6 位验证码', newPw: '新密码', confirmPw: '确认新密码',
+            mismatch: '两次输入的密码不一致', passwordRule: '至少 8 位，最长 72 个英文字符或 24 个汉字',
+            submit: '重置并登录', resend: '重新发送',
+            resendIn: (sec) => `${sec}s 后可重发`,
+        },
         reg: {
             h: '注册', sub: '已有账号？', subA: '返回登录',
             email: '企业邮箱', code: '验证码',
@@ -695,6 +716,12 @@ export const STRINGS: Record<Lang, Strings> = {
         companyMissing: '公司信息未完善，提交订单前需要填写', companyFill: '去填写',
         email: '邮箱', role: '身份',
         joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
+        password: '登录密码', changePassword: '修改密码', passwordHint: '修改后所有设备都要重新登录。',
+        sendCode: '发送验证码', resend: '重新发送',
+        resendIn: (sec) => `${sec}s 后可重发`,
+        codeSentTo: (email) => `验证码已发送至 ${email}，5 分钟内有效。`,
+        code: '6 位验证码', newPw: '新密码', confirmPw: '确认新密码',
+        mismatch: '两次输入的密码不一致', passwordRule: '至少 8 位，最长 72 个英文字符或 24 个汉字',
     },
     misc: {
         notFoundTitle: '这个地址没有对应的页面',
@@ -929,6 +956,9 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_rate_limited': '发送太频繁，请稍后再试',
             'auth.otp_expired': '验证码已失效，请重新获取',
             'auth.otp_code_incorrect': '验证码不正确',
+            'auth.otp_code_invalid': '请输入 6 位数字验证码',
+            'auth.password_invalid': '密码至少 8 位，最长 72 个英文字符或 24 个汉字',
+            'auth.password_same_as_current': '新密码不能和当前密码相同',
             'auth.otp_identifier_invalid': '邮箱格式不正确',
             'auth.otp_send_failed': '验证码发送失败，请稍后再试',
             'auth.otp_channel_unavailable': '该登录方式暂未开放',
@@ -1148,6 +1178,15 @@ export const STRINGS: Record<Lang, Strings> = {
             codeHint: 'The code is valid for 5 minutes and can be used once.',
             needsRegistration: 'This email does not have an account yet.',
         },
+        forgotPw: {
+            h: 'Reset password', back: '← Back to sign in',
+            email: 'Work email', sendCode: 'Send code',
+            codeSentHint: 'If this email is registered, a code has been sent to it. It is valid for 5 minutes.',
+            code: '6-digit code', newPw: 'New password', confirmPw: 'Confirm new password',
+            mismatch: 'The passwords do not match', passwordRule: 'At least 8 characters; at most 72 bytes (72 Latin letters or 24 Chinese characters)',
+            submit: 'Reset and sign in', resend: 'Resend',
+            resendIn: (sec) => `Resend in ${sec}s`,
+        },
         reg: {
             h: 'Sign up', sub: 'Already have an account? ', subA: 'Sign in',
             email: 'Work email', code: 'Verification code',
@@ -1273,6 +1312,13 @@ export const STRINGS: Record<Lang, Strings> = {
         companyFill: 'Fill in',
         email: 'Email', role: 'Role',
         joined: 'Joined', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved',
+        password: 'Sign-in password', changePassword: 'Change password',
+        passwordHint: 'After the change, every device has to sign in again.',
+        sendCode: 'Send code', resend: 'Resend',
+        resendIn: (sec) => `Resend in ${sec}s`,
+        codeSentTo: (email) => `Code sent to ${email}. It is valid for 5 minutes.`,
+        code: '6-digit code', newPw: 'New password', confirmPw: 'Confirm new password',
+        mismatch: 'The passwords do not match', passwordRule: 'At least 8 characters; at most 72 bytes (72 Latin letters or 24 Chinese characters)',
     },
     misc: {
         notFoundTitle: 'This page does not exist',
@@ -1506,6 +1552,9 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_rate_limited': 'Too many requests. Please try again later.',
             'auth.otp_expired': 'The code has expired. Please request a new one.',
             'auth.otp_code_incorrect': 'Incorrect code.',
+            'auth.otp_code_invalid': 'Enter the 6-digit code.',
+            'auth.password_invalid': 'The password must be at least 8 characters and at most 72 bytes (72 Latin letters or 24 Chinese characters).',
+            'auth.password_same_as_current': 'The new password must be different from the current one.',
             'auth.otp_identifier_invalid': 'Please enter a valid email address.',
             'auth.otp_send_failed': 'Could not send the code. Please try again.',
             'auth.otp_channel_unavailable': 'This sign-in method is not available yet.',
