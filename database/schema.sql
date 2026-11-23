@@ -7,8 +7,8 @@
 
 -- PostgreSQL database dump
 
--- Dumped from database version 16.14 (Debian 16.14-1.pgdg13+1)
--- Dumped by pg_dump version 16.14 (Debian 16.14-1.pgdg13+1)
+-- Dumped from database version 16.14 (Homebrew)
+-- Dumped by pg_dump version 16.14 (Homebrew)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -79,9 +79,9 @@ CREATE TABLE public.customer_order (
     version bigint DEFAULT 0 NOT NULL,
     status text NOT NULL,
     title text,
-    wanted_date date,
     wanted_lead_days integer,
     submitted_at timestamp with time zone,
+    wanted_date date,
     ship_to_country text,
     ship_to_company text,
     ship_to_contact text,
@@ -141,10 +141,10 @@ CREATE TABLE public.external_user (
     display_name text NOT NULL,
     status text DEFAULT 'ACTIVE'::text NOT NULL,
     locale text,
-    email_verified_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
+    email_verified_at timestamp with time zone,
     CONSTRAINT external_user_status_chk CHECK ((status = ANY (ARRAY['ACTIVE'::text, 'DISABLED'::text])))
 );
 
@@ -369,7 +369,6 @@ CREATE TABLE public.quote (
     status text NOT NULL,
     currency text NOT NULL,
     lead_days integer NOT NULL,
-    commit_date date,
     markup_rate numeric(8,4) NOT NULL,
     sent_at timestamp with time zone NOT NULL,
     sent_by_user_id uuid NOT NULL,
@@ -385,6 +384,7 @@ CREATE TABLE public.quote (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL,
+    commit_date date,
     CONSTRAINT quote_confirmed_snapshot_chk CHECK (((status <> 'CONFIRMED'::text) OR ((confirmed_at IS NOT NULL) AND (confirmed_by_user_id IS NOT NULL) AND (fx_source IS NOT NULL) AND (fx_rate_date IS NOT NULL) AND (fx_eur_cny > (0)::numeric) AND (fx_eur_quote > (0)::numeric) AND (total_amount IS NOT NULL)))),
     CONSTRAINT quote_currency_chk CHECK ((currency = ANY (ARRAY['EUR'::text, 'USD'::text, 'GBP'::text, 'CNY'::text]))),
     CONSTRAINT quote_fx_source_chk CHECK (((fx_source IS NULL) OR (fx_source = 'ECB'::text))),

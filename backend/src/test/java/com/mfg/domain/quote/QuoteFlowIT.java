@@ -82,6 +82,9 @@ class QuoteFlowIT {
     private JdbcTemplate jdbc;
 
     @Autowired
+    private PriceEstimateRepository priceEstimates;
+
+    @Autowired
     private StorageService storage;
 
     @Autowired
@@ -532,6 +535,45 @@ class QuoteFlowIT {
                 .getStatusCode().value()).isEqualTo(404);
         assertThat(rawPut("/ops/customers/" + UUID.randomUUID() + "/markup",
                 new MarkupBody(BigDecimal.ONE), ops).getStatusCode().value()).isEqualTo(404);
+    }
+
+    /**
+     * 估算按生产代码的写法存进库，能原样读回来（运营刷新报价工作台走这条路径）。
+     *
+     * <p>2026-11-23 线上发现：Hibernate 的 jsonb 映射器默认是 Jackson 2，而实体字段是 Jackson 3 的 JsonNode ——
+     * 写进库的是 {@code {"nodeType":"OBJECT",...}} 这种节点属性，内容全丢；读的时候直接 500。
+     * 之前没有任何测试从库里读过估算，估价当场返回的是内存里的对象，所以没发现。
+     */
+    @Test
+    void savedEstimateRoundTripsThroughTheDatabase() throws Exception {
+        Customer c = register("estlist");
+        Order o = submittedOrder(c, 2);
+        String ops = opsToken();
+        JsonNode ai = json.readTree("""
+                {"partType":"MACHINED","partTypeReason":"r","material":"45","materialRate":null,
+                 "netWeightKg":2.5,"blankWeightKg":3.5,"processes":[{"rate":"x","quantity":0.8,"note":null}],
+                 "outsource":[],"fixedCostCny":1200,"fixedCostNote":"n","assumptions":["a"],"toConfirm":[]}""");
+        EstimateBreakdown breakdown = new EstimateBreakdown(
+                new EstimateBreakdown.Factors(BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE),
+                List.of(new EstimateBreakdown.Item("FIXED", null, null, null, new BigDecimal("1200"), BigDecimal.ONE,
+                        new BigDecimal("1200.00"), false, "n")),
+                new BigDecimal("1200.00"), true);
+        priceEstimates.saveAndFlush(new PriceEstimate(UUID.fromString(o.id()), o.lineIds().get(0), c.orgId(),
+                PriceEstimate.Outcome.ESTIMATED, new BigDecimal("1200.00"), true,
+                json.readTree("{\"readFiles\":[\"a.pdf\"],\"skippedFiles\":[]}"), ai, json.valueToTree(breakdown),
+                "qwen3.8-flash", UUID.randomUUID()));
+
+        assertThat(jdbc.queryForObject("select breakdown::text from price_estimate where customer_order_id = ?",
+                String.class, UUID.fromString(o.id()))).contains("\"items\"").doesNotContain("nodeType");
+
+        ResponseEntity<String> res = rawGet("/ops/customer-orders/" + o.id() + "/estimates", ops);
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
+        JsonNode first = json.readTree(res.getBody()).path("data").get(0);
+        assertThat(first.path("unitCostCny").decimalValue()).isEqualByComparingTo("1200.00");
+        assertThat(first.path("material").asText()).isEqualTo("45");
+        assertThat(first.path("breakdown").path("items").get(0).path("kind").asText()).isEqualTo("FIXED");
+        assertThat(first.path("assumptions").get(0).asText()).isEqualTo("a");
+        assertThat(first.path("readFiles").get(0).asText()).isEqualTo("a.pdf");
     }
 
     /**

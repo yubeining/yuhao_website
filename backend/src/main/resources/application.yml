@@ -58,6 +58,11 @@ spring:
         jdbc.time_zone: UTC
         # 自定义 @Query 里的 UUID 参数绑定需要这个，否则运行时报类型不匹配
         type.preferred_uuid_jdbc_type: VARCHAR
+        # ★ jsonb 列用 Jackson 3 读写。类路径上两代 Jackson 都有（有依赖带进来 Jackson 2），
+        #   Hibernate 默认挑 Jackson 2 —— 它不认识实体里 Jackson 3 的 JsonNode：
+        #   写进库的是 {"nodeType":"OBJECT",...} 这种节点属性（内容全丢），读回来直接抛异常。
+        #   2026-11-23 线上 AI 估价列表 500 就是这个原因。
+        type.json_format_mapper: jackson3
         format_sql: false
 
   data:

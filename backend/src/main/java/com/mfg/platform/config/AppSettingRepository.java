@@ -12,9 +12,9 @@ import java.util.UUID;
  * app_setting 的读写。
  *
  * <p>★ 这里刻意走原生 SQL、拿 {@code jsonb::text}，不经过 {@link AppSetting} 实体：
- * 实体字段是 Jackson 3 的 {@code tools.jackson…JsonNode}，而 Hibernate 的 jsonb 映射器是
- * Jackson 2，直接读会抛「Cannot construct instance of JsonNode」。在值这一侧完全不碰 JsonNode
- * 最省事，也避开了两代 Jackson 混用。
+ * 写这两条原生 SQL 时，Hibernate 的 jsonb 映射器还是 Jackson 2，读 Jackson 3 的 JsonNode 字段会抛异常；
+ * 2026-11-23 起映射器改成了 Jackson 3（application.yml 的 hibernate.type.json_format_mapper），
+ * 这里的原生 SQL 保持不变，照样能用。
  */
 interface AppSettingRepository extends JpaRepository<AppSetting, UUID> {
 
