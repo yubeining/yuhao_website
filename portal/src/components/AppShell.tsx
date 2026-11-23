@@ -61,7 +61,7 @@ interface Props {
 export function AppShell({ children, nav, settingsTo, badge, areas, currentPath, sub, notice }: Props) {
     return (
         <div className="appwrap">
-            <GlobalNav badge={badge} areas={areas} currentPath={currentPath} sub={sub} />
+            <GlobalNav badge={badge} areas={areas} currentPath={currentPath} sub={sub} settingsTo={settingsTo} />
             {notice}
             <div className="appshell">
                 {nav && <SideNav items={nav} settingsTo={settingsTo} />}
@@ -71,8 +71,8 @@ export function AppShell({ children, nav, settingsTo, badge, areas, currentPath,
     )
 }
 
-function GlobalNav({ badge, areas, currentPath, sub }:
-    Pick<Props, 'badge' | 'areas' | 'currentPath' | 'sub'>) {
+function GlobalNav({ badge, areas, currentPath, sub, settingsTo }:
+    Pick<Props, 'badge' | 'areas' | 'currentPath' | 'sub' | 'settingsTo'>) {
     return (
         <div className="gnav">
             <div className="gin">
@@ -98,20 +98,22 @@ function GlobalNav({ badge, areas, currentPath, sub }:
                 {/* ★ 消息按钮整个删掉（2026-09-09）。原先只去掉了未读红点、留着按钮，
                     但按钮本身同样是一句承诺：没有消息系统，点了什么都不会发生。
                     红点是状态、按钮是入口，没有后端时两个都不该在。 */}
-                <UserMenu sub={sub} />
+                <UserMenu sub={sub} settingsTo={settingsTo} />
             </div>
         </div>
     )
 }
 
 /**
- * 用户菜单 —— 只做退出。
+ * 用户菜单 —— 账号设置 + 退出。
+ *
+ * ★ 设置入口在侧栏底部也有一个；放这里是因为供应商端 full 模式没有侧栏，那时这里是唯一入口。
  *
  * ★ 身份切换（一个账号多身份）是原型演示专属功能，2026-11-02 随 mock 层一起删掉：
  *   真实登录下一个账号只属于一个端，不存在「切换」。原来那段代码在空种子下
  *   本来也恒为假 —— 留着只是让人以为这里有功能。
  */
-function UserMenu({ sub }: { sub: string }) {
+function UserMenu({ sub, settingsTo }: { sub: string; settingsTo?: string }) {
     const { t } = useI18n()
     const session = useSession()
     const navigate = useNavigate()
@@ -141,6 +143,14 @@ function UserMenu({ sub }: { sub: string }) {
             </button>
             {open && (
                 <div className="idmenu down">
+                    {settingsTo && (
+                        <>
+                            <button type="button" onClick={() => { setOpen(false); navigate(settingsTo) }}>
+                                {t.nav.settings}
+                            </button>
+                            <div className="imd" />
+                        </>
+                    )}
                     <button className="out" type="button" onClick={signOut}>
                         {t.nav.signOut}
                     </button>
