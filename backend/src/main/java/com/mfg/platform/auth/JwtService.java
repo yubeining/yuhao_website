@@ -92,7 +92,10 @@ public class JwtService {
         }
         claims.put(CLAIM_PARTY_TYPE, principal.partyType().name());
         claims.put(CLAIM_EMAIL, principal.email() == null ? "" : principal.email());
-        claims.put(CLAIM_LOCALE, principal.locale() == null ? "en" : principal.locale());
+        // 账号没存语言就不写这一项（不兜底成 "en"，见 AuthService.localeOr）
+        if (principal.locale() != null) {
+            claims.put(CLAIM_LOCALE, principal.locale());
+        }
         claims.put(CLAIM_ROLES, List.copyOf(principal.roles() == null ? Set.of() : principal.roles()));
         return Jwts.builder()
                 .subject(principal.id().toString())

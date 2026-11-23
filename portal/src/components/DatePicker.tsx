@@ -11,7 +11,7 @@
  *   所以内部只传 `YYYY-MM-DD` 字符串，运算用 `new Date(y, m, d)`（本地时区）。
  */
 
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { useI18n } from '../i18n/I18nProvider'
 
@@ -46,6 +46,25 @@ export function DatePicker({ value, onChange, placeholder }: {
     /** 弹层用 fixed 定位挂到 body：卡片有 overflow:hidden，留在原地会被裁掉 */
     const [pos, setPos] = useState<{ top: number; left: number } | null>(null)
 
+    /**
+     * 弹层位置：默认在输入框下方；下方放不下、上方放得下时翻到上方；都放不下就贴视口底边。
+     * 以前只会往下放，输入框靠近视口底部时日历下半截被裁掉、点不到日期。
+     * 弹层高度要等它渲染出来才量得到，没渲染时按 0 算（先放下方，见下面的 useLayoutEffect）。
+     */
+    const place = () => {
+        const rect = boxRef.current?.getBoundingClientRect()
+        if (!rect) return null
+        const width = 296
+        const height = popRef.current?.offsetHeight ?? 0
+        const left = Math.max(8, Math.min(rect.left, window.innerWidth - width - 8))
+        const below = rect.bottom + 6
+        const above = rect.top - 6 - height
+        const fitsBelow = below + height <= window.innerHeight - 8
+        // 上下都放不下（视口很矮）：贴着视口底边放，盖住输入框也要保证整张日历看得见
+        const top = fitsBelow ? below : above >= 8 ? above : Math.max(8, window.innerHeight - 8 - height)
+        return { top, left }
+    }
+
     // 外部点击 / Esc 关闭
     useEffect(() => {
         if (!open) return
@@ -63,9 +82,7 @@ export function DatePicker({ value, onChange, placeholder }: {
         const onMove = () => {
             const rect = boxRef.current?.getBoundingClientRect()
             if (!rect || rect.bottom < 0 || rect.top > window.innerHeight) { setOpen(false); return }
-            const width = 296
-            const left = Math.min(rect.left, window.innerWidth - width - 8)
-            setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
+            setPos(place())
         }
         document.addEventListener('mousedown', onDown)
         document.addEventListener('keydown', onKey)
@@ -84,13 +101,14 @@ export function DatePicker({ value, onChange, placeholder }: {
         if (!open) return
         const cur = parse(value) ?? today()
         setView({ y: cur.y, m: cur.m })
-        const rect = boxRef.current?.getBoundingClientRect()
-        if (rect) {
-            const width = 296
-            const left = Math.min(rect.left, window.innerWidth - width - 8)
-            setPos({ top: rect.bottom + 6, left: Math.max(8, left) })
-        }
+        setPos(place())
     }, [open, value])
+
+    // 第一次打开时弹层还没渲染、量不到高度，先放在下方；渲染出来后（绘制前）按真实高度再定一次
+    const placed = pos !== null
+    useLayoutEffect(() => {
+        if (open && placed) setPos(place())
+    }, [open, placed])
 
     const monthTitle = useMemo(() => {
         const d = new Date(view.y, view.m, 1)

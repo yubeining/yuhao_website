@@ -238,7 +238,11 @@ public class AuthService {
         return account == null ? null : account.trim().toLowerCase();
     }
 
+    /**
+     * 账号没存语言就是 null，不替它兜底成某种语言：前端把账号语言排在浏览器语言前面，
+     * 兜底成 "en" 会让没设语言的人一律看英文（2026-11-23 拍板：没存就跟浏览器）。
+     */
     private static String localeOr(String locale) {
-        return locale == null || locale.isBlank() ? "en" : locale;
+        return locale == null || locale.isBlank() ? null : locale;
     }
 }

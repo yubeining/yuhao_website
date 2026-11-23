@@ -175,11 +175,11 @@ export function SupplierOrdersPage() {
                                                 {l.replacesPartId && <div className="t2">{t.supplier.orders.reworkLine}</div>}
                                                 {inFlow && l.status === 'PENDING' && (
                                                     <div><button className="btn qui sm" type="button" disabled={busy}
-                                                        onClick={() => act(() => startSupplierLine(o.id, l.id))}>{t.supplier.orders.start}</button></div>
+                                                        onClick={async () => { if (await askConfirm(t.supplier.orders.startConfirm)) act(() => startSupplierLine(o.id, l.id)) }}>{t.supplier.orders.start}</button></div>
                                                 )}
                                                 {inFlow && l.status === 'IN_PRODUCTION' && (
                                                     <div><button className="btn qui sm" type="button" disabled={busy}
-                                                        onClick={() => act(() => producedSupplierLine(o.id, l.id))}>{t.supplier.orders.produced}</button></div>
+                                                        onClick={async () => { if (await askConfirm(t.supplier.orders.producedConfirm)) act(() => producedSupplierLine(o.id, l.id)) }}>{t.supplier.orders.produced}</button></div>
                                                 )}
                                             </td>
                                         </tr>

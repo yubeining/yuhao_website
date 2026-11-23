@@ -29,7 +29,8 @@ export interface Session {
     refreshToken?: string
     partyType: PartyType
     displayName: string
-    locale: string
+    /** 账号没存语言时为 null —— 这时按浏览器语言显示（i18n/lang.ts detect） */
+    locale: string | null
 }
 
 const STORAGE_KEY = 'mfg.session'

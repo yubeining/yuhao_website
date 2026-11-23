@@ -15,7 +15,7 @@ export interface TokenResponse {
     refreshToken: string
     portalType: PartyType
     displayName: string
-    locale: string
+    locale: string | null
 }
 
 export interface UserView {

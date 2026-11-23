@@ -191,6 +191,7 @@ export interface Strings {
             fldCancel: string
             reworkLine: string
             start: string; produced: string
+            startConfirm: string; producedConfirm: string
             awaitingContract: string; withdraw: string
             signNote: string; signConfirm: string
             waitingSignConfirm: (total: string, due: string) => string
@@ -415,7 +416,7 @@ export interface Strings {
         confirmOffer: (n: number) => string; offered: string
         confirmPublish: string; published: string
         confirmRecall: string; recalled: string
-        contractCreated: string; confirmCancelContract: string; contractCancelled: string
+        confirmCreateContract: string; contractCreated: string; confirmCancelContract: string; contractCancelled: string
         confirmRevokeSupplier: (name: string) => string; revokedSupplier: string
         confirmUnallocate: (code: string) => string; unallocated: (code: string) => string
         summaryTitle: string; fldLines: string; fldTotalQty: string; fldMode: string
@@ -630,6 +631,8 @@ export const STRINGS: Record<Lang, Strings> = {
             fldCancel: '取消',
             reworkLine: '返工 / 重做件',
             start: '开工', produced: '完工',
+            startConfirm: '这一行开工？开工后不能撤回。',
+            producedConfirm: '这一行已经完工？报完工后不能撤回。',
             awaitingContract: '等平台把合同建出来。到期还没签字，这张单会自动取消、退回平台重派。',
             withdraw: '退单',
             signNote: '签字即确认这张单的零件、价格和交期，签完不能退、不能改。',
@@ -891,6 +894,7 @@ export const STRINGS: Record<Lang, Strings> = {
         confirmOffer: (n) => `定向派给 ${n} 家？先到先得，谁先接给谁。`, offered: '已定向派出',
         confirmPublish: '挂到全市场？所有可派单的供应商都看得到，先到先得。', published: '已挂全市场',
         confirmRecall: '收回？还没人接，收回后回到组装中。', recalled: '已收回',
+        confirmCreateContract: '建合同、发给供应商签字？签字前可以作废。',
         contractCreated: '合同已建，等供应商签字',
         confirmCancelContract: '作废这份合同？回到「已接单、等合同」，可以重新建。',
         contractCancelled: '合同已作废',
@@ -1204,6 +1208,8 @@ export const STRINGS: Record<Lang, Strings> = {
             fldCancel: 'Cancelled',
             reworkLine: 'Rework / remake',
             start: 'Start', produced: 'Mark produced',
+            startConfirm: 'Start production on this line? This cannot be undone.',
+            producedConfirm: 'Mark this line as produced? This cannot be undone.',
             awaitingContract: 'Waiting for us to issue the contract. If it is not signed in time, the order is cancelled automatically and re-dispatched.',
             withdraw: 'Withdraw',
             signNote: 'Signing confirms the parts, price and due date of this order. It cannot be withdrawn or changed afterwards.',
@@ -1465,6 +1471,7 @@ export const STRINGS: Record<Lang, Strings> = {
         confirmOffer: (n) => `Offer to ${n} supplier${n === 1 ? '' : 's'}? First come, first served.`, offered: 'Offered',
         confirmPublish: 'Publish to the open market? Every dispatchable supplier can see it. First come, first served.', published: 'Published to market',
         confirmRecall: 'Withdraw? Nobody has accepted it yet; it goes back to assembling.', recalled: 'Withdrawn',
+        confirmCreateContract: 'Create the contract and send it to the supplier to sign? It can be cancelled before signing.',
         contractCreated: 'Contract created; waiting for the supplier to sign',
         confirmCancelContract: 'Cancel this contract? It returns to “accepted, awaiting contract” and can be recreated.',
         contractCancelled: 'Contract cancelled',

@@ -113,8 +113,9 @@ export function OpsProdPage() {
         void run(() => recallOpsOrder(order.id).then(() => undefined), t.prodDetail.recalled)
     }
 
-    const createContract = () => {
+    const createContract = async () => {
         if (!accepted) return
+        if (!(await askConfirm(t.prodDetail.confirmCreateContract))) return
         void run(() => createSupplierContract(accepted.id).then(() => undefined), t.prodDetail.contractCreated)
     }
 

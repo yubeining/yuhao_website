@@ -56,6 +56,29 @@ class MeLocaleIT {
         assertThat(externalUsers.findByEmail(email).orElseThrow().getLocale()).isEqualTo("zh");
     }
 
+    /**
+     * 账号没存语言时，登录响应和 access token 里都不能替它填一个语言 ——
+     * 以前兜底成 "en"，前端把它当成账号偏好，压过了浏览器语言，没设语言的人一律看英文。
+     */
+    @Test
+    void accountWithoutLocaleGetsNoLocaleOnLogin() throws Exception {
+        String email = register();
+        JsonNode data = loginData(email);
+
+        assertThat(data.path("locale").isNull() || data.path("locale").isMissingNode()).isTrue();
+        String payload = new String(java.util.Base64.getUrlDecoder()
+                .decode(data.path("accessToken").asText().split("\\.")[1]), java.nio.charset.StandardCharsets.UTF_8);
+        assertThat(json.readTree(payload).has("locale")).isFalse();
+    }
+
+    @Test
+    void accountLocaleIsReturnedOnLogin() throws Exception {
+        String email = register();
+        patch("/customer/me/locale", "{\"locale\":\"zh\"}", login(email));
+
+        assertThat(loginData(email).path("locale").asText()).isEqualTo("zh");
+    }
+
     @Test
     void unsupportedLocaleIsRejected() throws Exception {
         String email = register();
@@ -96,12 +119,16 @@ class MeLocaleIT {
     }
 
     private String login(String email) throws Exception {
+        return loginData(email).path("accessToken").asText();
+    }
+
+    private JsonNode loginData(String email) throws Exception {
         HttpHeaders headers = new HttpHeaders();
         headers.setContentType(MediaType.APPLICATION_JSON);
         ResponseEntity<String> res = rest.postForEntity(url("/auth/login"),
                 new HttpEntity<>(new ExternalAuthController.ExternalLoginRequest(email, "password123"), headers),
                 String.class);
-        return json.readTree(res.getBody()).path("data").path("accessToken").asText();
+        return json.readTree(res.getBody()).path("data");
     }
 
     private ResponseEntity<String> patch(String path, String body, String bearer) {
