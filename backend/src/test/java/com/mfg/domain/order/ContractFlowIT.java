@@ -9,6 +9,8 @@ import com.mfg.platform.identity.Organization;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.identity.dto.RegisterRequest;
 import com.mfg.platform.storage.StorageService;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.LockModeType;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -26,6 +28,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.context.ActiveProfiles;
+import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.support.TransactionTemplate;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
@@ -40,6 +46,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.Mockito.doAnswer;
 
 /**
  * 合同：运营建合同 → 供应商签字锁定；7 天不签自动回待派（2026-09-20 需求方拍板，设计文档 12 §4）。
@@ -89,6 +96,15 @@ class ContractFlowIT {
 
     @Autowired
     private SignTimeoutJob signTimeout;
+
+    @Autowired
+    private PlatformTransactionManager txManager;
+
+    @MockitoSpyBean
+    private OpsOrderRepository opsOrderRepository;
+
+    @Autowired
+    private EntityManager entityManager;
 
     private String ops;
 
@@ -162,6 +178,39 @@ class ContractFlowIT {
         assertThat(get("/supplier/orders/" + b.supplierOrderId(), b.supplier().token()).path("cancelReason").asText())
                 .isEqualTo("REVOKED");
         assertThat(get("/ops/ops-orders/" + b.opsOrderId(), ops).path("status").asText()).isEqualTo("ASSEMBLING");
+    }
+
+    /**
+     * ★ 退单在等锁的时候，别人把合同签了 —— 拿到锁之后必须看到「已签」。
+     *
+     * <p>以前是「先读供应商订单 → 锁生产订单 → 再读一次」，但同一个事务里第二次读拿到的是
+     * Hibernate 缓存的同一个对象，状态还是锁之前的「待签」：业务判断放行，最后靠 @Version
+     * 在 flush 时撞成一个笼统的 409，而不是 {@code dispatch.contract_signed}。
+     *
+     * <p>「等锁期间别人签了字」用 spy 在拿锁前插一个独立事务来模拟，同一线程、结果确定。
+     */
+    @Test
+    void aWithdrawWaitingForTheLockSeesTheSignatureMadeMeanwhile() throws Exception {
+        Accepted a = accepted("lock-race");
+        ok(rawPost("/ops/supplier-orders/" + a.supplierOrderId() + "/contract", null, ops));
+
+        TransactionTemplate other = new TransactionTemplate(txManager);
+        other.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        doAnswer(inv -> {
+            other.executeWithoutResult(s -> jdbc.update("update supplier_order set status = 'CONTRACTED',"
+                    + " signed_at = now(), version = version + 1 where id = ?::uuid", a.supplierOrderId()));
+            // spy 包的是 Spring Data 代理，callRealMethod 调不到；用同一个事务里的 EntityManager 照原样拿锁
+            return entityManager.createQuery("select o from OpsOrder o where o.id = :id", OpsOrder.class)
+                    .setParameter("id", inv.getArgument(0))
+                    .setLockMode(LockModeType.PESSIMISTIC_WRITE)
+                    .getResultStream().findFirst();
+        }).when(opsOrderRepository).lockById(UUID.fromString(a.opsOrderId()));
+        try {
+            assertConflict(rawPost("/supplier/orders/" + a.supplierOrderId() + "/withdraw", null, a.supplier().token()),
+                    "dispatch.contract_signed");
+        } finally {
+            org.mockito.Mockito.reset(opsOrderRepository);
+        }
     }
 
     @Test

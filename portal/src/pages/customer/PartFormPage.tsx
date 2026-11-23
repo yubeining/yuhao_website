@@ -23,9 +23,9 @@ import {
     Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pill,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { humanSize, parseDrawingName } from '../../mock/drawing'
-import { X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { humanSize, parseDrawingName } from '../../lib/drawing'
+import { X } from '../../lib/format'
 import {
     addLine, ApiError, filePreviewUrl, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
     uploadDrawing, type FileView, type OrderLineView, type OrderView, type PartView,
@@ -68,7 +68,7 @@ function prefilled(prev: Form, files: File[]): Form {
 const ext = (name: string) => (name.split('.').pop() || '').toUpperCase()
 
 export function PartFormPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '', partId = 'new' } = useParams()

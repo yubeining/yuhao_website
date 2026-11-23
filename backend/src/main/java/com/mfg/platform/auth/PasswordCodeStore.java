@@ -38,17 +38,19 @@ class PasswordCodeStore {
         return redis.get(CacheKeys.passwordCode(purpose.name(), subject), String.class);
     }
 
-    int attempts(Purpose purpose, String subject) {
-        Integer n = redis.get(CacheKeys.passwordCodeAttempts(purpose.name(), subject), Integer.class);
-        return n == null ? 0 : n;
-    }
-
-    int recordFailure(Purpose purpose, String subject, int ttlSeconds) {
+    /** 记一次尝试（比对之前就记），返回累计次数。为什么先记见 {@link OtpCodeStore#countAttempt}。 */
+    int countAttempt(Purpose purpose, String subject, int ttlSeconds) {
         return (int) redis.increment(CacheKeys.passwordCodeAttempts(purpose.name(), subject), ttlSeconds);
     }
 
+    /** 码对了：把这次尝试退回去 —— 码对了但新密码不合规时，用户改密码重交不该耗掉次数。 */
+    void refundAttempt(Purpose purpose, String subject) {
+        redis.decrement(CacheKeys.passwordCodeAttempts(purpose.name(), subject));
+    }
+
     void clear(Purpose purpose, String subject) {
-        redis.delete(CacheKeys.passwordCode(purpose.name(), subject));
-        redis.delete(CacheKeys.passwordCodeAttempts(purpose.name(), subject));
+        // 出错要抛：删不掉 = 用过的码还能再用一次
+        redis.deleteStrict(CacheKeys.passwordCode(purpose.name(), subject));
+        redis.deleteStrict(CacheKeys.passwordCodeAttempts(purpose.name(), subject));
     }
 }

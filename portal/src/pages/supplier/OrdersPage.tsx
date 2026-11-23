@@ -11,11 +11,12 @@
 
 import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { Pagination } from '../../components/Pagination'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, M, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, M, X } from '../../lib/format'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     listSupplierOrders, producedSupplierLine, shipSupplierOrder, signSupplierOrder, startSupplierLine,
@@ -29,14 +30,14 @@ import { useConfirm } from '../../components/ConfirmDialog'
 const IN_PRODUCTION_FLOW = ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED']
 
 export function SupplierOrdersPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<SupplierOrderView[] | null>(null)
     const [total, setTotal] = useState(0)
     const [page, setPage] = usePageParam()
     const [prices, setPrices] = useState<Record<string, OrderPrice>>({})
     const [err, setErr] = useState<string | null>(null)
-    const [busy, setBusy] = useState(false)
+    const { busy, run } = useBusy((e) => setErr(errorText(t, e)))
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; orderId: string; lineId: string; fileId: string } | null>(null)
 
     const load = useCallback(async (pageNo: number) => {
@@ -57,30 +58,19 @@ export function SupplierOrdersPage() {
         if (!(await askConfirm(t.supplier.orders.waitingSignConfirm(
             // 价格没取到就显示占位符 —— 以前回落成 ¥ 0.00，在一个不可撤销的签字确认里是个假数字
             prices[o.id]?.total != null ? M(prices[o.id]!.total) : X, o.supplierDueDate)))) return
-        setBusy(true)
-        signSupplierOrder(o.id)
-            .then(() => load(page))
-            .catch((e) => setErr(errorText(t, e)))
-            .finally(() => setBusy(false))
+        act(() => signSupplierOrder(o.id))
     }
 
     const withdraw = async (o: SupplierOrderView) => {
         if (!(await askConfirm(t.supplier.orders.withdrawConfirm, { danger: true }))) return
-        setBusy(true)
-        withdrawSupplierOrder(o.id)
-            .then(() => load(page))
-            .catch((e) => setErr(errorText(t, e)))
-            .finally(() => setBusy(false))
+        act(() => withdrawSupplierOrder(o.id))
     }
 
-    /** 开工 / 完工 / 发货三个动作长得一样，只有调的接口不同。 */
-    const act = (run: () => Promise<unknown>) => {
-        setBusy(true)
-        run()
-            .then(() => load(page))
-            .catch((e) => setErr(errorText(t, e)))
-            .finally(() => setBusy(false))
-    }
+    /** 签字 / 退单 / 开工 / 完工 / 发货：调完接口重新加载当前页。 */
+    const act = (fn: () => Promise<unknown>) => run(async () => {
+        await fn()
+        await load(page)
+    })
 
     const ship = async (o: SupplierOrderView) => {
         if (!(await askConfirm(t.supplier.orders.shipConfirm))) return

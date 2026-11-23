@@ -8,18 +8,19 @@
  * ★ 重置后该账号其他设备全部退出，后端负责；这里只管把新登录态存下来。
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useCountdown } from '../../components/useCountdown'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { forgotPassword, resetPassword } from '../../services/auth'
 import { errorText } from '../../i18n/errorText'
 import { landingAfterSignIn, setSession } from '../../auth/session'
 
 export function ForgotPasswordPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const c = t.forgotPw
 
@@ -28,15 +29,9 @@ export function ForgotPasswordPage() {
     const [code, setCode] = useState('')
     const [pw, setPw] = useState('')
     const [pw2, setPw2] = useState('')
-    const [countdown, setCountdown] = useState(0)
+    const [countdown, setCountdown] = useCountdown()
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-
-    useEffect(() => {
-        if (countdown <= 0) return
-        const id = window.setTimeout(() => setCountdown((n) => n - 1), 1000)
-        return () => window.clearTimeout(id)
-    }, [countdown])
 
     const requestCode = async () => {
         if (busy || countdown > 0) return

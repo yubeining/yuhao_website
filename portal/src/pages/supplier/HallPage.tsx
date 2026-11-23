@@ -12,12 +12,12 @@ import { useNavigate } from 'react-router-dom'
 import { Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { Pagination } from '../../components/Pagination'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, M, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, M, X } from '../../lib/format'
 import { listSupplierOffers, supplierOfferPrices, type OfferPrice, type SupplierOfferSummary } from '../../services'
 
 export function HallPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const [offers, setOffers] = useState<SupplierOfferSummary[] | null>(null)
     const [total, setTotal] = useState(0)

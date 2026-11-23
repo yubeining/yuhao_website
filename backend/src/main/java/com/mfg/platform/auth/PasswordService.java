@@ -173,7 +173,9 @@ class PasswordService {
             audit(purpose.name().toLowerCase(), who, "expired_or_absent");
             throw new BusinessException(400, "auth.otp_expired");
         }
-        if (store.attempts(purpose, subject) >= MAX_ATTEMPTS) {
+        // 先计数再比对（为什么见 OtpCodeStore#countAttempt）
+        int attempt = store.countAttempt(purpose, subject, CODE_TTL_SECONDS);
+        if (attempt > MAX_ATTEMPTS) {
             store.clear(purpose, subject);
             throw new BusinessException(400, "auth.otp_expired");
         }
@@ -181,7 +183,7 @@ class PasswordService {
                 storedHash.getBytes(StandardCharsets.UTF_8),
                 OtpService.hashCode(subject, code).getBytes(StandardCharsets.UTF_8));
         if (!ok) {
-            if (store.recordFailure(purpose, subject, CODE_TTL_SECONDS) >= MAX_ATTEMPTS) {
+            if (attempt >= MAX_ATTEMPTS) {
                 store.clear(purpose, subject);
                 audit(purpose.name().toLowerCase(), who, "wrong_code_exhausted");
             } else {
@@ -189,6 +191,7 @@ class PasswordService {
             }
             throw new BusinessException(400, "auth.otp_code_incorrect");
         }
+        store.refundAttempt(purpose, subject);
     }
 
     /** 重置码的 subject：规整后邮箱的哈希。package-private 给同包测试放"已知码"用。 */

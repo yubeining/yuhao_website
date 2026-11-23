@@ -10,17 +10,18 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useAutoClear } from '../../components/useAutoClear'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Field, FieldRow, Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { DatePicker } from '../../components/DatePicker'
 import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
-import { fmtDate, fmtDateTime, fmtMoney, X } from '../../mock/format'
+import { fmtDate, fmtDateTime, fmtMoney, X } from '../../lib/format'
 import {
     ApiError, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
     type CustomerQuoteView, type OrderView,
@@ -29,7 +30,7 @@ import { ShipToEditor } from './ShipToEditor'
 import { lineFulfillSt, orderSt } from './status'
 
 export function OrderDetailPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const { id = '' } = useParams()
     // 从列表点进来时带着列表地址（含页码）；直接打开的链接退回列表首页
@@ -57,6 +58,7 @@ export function OrderDetailPage() {
     const load = useCallback(async () => {
         try {
             apply(await getOrder(id))
+            setMissing(false)
             setLoadErr(null)
         } catch (e) {
             // 400 = id 根本不是合法格式（比如旧原型留下的 SO-0001 书签），和 404 一样按「不存在」处理
@@ -79,12 +81,7 @@ export function OrderDetailPage() {
         getOrderQuote(order.id).then(setQuote).catch(() => setQuote(null))
     }, [order?.status, order?.id])
 
-    // 「已保存」2 秒后自己消失
-    useEffect(() => {
-        if (!saved) return
-        const timer = window.setTimeout(() => setSaved(false), 2000)
-        return () => window.clearTimeout(timer)
-    }, [saved])
+    useAutoClear(saved, () => setSaved(false))
 
     if (missing) {
         return (

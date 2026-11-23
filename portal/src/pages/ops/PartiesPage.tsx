@@ -16,8 +16,8 @@ import {
 import { errorText } from '../../i18n/errorText'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDate, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDate, X } from '../../lib/format'
 import { listSuppliers, setSupplierCapability, setSupplierDiscount, type SupplierView } from '../../services'
 
 const RATE_RE = /^\d+(\.\d{1,4})?$/
@@ -39,7 +39,7 @@ const draftOf = (s: SupplierView): Draft => ({
 })
 
 export function OpsPartiesPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [suppliers, setSuppliers] = useState<SupplierView[] | null>(null)
     const [total, setTotal] = useState(0)
     const [page, setPage] = usePageParam()

@@ -46,4 +46,14 @@ public record PagedResponse<T>(
         int to = Math.min(from + size, total);
         return new PagedResponse<>(all.subList(from, to), page, size, total, totalPages);
     }
+
+    /**
+     * 先切页、再只为这一页拼视图。拼视图要逐条查库时用这个 ——
+     * 全部拼完再切页，看第一页也要为所有记录各查一遍库。
+     */
+    public static <E, T> PagedResponse<T> slice(List<E> all, int page, int size, Function<List<E>, List<T>> buildPage) {
+        PagedResponse<E> raw = slice(all, page, size);
+        return new PagedResponse<>(buildPage.apply(raw.items()), raw.page(), raw.pageSize(), raw.total(),
+                raw.totalPages());
+    }
 }

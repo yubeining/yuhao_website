@@ -8,19 +8,20 @@
  * ★ 供应商不走这里 —— 邀请入口已下线，供应商账号由运营在「账号管理」里建。
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useCountdown } from '../../components/useCountdown'
 import { Link, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { registerWithCode, sendOtp } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { errorText } from '../../i18n/errorText'
 import { setSession } from '../../auth/session'
 
 export function RegisterPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const c = t.reg
 
@@ -28,16 +29,10 @@ export function RegisterPage() {
     const [code, setCode] = useState('')
     const [sent, setSent] = useState(false)
     /** 重发倒计时（秒）。0 = 可以发。 */
-    const [countdown, setCountdown] = useState(0)
+    const [countdown, setCountdown] = useCountdown()
     const [company, setCompany] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
-
-    useEffect(() => {
-        if (countdown <= 0) return
-        const id = window.setTimeout(() => setCountdown((n) => n - 1), 1000)
-        return () => window.clearTimeout(id)
-    }, [countdown])
 
     const requestCode = async () => {
         if (busy || countdown > 0) return

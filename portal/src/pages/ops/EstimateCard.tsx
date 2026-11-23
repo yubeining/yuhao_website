@@ -10,8 +10,8 @@ import { useCallback, useEffect, useState } from 'react'
 import { Modal } from '../../components/Modal'
 import { Banner, Card, CardBody, CardHead, Pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, X } from '../../lib/format'
 import { estimateLine, listLatestEstimates, type EstimateItem, type PriceEstimateView } from '../../services'
 
 const money = (v: number | null | undefined) => (v == null ? X : v.toFixed(2))
@@ -21,7 +21,7 @@ export function EstimateCard({ orderId, lines, editable }: {
     lines: { id: string; code: string; partName: string }[]
     editable: boolean
 }) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const e = t.estimate
     const [byLine, setByLine] = useState<Record<string, PriceEstimateView>>({})
     const [running, setRunning] = useState<string | null>(null)
@@ -105,7 +105,7 @@ export function EstimateCard({ orderId, lines, editable }: {
 }
 
 function EstimateDetail({ code, v, onClose }: { code: string; v: PriceEstimateView; onClose: () => void }) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const e = t.estimate
 
     const itemName = (it: EstimateItem) => (it.kind === 'FIXED' ? e.kind.FIXED : it.name || X)

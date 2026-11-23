@@ -122,12 +122,15 @@ class ProductionService {
         if (orders.isEmpty()) {
             return PagedResponse.slice(List.of(), page.page(), page.size());
         }
-        Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
-                        orders.stream().map(SupplierOrder::getId).toList()).stream()
-                .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
-        return PagedResponse.slice(orders.stream()
-                .map(so -> views.forOps(so, sorted(partsByOrder.getOrDefault(so.getId(), List.of()))))
-                .toList(), page.page(), page.size());
+        // 视图逐条查库（供应商名、行明细），只为当前这一页拼
+        return PagedResponse.slice(orders, page.page(), page.size(), pageOrders -> {
+            Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
+                            pageOrders.stream().map(SupplierOrder::getId).toList()).stream()
+                    .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
+            return pageOrders.stream()
+                    .map(so -> views.forOps(so, sorted(partsByOrder.getOrDefault(so.getId(), List.of()))))
+                    .toList();
+        });
     }
 
     /**
@@ -294,9 +297,10 @@ class ProductionService {
 
     /** 供应商的写操作：先锁生产订单（和接单 / 签字同一把锁、同一个顺序），再判这张单已签字。 */
     private SupplierOrder lockSigned(UUID supplierOrgId, UUID supplierOrderId) {
-        SupplierOrder peek = supplierOrders.findByIdAndSupplierOrgId(supplierOrderId, supplierOrgId)
+        // 锁之前只取 id、不读实体（为什么见 SupplierOrderRepository#findOpsOrderIdById）
+        UUID opsOrderId = supplierOrders.findOpsOrderIdByIdAndSupplierOrgId(supplierOrderId, supplierOrgId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
-        opsOrders.lockById(peek.getOpsOrderId())
+        opsOrders.lockById(opsOrderId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
         SupplierOrder so = supplierOrders.findByIdAndSupplierOrgId(supplierOrderId, supplierOrgId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
@@ -308,9 +312,9 @@ class ProductionService {
 
     /** 运营的写操作：同样先锁生产订单。运营跨客户跨供应商，没有归属条件。 */
     private SupplierOrder lockForOps(UUID supplierOrderId) {
-        SupplierOrder peek = supplierOrders.findById(supplierOrderId)
+        UUID opsOrderId = supplierOrders.findOpsOrderIdById(supplierOrderId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
-        opsOrders.lockById(peek.getOpsOrderId())
+        opsOrders.lockById(opsOrderId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.ops_order_not_found"));
         SupplierOrder so = supplierOrders.findById(supplierOrderId).orElseThrow();
         if (!so.isSigned()) {

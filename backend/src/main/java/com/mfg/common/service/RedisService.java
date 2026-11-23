@@ -104,6 +104,39 @@ public class RedisService {
         safeDelete(key);
     }
 
+    // ---------- 认证状态 ----------
+    //
+    // ★ 下面几个不吞异常：作废验证码、吊销 / 轮换 refresh token 用它们。
+    //   缓存删失败无所谓（下次重建），认证状态删失败 = 旧码 / 旧 token 还活着，必须让调用方知道。
+
+    /** 删除，出错抛异常。 */
+    public void deleteStrict(String key) {
+        redis.delete(prefixed(key));
+    }
+
+    /**
+     * 原子地读出并删除（GETDEL）。并发调用只有一个拿得到值。
+     * Redis 出错抛异常；值反序列化不了（坏数据）返回 null —— 它已经被删掉了。
+     */
+    public <T> T getAndDelete(String key, Class<T> type) {
+        String raw = redis.opsForValue().getAndDelete(prefixed(key));
+        if (raw == null) {
+            return null;
+        }
+        try {
+            return objectMapper.readValue(raw, type);
+        } catch (Exception e) {
+            log.warn("getAndDelete parse failed: key={}", key);
+            return null;
+        }
+    }
+
+    /** 计数减一，出错抛异常。 */
+    public long decrement(String key) {
+        Long value = redis.opsForValue().decrement(prefixed(key));
+        return value == null ? 0L : value;
+    }
+
     private void safeDelete(String key) {
         try {
             redis.delete(prefixed(key));

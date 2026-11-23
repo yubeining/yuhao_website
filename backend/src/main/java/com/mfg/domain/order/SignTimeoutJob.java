@@ -98,12 +98,13 @@ class SignTimeoutJob {
 
     private boolean cancelOne(UUID supplierOrderId, Instant now) {
         return Boolean.TRUE.equals(tx.execute(status -> {
-            SupplierOrder peek = supplierOrders.findById(supplierOrderId).orElse(null);
-            if (peek == null) {
+            UUID opsOrderId = supplierOrders.findOpsOrderIdById(supplierOrderId).orElse(null);
+            if (opsOrderId == null) {
                 return false;
             }
-            // 锁生产订单：和接单 / 签字 / 退单 / 收回是同一把锁，扫描不会和它们打架
-            OpsOrder o = opsOrders.lockById(peek.getOpsOrderId()).orElse(null);
+            // 锁生产订单：和接单 / 签字 / 退单 / 收回是同一把锁，扫描不会和它们打架。
+            // 锁之前只取 id、不读实体（为什么见 SupplierOrderRepository#findOpsOrderIdById）
+            OpsOrder o = opsOrders.lockById(opsOrderId).orElse(null);
             SupplierOrder so = supplierOrders.findById(supplierOrderId).orElseThrow();
             if (o == null || !so.isOpenBeforeSigning()
                     || so.getAcceptedAt().isAfter(deadline.overdueBefore(now))) {

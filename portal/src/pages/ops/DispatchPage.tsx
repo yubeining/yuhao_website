@@ -9,14 +9,15 @@
 
 import { useAutoClear } from '../../components/useAutoClear'
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDate, fmtDateTime, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDate, fmtDateTime, X } from '../../lib/format'
 import {
     allocateLine, createOpsDispatchOrder, dispatchPool, listOpsDispatchOrders,
     type OpsOrderSummary, type PoolLine,
@@ -25,7 +26,7 @@ import { dispatchMode, opsOrderSt, shortId } from './dispatchStatus'
 import { Pagination } from '../../components/Pagination'
 
 export function OpsDispatchPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const location = useLocation()
     // ★ 两个列表的页码放在网址里（?pp=2&op=3），从生产订单详情返回时不丢，理由同报价列表
@@ -50,7 +51,7 @@ export function OpsDispatchPage() {
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     useAutoClear(ok, () => setOk(null))
-    const [busy, setBusy] = useState(false)
+    const { busy, run: runBusy } = useBusy((e) => setErr(errorText(t, e)))
 
     const load = useCallback(async (poolPageNo: number, ordersPageNo: number) => {
         try {
@@ -72,17 +73,10 @@ export function OpsDispatchPage() {
 
     useEffect(() => { void load(poolPage, ordersPage) }, [load, poolPage, ordersPage])
 
-    const run = async (fn: () => Promise<void>) => {
-        setBusy(true)
-        try {
-            await fn()
-            setErr(null)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
+    const run = (fn: () => Promise<void>) => runBusy(async () => {
+        await fn()
+        setErr(null)
+    })
 
     const create = () => run(async () => {
         const o = await createOpsDispatchOrder()

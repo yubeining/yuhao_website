@@ -9,28 +9,33 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { Link, useParams } from 'react-router-dom'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, fmtMoney, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, fmtMoney, X } from '../../lib/format'
 import {
     ApiError, confirmQuote, getOrderQuote, rejectQuote, type CustomerQuoteView,
 } from '../../services'
 import { quoteSt } from './status'
 
 export function QuoteDetailPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const { id = '' } = useParams()
     const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
     const [missing, setMissing] = useState(false)
     const [loadErr, setLoadErr] = useState<string | null>(null)
     const [err, setErr] = useState<string | null>(null)
-    const [busy, setBusy] = useState(false)
+    // 出错时重新拉一次：报价可能已经被别人确认 / 改过，按服务端最新状态显示
+    const { busy, run } = useBusy(async (e) => {
+        setErr(errorText(t, e))
+        await load()
+    })
     /** 确认是不可逆的（锁汇率、客户侧没有撤回的流转），所以点了先问一次；拒绝反而可以重报。 */
     const [asking, setAsking] = useState(false)
 
@@ -74,18 +79,10 @@ export function QuoteDetailPage() {
     const open = quote.status === 'SENT'
     const rejected = quote.status === 'REJECTED'
 
-    const act = async (fn: () => Promise<CustomerQuoteView>) => {
-        setBusy(true)
-        try {
-            setQuote(await fn())
-            setErr(null)
-        } catch (e) {
-            setErr(errorText(t, e))
-            await load()
-        } finally {
-            setBusy(false)
-        }
-    }
+    const act = (fn: () => Promise<CustomerQuoteView>) => run(async () => {
+        setQuote(await fn())
+        setErr(null)
+    })
 
     const confirm = async () => {
         if (!quote.rateDate) return

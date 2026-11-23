@@ -191,7 +191,9 @@ public class OtpService {
             audit("verify", channel, normalized, "expired_or_absent");
             throw new BusinessException(400, "auth.otp_expired");
         }
-        if (store.attempts(channel, identifierHash) >= MAX_ATTEMPTS) {
+        // 先计数再比对（为什么见 OtpCodeStore#countAttempt）。第 MAX_ATTEMPTS 次仍可尝试，之后一律作废。
+        int attempt = store.countAttempt(channel, identifierHash, CODE_TTL_SECONDS);
+        if (attempt > MAX_ATTEMPTS) {
             store.clear(channel, identifierHash);
             audit("verify", channel, normalized, "attempts_exhausted");
             throw new BusinessException(400, "auth.otp_expired");
@@ -202,8 +204,7 @@ public class OtpService {
                 storedHash.getBytes(StandardCharsets.UTF_8),
                 hashCode(identifierHash, code).getBytes(StandardCharsets.UTF_8));
         if (!ok) {
-            int failures = store.recordFailure(channel, identifierHash, CODE_TTL_SECONDS);
-            if (failures >= MAX_ATTEMPTS) {
+            if (attempt >= MAX_ATTEMPTS) {
                 store.clear(channel, identifierHash);
                 audit("verify", channel, normalized, "wrong_code_exhausted");
             } else {

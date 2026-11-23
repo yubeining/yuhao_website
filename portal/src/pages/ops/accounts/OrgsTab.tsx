@@ -1,6 +1,7 @@
 /** 账号管理 · 组织（公司）。新建 / 编辑走居中弹框；客户组织在这里设自己的报价系数。 */
 
 import { useCallback, useState } from 'react'
+import { fmtIsoDate } from '../../../lib/format'
 import { CountrySelect } from '../../../components/CountrySelect'
 import { useConfirm } from '../../../components/ConfirmDialog'
 import { Modal } from '../../../components/Modal'
@@ -8,7 +9,7 @@ import { Field, Input } from '../../../components/form'
 import { Banner, Card, CardBody, CardHead, TableWrap } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
 import { OTHER_COUNTRY, countryName } from '../../../i18n/countries'
-import { useMock } from '../../../mock/MockProvider'
+import { useI18n } from '../../../i18n/I18nProvider'
 import {
     createOrganization, disableOrganization, listOrganizations, updateOrganization, type OrganizationAdminView,
 } from '../../../services/ops/accounts'
@@ -16,7 +17,7 @@ import {
     clearCustomerMarkup, getCustomerMarkup, setCustomerMarkup, type MarkupView,
 } from '../../../services/ops/quotes'
 import {
-    day, FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
+    FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
 } from './shared'
 
 /** 报价系数：大于 0，最多 4 位小数（和后端的校验一致）。 */
@@ -25,7 +26,7 @@ const RATE_RE = /^\d+(\.\d{1,4})?$/
 type OrgForm = { id?: string; type: string; name: string; country: string; markup: string }
 
 export function OrgsTab() {
-    const { t, lang } = useMock()
+    const { t, lang } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const [type, setType] = useState('')
@@ -152,7 +153,7 @@ export function OrgsTab() {
                                                 <StatusPill status={r.status}
                                                     label={r.status === 'ACTIVE' ? a.statusActive : a.statusDisabled} />
                                             </td>
-                                            <td className="n">{day(r.createdAt)}</td>
+                                            <td className="n">{fmtIsoDate(r.createdAt)}</td>
                                             <RowActions status={r.status} busy={list.busy}
                                                 onEdit={() => openEdit(r)}
                                                 onDisable={() => void disable(r)}

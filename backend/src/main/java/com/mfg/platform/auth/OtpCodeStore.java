@@ -36,20 +36,19 @@ class OtpCodeStore {
         return redis.get(CacheKeys.otpCode(channel.name(), identifierHash), String.class);
     }
 
-    int attempts(OtpChannel channel, String identifierHash) {
-        Integer n = redis.get(CacheKeys.otpAttempts(channel.name(), identifierHash), Integer.class);
-        return n == null ? 0 : n;
-    }
-
-    /** 记一次失败，返回累计次数。 */
-    int recordFailure(OtpChannel channel, String identifierHash, int ttlSeconds) {
+    /**
+     * 记一次尝试（比对之前就记），返回累计次数。
+     * ★ 先计数再比对：先读次数再比对的话，N 个并发猜测都读到「还没错满」，上限挡不住。
+     */
+    int countAttempt(OtpChannel channel, String identifierHash, int ttlSeconds) {
         long n = redis.increment(CacheKeys.otpAttempts(channel.name(), identifierHash), ttlSeconds);
         return (int) n;
     }
 
     /** 一次性：校验成功、或试错次数用尽、或要作废时，两个 key 一起删。 */
     void clear(OtpChannel channel, String identifierHash) {
-        redis.delete(CacheKeys.otpCode(channel.name(), identifierHash));
-        redis.delete(CacheKeys.otpAttempts(channel.name(), identifierHash));
+        // 出错要抛：删不掉 = 用过的码还能再用一次
+        redis.deleteStrict(CacheKeys.otpCode(channel.name(), identifierHash));
+        redis.deleteStrict(CacheKeys.otpAttempts(channel.name(), identifierHash));
     }
 }

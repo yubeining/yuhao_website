@@ -12,8 +12,8 @@ import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, M, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, M, X } from '../../lib/format'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import {
     acceptSupplierOffer, ApiError, declineSupplierOffer, getSupplierOffer, supplierOfferFilePreviewUrl,
@@ -22,7 +22,7 @@ import {
 import { useConfirm } from '../../components/ConfirmDialog'
 
 export function HallDetailPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const { id = '' } = useParams()

@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Input, Select } from '../../components/form'
 import { DatePicker } from '../../components/DatePicker'
@@ -23,8 +24,8 @@ import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, fmtMoney, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, fmtMoney, X } from '../../lib/format'
 import {
     ApiError, getCustomerMarkup, getOpsOrder, listOrderQuotes, opsLineFileViewUrl,
     opsLineFilePreviewUrl, QUOTE_CURRENCIES, sendQuote,
@@ -39,7 +40,7 @@ import { ShipToCard } from '../../components/ShipToCard'
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
 export function OpsQuoteWorkPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const location = useLocation()
     const navigate = useNavigate()
     const [askConfirm, confirmDialog] = useConfirm()
@@ -55,7 +56,7 @@ export function OpsQuoteWorkPage() {
     const [commitDate, setCommitDate] = useState('')
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
-    const [busy, setBusy] = useState(false)
+    const { busy, run: runBusy } = useBusy((e) => setErr(errorText(t, e)))
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
     /** 点过「发出报价」才提示缺什么，输入过程中不实时报错 */
     const [tried, setTried] = useState(false)
@@ -140,17 +141,10 @@ export function OpsQuoteWorkPage() {
         setDirty(true)
     }
 
-    const run = async (fn: () => Promise<void>) => {
-        setBusy(true)
-        try {
-            await fn()
-            setErr(null)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
+    const run = (fn: () => Promise<void>) => runBusy(async () => {
+        await fn()
+        setErr(null)
+    })
 
     const doSend = async () => {
         if (typeof input === 'string') { setTried(true); return }

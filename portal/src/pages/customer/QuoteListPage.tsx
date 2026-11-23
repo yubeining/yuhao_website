@@ -9,14 +9,14 @@ import { useCallback, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Card, CardBody, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, fmtMoney, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, fmtMoney, X } from '../../lib/format'
 import { Pagination } from '../../components/Pagination'
 import { listMyQuotes, listOrders, type CustomerQuoteSummaryView, type OrderSummaryView } from '../../services'
 import { quoteSt } from './status'
 
 export function QuoteListPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const [quotes, setQuotes] = useState<CustomerQuoteSummaryView[] | null>(null)
     const [total, setTotal] = useState(0)

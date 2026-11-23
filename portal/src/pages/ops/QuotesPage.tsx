@@ -12,8 +12,9 @@ import { useCallback, useEffect, useState } from 'react'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Card, CardBody, CardHead, Empty, Hello, Page, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import type { Strings } from '../../i18n/strings'
+import { fmtDateTime, X } from '../../lib/format'
 import { Pagination } from '../../components/Pagination'
 import {
     listOpsOrders, listQuoteSummaries, type OpsOrderSummaryView, type OpsQuoteSummaryView, type OrderStatus,
@@ -21,7 +22,7 @@ import {
 import { orderSt, quoteSt } from '../customer/status'
 
 /** 筛选项：全部 + 三个状态。文案随语言变，所以是函数不是常量。 */
-const filters = (t: ReturnType<typeof useMock>['t']): [OrderStatus | 'ALL', string][] => [
+const filters = (t: Strings): [OrderStatus | 'ALL', string][] => [
     ['ALL', t.ops.quotes.filterAll],
     ['SUBMITTED', t.ops.quotes.tabSubmitted],
     ['QUOTED', t.ops.quotes.tabQuoted],
@@ -29,7 +30,7 @@ const filters = (t: ReturnType<typeof useMock>['t']): [OrderStatus | 'ALL', stri
 ]
 
 export function OpsQuotesPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const location = useLocation()
     // ★ 筛选和页码放在网址里（?tab=SUBMITTED&page=3）：进报价工作台再返回、刷新、转发链接都不丢。

@@ -8,18 +8,15 @@
 
 import { useAutoClear } from '../../../components/useAutoClear'
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useBusy } from '../../../components/useBusy'
 import { useSearchParams } from 'react-router-dom'
 import { usePageParam } from '../../../components/usePageParam'
 import { Pagination } from '../../../components/Pagination'
 import { Banner, Empty, Pending, Pill } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
-import { useMock } from '../../../mock/MockProvider'
-import { fmtDate } from '../../../mock/format'
+import { useI18n } from '../../../i18n/I18nProvider'
 
 export const PAGE_SIZE = 20
-
-/** 本地日期。以前直接截 ISO 字符串的前 10 位，那是 UTC 日期，东八区凌晨注册的会显示成前一天。 */
-export const day = (iso: string | null) => (iso ? fmtDate(new Date(iso)) : '—')
 
 /**
  * 一个分页列表的全部状态：数据、页码、搜索、错误 / 成功提示、busy。
@@ -30,7 +27,7 @@ export const day = (iso: string | null) => (iso ? fmtDate(new Date(iso)) : '—'
  * ★ fetchPage 要用 useCallback 包住；它变了（比如组织 tab 的类型筛选变了）就重新加载。
  */
 export function usePagedList<T>(fetchPage: (q: string, pageNo: number) => Promise<{ items: T[]; total: number }>) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [rows, setRows] = useState<T[] | null>(null)
     const [total, setTotal] = useState(0)
     // ★ 页码和已生效的搜索词放在网址里（?q=...&page=3）：刷新、转发、从别处返回都不丢（2026-11-18）。
@@ -44,7 +41,7 @@ export function usePagedList<T>(fetchPage: (q: string, pageNo: number) => Promis
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     useAutoClear(ok, () => setOk(null))
-    const [busy, setBusy] = useState(false)
+    const { busy, setBusy, run } = useBusy((e) => setErr(errorText(t, e)))
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -70,18 +67,11 @@ export function usePagedList<T>(fetchPage: (q: string, pageNo: number) => Promis
     }
 
     /** 行内动作（禁用 / 启用）：busy → 调接口 → 成功提示 + 重新加载当前页；失败显示错误。 */
-    const act = async (run: () => Promise<unknown>, okText: string) => {
-        setBusy(true)
-        try {
-            await run()
-            setOk(okText)
-            await load(page)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
+    const act = (fn: () => Promise<unknown>, okText: string) => run(async () => {
+        await fn()
+        setOk(okText)
+        await load(page)
+    })
 
     return { rows, total, page, setPage, q, setQ, applied, err, setErr, ok, setOk, busy, setBusy, load, search, act }
 }
@@ -131,7 +121,7 @@ export function RowActions({ status, busy, onEdit, onDisable, onEnable }: {
     onDisable: () => void
     onEnable: () => void
 }) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const a = t.ops.accounts
     return (
         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>

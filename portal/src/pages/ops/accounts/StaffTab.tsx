@@ -1,18 +1,19 @@
 /** 账号管理 · 运营账号（内部员工）。新建时选内部组织、设初始密码；编辑只改姓名。 */
 
 import { useEffect, useState } from 'react'
+import { fmtIsoDate } from '../../../lib/format'
 import { useConfirm } from '../../../components/ConfirmDialog'
 import { Modal } from '../../../components/Modal'
 import { Field, Input } from '../../../components/form'
 import { Banner, Card, CardBody, CardHead, TableWrap } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
-import { useMock } from '../../../mock/MockProvider'
+import { useI18n } from '../../../i18n/I18nProvider'
 import {
     createStaff, disableStaff, listOrganizations, listStaff, updateStaff,
     type OrganizationAdminView, type StaffView,
 } from '../../../services/ops/accounts'
 import {
-    day, FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, SelectId, StatusPill, usePagedList,
+    FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, SelectId, StatusPill, usePagedList,
 } from './shared'
 
 type StaffForm = { id?: string; orgId: string; orgName: string; email: string; displayName: string; password: string }
@@ -20,7 +21,7 @@ type StaffForm = { id?: string; orgId: string; orgName: string; email: string; d
 const fetchStaff = (q: string, pageNo: number) => listStaff(q, pageNo, PAGE_SIZE)
 
 export function StaffTab() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const list = usePagedList<StaffView>(fetchStaff)
@@ -109,7 +110,7 @@ export function StaffTab() {
                                                 <StatusPill status={r.status}
                                                     label={r.status === 'ACTIVE' ? a.statusActive : a.statusDisabled} />
                                             </td>
-                                            <td className="n">{day(r.createdAt)}</td>
+                                            <td className="n">{fmtIsoDate(r.createdAt)}</td>
                                             <RowActions status={r.status} busy={list.busy}
                                                 onEdit={() => open({ id: r.id, orgId: r.orgId, orgName: r.orgName ?? '', email: r.email, displayName: r.displayName, password: '' })}
                                                 onDisable={() => void disable(r)}

@@ -1,21 +1,22 @@
 /** 账号管理 · 外部用户（客户 / 供应商联系人）。只能改姓名、禁用 / 启用，不能新建。 */
 
 import { useState } from 'react'
+import { fmtIsoDate } from '../../../lib/format'
 import { useConfirm } from '../../../components/ConfirmDialog'
 import { Modal } from '../../../components/Modal'
 import { Field, Input } from '../../../components/form'
 import { Banner, Card, CardBody, CardHead, TableWrap } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
-import { useMock } from '../../../mock/MockProvider'
+import { useI18n } from '../../../i18n/I18nProvider'
 import { disableAccount, listAccounts, updateAccount, type AccountView } from '../../../services/ops/accounts'
 import {
-    day, FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
+    FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
 } from './shared'
 
 const fetchUsers = (q: string, pageNo: number) => listAccounts(q, pageNo, PAGE_SIZE)
 
 export function UsersTab() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const a = t.ops.accounts
     const list = usePagedList<AccountView>(fetchUsers)
@@ -64,8 +65,8 @@ export function UsersTab() {
                                                 <StatusPill status={r.status}
                                                     label={r.status === 'ACTIVE' ? a.statusActive : a.statusDisabled} />
                                             </td>
-                                            <td>{r.emailVerifiedAt ? day(r.emailVerifiedAt) : a.unverified}</td>
-                                            <td className="n">{day(r.createdAt)}</td>
+                                            <td>{r.emailVerifiedAt ? fmtIsoDate(r.emailVerifiedAt) : a.unverified}</td>
+                                            <td className="n">{fmtIsoDate(r.createdAt)}</td>
                                             <RowActions status={r.status} busy={list.busy}
                                                 onEdit={() => { list.setOk(null); setEditing(r) }}
                                                 onDisable={() => void disable(r)}
@@ -96,7 +97,7 @@ function UserModal({ user, busy, onClose, onSaved }: {
     onClose: () => void
     onSaved: () => void
 }) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const a = t.ops.accounts
     const [name, setName] = useState(user.displayName)
     const [err, setErr] = useState<string | null>(null)

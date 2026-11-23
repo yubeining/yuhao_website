@@ -14,7 +14,7 @@ import { ShipToCard } from '../../components/ShipToCard'
 import { Banner } from '../../components/ui'
 import { useAutoClear } from '../../components/useAutoClear'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { updateShipTo, type OrderStatus, type OrderView, type ShipTo } from '../../services'
 
 const EDITABLE: OrderStatus[] = ['DRAFT', 'SUBMITTED', 'QUOTED', 'CONFIRMED']
@@ -30,7 +30,7 @@ const toForm = (a?: ShipTo | null): Form => ({
 const REQUIRED: (keyof ShipTo)[] = ['country', 'company', 'contact', 'phone', 'line1', 'city']
 
 export function ShipToEditor({ order, onSaved }: { order: OrderView; onSaved: (o: OrderView) => void }) {
-    const { t } = useMock()
+    const { t } = useI18n()
     const s = t.shipTo
     const [form, setForm] = useState<Form | null>(null)
     const [busy, setBusy] = useState(false)

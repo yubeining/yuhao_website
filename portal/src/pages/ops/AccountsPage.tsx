@@ -17,7 +17,7 @@
 
 import { useLocation } from 'react-router-dom'
 import { Hello, Page } from '../../components/ui'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { OrgsTab } from './accounts/OrgsTab'
 import { StaffTab } from './accounts/StaffTab'
 import { UsersTab } from './accounts/UsersTab'
@@ -25,7 +25,7 @@ import { UsersTab } from './accounts/UsersTab'
 type Tab = 'users' | 'orgs' | 'staff'
 
 export function OpsAccountsPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const a = t.ops.accounts
     // tab 来自 URL：/ops/accounts/users|orgs|staff —— 可收藏、可分享、刷新不丢
     const { pathname } = useLocation()

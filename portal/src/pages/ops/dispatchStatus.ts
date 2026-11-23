@@ -4,7 +4,7 @@
 
 import type { PillSpec } from '../../components/ui'
 import type { CancelReason, DispatchMode, LineStatus, OpsOrderStatus, SupplierOrderStatus } from '../../services'
-import { STRINGS, type Strings } from '../../i18n/strings'
+import type { Strings } from '../../i18n/strings'
 
 export const opsOrderSt = (t: Strings): Record<OpsOrderStatus, PillSpec> => ({
     ASSEMBLING: ['ne', t.dispatch.opsOrder.ASSEMBLING],
@@ -55,17 +55,6 @@ export const cancelReason = (t: Strings): Record<CancelReason, string> => ({
     REVOKED: t.dispatch.cancelReason.REVOKED,
     SIGN_TIMEOUT: t.dispatch.cancelReason.SIGN_TIMEOUT,
 })
-
-// ---------- 兼容别名（待删）----------
-// ops 端还有页面没迁移文案，先用中文那一份。迁完删掉。
-/** @deprecated 用 offerSt(t) */
-export const OFFER_ST = offerSt(STRINGS.zh)
-/** @deprecated 用 supplierOrderSt(t) */
-export const SUPPLIER_ORDER_ST = supplierOrderSt(STRINGS.zh)
-/** @deprecated 用 lineSt(t) */
-export const LINE_ST = lineSt(STRINGS.zh)
-/** @deprecated 用 cancelReason(t) */
-export const CANCEL_REASON = cancelReason(STRINGS.zh)
 
 /**
  * 生产订单的显示编号：id 的前 8 位。编号规则至今没定（和零件编号同一个待定项），

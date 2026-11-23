@@ -13,14 +13,15 @@
 import { DatePicker } from '../../components/DatePicker'
 import { useAutoClear } from '../../components/useAutoClear'
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { Checkbox } from '../../components/form'
 import {
     Banner, Card, CardBody, CardFoot, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, M, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, M, X } from '../../lib/format'
 import {
     ApiError, cancelSupplierContract, createSupplierContract, deleteOpsDispatchOrder, getOpsDispatchOrder,
     offerOpsOrder, opsSupplierPrices, publishOpsOrder, recallOpsOrder, revokeOpsOrderSupplier, unallocateLine,
@@ -32,7 +33,7 @@ import { useConfirm } from '../../components/ConfirmDialog'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export function OpsProdPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const location = useLocation()
     const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
@@ -45,7 +46,7 @@ export function OpsProdPage() {
     const [err, setErr] = useState<string | null>(null)
     const [ok, setOk] = useState<string | null>(null)
     useAutoClear(ok, () => setOk(null))
-    const [busy, setBusy] = useState(false)
+    const { busy, run: runBusy } = useBusy((e) => setErr(errorText(t, e)))
 
     const load = useCallback(async () => {
         try {
@@ -81,19 +82,12 @@ export function OpsProdPage() {
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     const dueProblem = !DATE_RE.test(due.trim()) ? t.prodDetail.dueProblem : null
 
-    const run = async (fn: () => Promise<void>, done?: string) => {
-        setBusy(true)
-        try {
-            await fn()
-            setErr(null)
-            if (done) setOk(done)
-            await load()
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setBusy(false)
-        }
-    }
+    const run = (fn: () => Promise<void>, done?: string) => runBusy(async () => {
+        await fn()
+        setErr(null)
+        if (done) setOk(done)
+        await load()
+    })
 
     const offer = async () => {
         if (!chosen.length) return setErr(t.prodDetail.errNoSupplier)

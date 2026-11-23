@@ -41,6 +41,12 @@ export const fmtDate = (d: Date) =>
 export const fmtDateTime = (d: Date) =>
     `${fmtDate(d)} ${pad(d.getHours())}:${pad(d.getMinutes())}`
 
+/**
+ * 后端给的 ISO 时间戳 → 本地日期 YYYY-MM-DD；没有值显示占位符。
+ * 不要直接截 ISO 字符串的前 10 位：那是 UTC 日期，东八区凌晨的时间会显示成前一天。
+ */
+export const fmtIsoDate = (iso: string | null | undefined) => (iso ? fmtDate(new Date(iso)) : X)
+
 export const today = () => fmtDate(new Date())
 
 export const now = () => fmtDateTime(new Date())

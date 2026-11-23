@@ -7,7 +7,8 @@
  * ★ 编辑走「只读 → 编辑 → 居中弹框」（CLAUDE.md §10 C7）。
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useAutoClear } from '../../components/useAutoClear'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { Modal } from '../../components/Modal'
 import { Field, Input } from '../../components/form'
@@ -15,8 +16,8 @@ import {
     Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime } from '../../lib/format'
 import {
     createCostRate, deleteCostRate, listCostRates, updateCostRate,
     type CostRateKind, type CostRateUnit, type CostRateView,
@@ -29,7 +30,7 @@ const UNITS: CostRateUnit[] = ['KG', 'HOUR', 'PIECE', 'BATCH']
 type Form = { id?: string; kind: CostRateKind; name: string; unit: CostRateUnit; price: string; note: string }
 
 export function OpsCostRatesPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const c = t.costRates
     const [askConfirm, confirmDialog] = useConfirm()
     const [rows, setRows] = useState<CostRateView[] | null>(null)
@@ -38,7 +39,6 @@ export function OpsCostRatesPage() {
     const [ok, setOk] = useState<string | null>(null)
     const [busy, setBusy] = useState(false)
     const [form, setForm] = useState<Form | null>(null)
-    const timer = useRef<number | undefined>(undefined)
 
     const load = useCallback(async () => {
         try {
@@ -50,14 +50,7 @@ export function OpsCostRatesPage() {
     }, [t])
 
     useEffect(() => { void load() }, [load])
-    useEffect(() => () => window.clearTimeout(timer.current), [])
-
-    /** 成功提示 2 秒后自己消失（C7）。 */
-    const flash = (text: string) => {
-        setOk(text)
-        window.clearTimeout(timer.current)
-        timer.current = window.setTimeout(() => setOk(null), 2000)
-    }
+    useAutoClear(ok, () => setOk(null))
 
     const open = (f: Form) => {
         setErr(null)
@@ -84,7 +77,7 @@ export function OpsCostRatesPage() {
             if (form.id) await updateCostRate(form.id, input)
             else await createCostRate(input)
             setForm(null)
-            flash(form.id ? c.saved : c.created)
+            setOk(form.id ? c.saved : c.created)
             await load()
         } catch (e) {
             setErr(errorText(t, e))
@@ -98,7 +91,7 @@ export function OpsCostRatesPage() {
         setBusy(true)
         try {
             await deleteCostRate(r.id)
-            flash(c.deleted(r.name))
+            setOk(c.deleted(r.name))
             await load()
         } catch (e) {
             setErr(errorText(t, e))

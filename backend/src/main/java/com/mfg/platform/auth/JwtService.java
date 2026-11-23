@@ -53,11 +53,9 @@ public class JwtService {
 
     private final SecretKey key;
     private final long accessTtlSeconds;
-    private final long refreshTtlSeconds;
 
     public JwtService(@Value("${app.jwt.secret:}") String secret,
-                      @Value("${app.jwt.access-token-ttl-seconds:7200}") long accessTtlSeconds,
-                      @Value("${app.jwt.refresh-token-ttl-seconds:2592000}") long refreshTtlSeconds) {
+                      @Value("${app.jwt.access-token-ttl-seconds:7200}") long accessTtlSeconds) {
         byte[] raw = secret == null ? new byte[0] : secret.getBytes(StandardCharsets.UTF_8);
         if (raw.length < MIN_SECRET_BYTES) {
             throw new IllegalStateException(
@@ -69,17 +67,12 @@ public class JwtService {
         }
         this.key = Keys.hmacShaKeyFor(raw);
         this.accessTtlSeconds = accessTtlSeconds;
-        this.refreshTtlSeconds = refreshTtlSeconds;
     }
 
     // ---------- 签发 ----------
 
     public String issueAccessToken(UserPrincipal principal) {
         return issue(principal, accessTtlSeconds);
-    }
-
-    public String issueRefreshToken(UserPrincipal principal) {
-        return issue(principal, refreshTtlSeconds);
     }
 
     private String issue(UserPrincipal principal, long ttlSeconds) {

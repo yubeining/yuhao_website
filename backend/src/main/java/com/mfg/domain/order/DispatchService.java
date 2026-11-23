@@ -294,12 +294,13 @@ class DispatchService implements OrderDispatching {
         return supplierOrderView(supplierOrders.saveAndFlush(so));
     }
 
+    /** 先锁所属生产订单，再读供应商订单。锁之前只取 id、不读实体（为什么见 SupplierOrderRepository#findOpsOrderIdById）。 */
     private SupplierOrder requireSupplierOrder(UUID supplierOrderId) {
-        SupplierOrder so = supplierOrders.findById(supplierOrderId)
+        UUID opsOrderId = supplierOrders.findOpsOrderIdById(supplierOrderId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
-        opsOrders.lockById(so.getOpsOrderId())
+        opsOrders.lockById(opsOrderId)
                 .orElseThrow(() -> BusinessException.notFound("dispatch.ops_order_not_found"));
-        return so;
+        return supplierOrders.findById(supplierOrderId).orElseThrow();
     }
 
     private DispatchViews.OpsSupplierOrder supplierOrderView(SupplierOrder so) {

@@ -11,15 +11,15 @@ import {
     Banner, Card, CardBody, Empty, Hello, Page, Pending, Pill, pill, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDate } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDate } from '../../lib/format'
 import { Pagination } from '../../components/Pagination'
 import { createOrder, deleteOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 import { useConfirm } from '../../components/ConfirmDialog'
 
 export function OrderListPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const navigate = useNavigate()
     const [orders, setOrders] = useState<OrderSummaryView[] | null>(null)

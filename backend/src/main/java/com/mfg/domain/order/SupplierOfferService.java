@@ -150,12 +150,14 @@ class SupplierOfferService {
         if (list.isEmpty()) {
             return PagedResponse.slice(List.of(), page.page(), page.size());
         }
-        Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
-                list.stream().map(SupplierOrder::getId).toList()).stream()
-                .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
-        return PagedResponse.slice(list.stream()
-                .map(so -> orderView(so, partsByOrder.getOrDefault(so.getId(), List.of()))).toList(),
-                page.page(), page.size());
+        // 视图逐条查库（行明细），只为当前这一页拼
+        return PagedResponse.slice(list, page.page(), page.size(), pageOrders -> {
+            Map<UUID, List<SupplierOrderPart>> partsByOrder = supplierParts.findBySupplierOrderIdIn(
+                    pageOrders.stream().map(SupplierOrder::getId).toList()).stream()
+                    .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierOrderId));
+            return pageOrders.stream()
+                    .map(so -> orderView(so, partsByOrder.getOrDefault(so.getId(), List.of()))).toList();
+        });
     }
 
     @Transactional(readOnly = true)
@@ -167,9 +169,7 @@ class SupplierOfferService {
     /** 供应商签字 = 锁定（文档 12 §4）。只有「待签」能签；签完退不了、改不了。 */
     @Transactional
     public DispatchViews.SupplierOrderView sign(UUID supplierOrgId, UUID userId, UUID supplierOrderId) {
-        SupplierOrder peek = requireMine(supplierOrgId, supplierOrderId);
-        opsOrders.lockById(peek.getOpsOrderId())
-                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
+        lockOpsOrderOf(supplierOrgId, supplierOrderId);
         SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
         if (so.getStatus() != SupplierOrder.Status.CONTRACT_PENDING) {
             throw BusinessException.conflict("dispatch.supplier_order_not_pending");
@@ -182,9 +182,7 @@ class SupplierOfferService {
     /** 签字前退单（文档 12 §4）：供应商订单取消（WITHDRAWN），生产订单回组装中重派。签了就退不了。 */
     @Transactional
     public DispatchViews.SupplierOrderView withdraw(UUID supplierOrgId, UUID supplierOrderId) {
-        SupplierOrder peek = requireMine(supplierOrgId, supplierOrderId);
-        OpsOrder o = opsOrders.lockById(peek.getOpsOrderId())
-                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
+        OpsOrder o = lockOpsOrderOf(supplierOrgId, supplierOrderId);
         SupplierOrder so = requireMine(supplierOrgId, supplierOrderId);
         if (so.isSigned()) {
             throw BusinessException.conflict("dispatch.contract_signed");
@@ -266,6 +264,17 @@ class SupplierOfferService {
     private OpsOrder requireOpen(Optional<OpsOrder> found, UUID supplierOrgId) {
         return found.filter(o -> visibility.isOpenTo(o, supplierOrgId))
                 .orElseThrow(() -> BusinessException.notFound("dispatch.offer_not_found"));
+    }
+
+    /**
+     * 先锁这张供应商订单所属的生产订单（和接单 / 派单 / 收回同一把锁）。
+     * 锁之前只取 id、不读实体 —— 为什么见 {@link SupplierOrderRepository#findOpsOrderIdById}。
+     */
+    private OpsOrder lockOpsOrderOf(UUID supplierOrgId, UUID supplierOrderId) {
+        UUID opsOrderId = supplierOrders.findOpsOrderIdByIdAndSupplierOrgId(supplierOrderId, supplierOrgId)
+                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
+        return opsOrders.lockById(opsOrderId)
+                .orElseThrow(() -> BusinessException.notFound("dispatch.supplier_order_not_found"));
     }
 
     private SupplierOrder requireMine(UUID supplierOrgId, UUID supplierOrderId) {

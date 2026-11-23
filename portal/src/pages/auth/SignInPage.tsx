@@ -13,12 +13,13 @@
  *   这里必须当"还没注册"处理，不能当登录成功 —— 建号那一步（填公司信息）还没做。
  */
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
+import { useCountdown } from '../../components/useCountdown'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
 import { LangButton } from '../../components/LangButton'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import { externalLogin, sendOtp, verifyOtp } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { errorText } from '../../i18n/errorText'
@@ -27,7 +28,7 @@ import { landingAfterSignIn, setSession, type Session } from '../../auth/session
 type Mode = 'password' | 'code'
 
 export function SignInPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const navigate = useNavigate()
     const location = useLocation()
     const c = t.login
@@ -39,16 +40,10 @@ export function SignInPage() {
     const [code, setCode] = useState('')
     const [codeSent, setCodeSent] = useState(false)
     /** 重发倒计时（秒）。0 = 可以发。 */
-    const [countdown, setCountdown] = useState(0)
+    const [countdown, setCountdown] = useCountdown()
     const [err, setErr] = useState<string | null>(null)
     const [needsRegistration, setNeedsRegistration] = useState(false)
     const [busy, setBusy] = useState(false)
-
-    useEffect(() => {
-        if (countdown <= 0) return
-        const id = window.setTimeout(() => setCountdown((n) => n - 1), 1000)
-        return () => window.clearTimeout(id)
-    }, [countdown])
 
     /** 登录成功后的落点：守卫弹回来的带 state.from，会话过期的带 ?callbackUrl=；跨端地址不认。 */
     const finish = (session: Session) => {

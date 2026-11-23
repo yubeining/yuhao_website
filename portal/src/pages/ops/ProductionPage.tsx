@@ -9,10 +9,11 @@
 
 import { usePageParam } from '../../components/usePageParam'
 import { useCallback, useEffect, useState } from 'react'
+import { useBusy } from '../../components/useBusy'
 import { Banner, Card, CardBody, CardHead, Empty, Fields, Fld, Hello, Page, Pending, pill, TableWrap } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
-import { fmtDateTime, X } from '../../mock/format'
+import { useI18n } from '../../i18n/I18nProvider'
+import { fmtDateTime, X } from '../../lib/format'
 import { listProduction, qcLine, remakeLine, type OpsLine, type OpsProductionOrder } from '../../services'
 import { lineSt, shortId, supplierOrderSt } from './dispatchStatus'
 import { Pagination } from '../../components/Pagination'
@@ -25,14 +26,14 @@ const EMPTY: Counts = { pass: '', rework: '', scrap: '' }
 const num = (v: string) => (v.trim() === '' ? 0 : Number(v))
 
 export function OpsProductionPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const [askConfirm, confirmDialog] = useConfirm()
     const [orders, setOrders] = useState<OpsProductionOrder[] | null>(null)
     const [total, setTotal] = useState(0)
     const [page, setPage] = usePageParam()
     const [counts, setCounts] = useState<Record<string, Counts>>({})
     const [err, setErr] = useState<string | null>(null)
-    const [busy, setBusy] = useState(false)
+    const { busy, run } = useBusy((e) => setErr(errorText(t, e)))
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -47,13 +48,10 @@ export function OpsProductionPage() {
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const act = (run: () => Promise<unknown>) => {
-        setBusy(true)
-        run()
-            .then(() => load(page))
-            .catch((e) => setErr(errorText(t, e)))
-            .finally(() => setBusy(false))
-    }
+    const act = (fn: () => Promise<unknown>) => run(async () => {
+        await fn()
+        await load(page)
+    })
 
     const submitQc = async (orderId: string, line: OpsLine) => {
         const c = counts[line.id] ?? EMPTY

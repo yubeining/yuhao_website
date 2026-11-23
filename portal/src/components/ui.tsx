@@ -4,7 +4,7 @@
  * ★ 组件不带任何内联色值 —— 颜色一律由 class 决定，class 由 styles.css 的
  *   CSS 变量驱动。想加一种状态色，去 styles.css 加一个 modifier，不要在这里写 style。
  *
- * ★ 刻意保持"哑"：不取数据、不调 useMock。数据由页面取好再传进来，
+ * ★ 刻意保持"哑"：不取数据。数据由页面取好再传进来，
  *   这样每个块单看就知道渲染什么，不用顺着 context 追。
  */
 
@@ -25,7 +25,7 @@ export function Pill({ tone, children, dot = true }: {
     return <span className={`pill ${tone}${dot ? '' : ' nd'}`}>{children}</span>
 }
 
-/** [色调, 文案] —— 状态映射表统一用这个形状，见各页顶部的 ORD_ST / QT_ST 等 */
+/** [色调, 文案] —— 状态映射表统一用这个形状，见 customer/status.ts、ops/dispatchStatus.ts */
 export type PillSpec = [PillTone, string]
 
 export const pill = (spec: PillSpec | undefined, fallback?: PillSpec) => {

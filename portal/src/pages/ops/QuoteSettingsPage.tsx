@@ -8,7 +8,8 @@
  */
 
 import { usePageParam } from '../../components/usePageParam'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
+import { useAutoClear } from '../../components/useAutoClear'
 import { Link } from 'react-router-dom'
 import { Modal } from '../../components/Modal'
 import { Pagination } from '../../components/Pagination'
@@ -17,7 +18,7 @@ import {
     Banner, Card, CardBody, CardHead, Empty, Hello, Page, Pending, TableWrap,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
-import { useMock } from '../../mock/MockProvider'
+import { useI18n } from '../../i18n/I18nProvider'
 import {
     getQuoteSettings, setQuoteDefaultMarkup, type QuoteCompanyRate,
 } from '../../services/ops/quotes'
@@ -26,7 +27,7 @@ const RATE_RE = /^\d+(\.\d{1,4})?$/
 const PAGE_SIZE = 20
 
 export function OpsQuoteSettingsPage() {
-    const { t } = useMock()
+    const { t } = useI18n()
     const q = t.quoteSettings
 
     const [defaultRate, setDefaultRate] = useState<number | null>(null)
@@ -38,7 +39,6 @@ export function OpsQuoteSettingsPage() {
     const [busy, setBusy] = useState(false)
     const [editing, setEditing] = useState(false)
     const [draft, setDraft] = useState('')
-    const timer = useRef<number | undefined>(undefined)
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -53,7 +53,7 @@ export function OpsQuoteSettingsPage() {
     }, [t])
 
     useEffect(() => { void load(page) }, [load, page])
-    useEffect(() => () => window.clearTimeout(timer.current), [])
+    useAutoClear(flash, () => setFlash(false))
 
     const open = () => {
         setDraft(defaultRate != null ? String(defaultRate) : '')
@@ -71,8 +71,6 @@ export function OpsQuoteSettingsPage() {
             setDefaultRate(saved.markupRate)
             setEditing(false)
             setFlash(true)
-            window.clearTimeout(timer.current)
-            timer.current = window.setTimeout(() => setFlash(false), 2000)
             await load(page)
         } catch (e) {
             setErr(errorText(t, e))

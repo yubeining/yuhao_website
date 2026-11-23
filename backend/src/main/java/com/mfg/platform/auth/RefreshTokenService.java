@@ -54,9 +54,7 @@ public class RefreshTokenService {
     /** 撤销(登出),幂等。 */
     public void revoke(String token) {
         if (token != null && !token.isBlank()) {
-            String value = redis.get(CacheKeys.refreshToken(token), String.class);
-            redis.delete(CacheKeys.refreshToken(token));
-            Resolved owner = parse(value);
+            Resolved owner = parse(redis.getAndDelete(CacheKeys.refreshToken(token), String.class));
             if (owner != null) {
                 redis.setRemove(indexKey(owner), token);
             }
@@ -72,20 +70,18 @@ public class RefreshTokenService {
     public void revokeAll(PartyType portal, UUID userId) {
         String index = CacheKeys.refreshIndex(portal.name(), userId.toString());
         for (String token : redis.setMembers(index)) {
-            redis.delete(CacheKeys.refreshToken(token));
+            redis.deleteStrict(CacheKeys.refreshToken(token));
         }
-        redis.delete(index);
+        redis.deleteStrict(index);
     }
 
     private Resolved consume(String token) {
         if (token == null || token.isBlank()) {
             throw new BusinessException(401, "auth.refresh_invalid");
         }
-        String value = redis.get(CacheKeys.refreshToken(token), String.class);
-        if (value == null) {
-            throw new BusinessException(401, "auth.refresh_invalid");
-        }
-        redis.delete(CacheKeys.refreshToken(token));   // 一次性 + 轮换
+        // 一次性 + 轮换。★ 读和删必须是一步（GETDEL）：以前先 GET 再 DELETE，
+        //   同一个 token 并发刷新时每个请求都读到它还在，都换到了新 token（实测 20 个并发成功 18 个）。
+        String value = redis.getAndDelete(CacheKeys.refreshToken(token), String.class);
         Resolved resolved = parse(value);
         if (resolved == null) {
             throw new BusinessException(401, "auth.refresh_invalid");

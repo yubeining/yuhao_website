@@ -13,8 +13,10 @@
  *   显示 ****** 就是假内容。
  */
 
-import { fmtDate } from '../mock/format'
+import { fmtIsoDate } from '../lib/format'
 import { useCallback, useEffect, useState } from 'react'
+import { useAutoClear } from '../components/useAutoClear'
+import { useCountdown } from '../components/useCountdown'
 import { useNavigate } from 'react-router-dom'
 import {
     Banner, Card, CardBody, CardHead, Hello, Kv, KvRow, Page,
@@ -23,8 +25,9 @@ import { Field, Input } from '../components/form'
 import { Modal } from '../components/Modal'
 import { CountrySelect } from '../components/CountrySelect'
 import { countryName } from '../i18n/countries'
-import { useMock } from '../mock/MockProvider'
+import { useTheme } from '../components/ThemeProvider'
 import { useI18n } from '../i18n/I18nProvider'
+import type { Strings } from '../i18n/strings'
 import { useSession } from '../auth/useSession'
 import { clearSession, setSession, SIGNIN_BY_TYPE } from '../auth/session'
 import {
@@ -33,18 +36,16 @@ import {
 import { getMyOrganization, renameMyOrganization } from '../services/customer/organization'
 import { errorText } from '../i18n/errorText'
 
-const PARTY_LABEL = (t: ReturnType<typeof useMock>['t']) => ({
+const PARTY_LABEL = (t: Strings) => ({
     CUSTOMER: t.roles.customer,
     SUPPLIER: t.roles.supplier,
     OPERATOR: t.nav.ops.internalOps,
 }) as const
 
-/** 只取日期部分（本地日期）：注册时间不需要时分秒。 */
-const day = (iso: string) => (iso ? fmtDate(new Date(iso)) : '—')
 
 export function AccountSettingsPage() {
-    const { t, theme, setTheme } = useMock()
-    const { lang, setLang, t: ti } = useI18n()
+    const { theme, setTheme } = useTheme()
+    const { lang, setLang, t } = useI18n()
     const session = useSession()
     const p = t.profile
 
@@ -68,13 +69,7 @@ export function AccountSettingsPage() {
     const [pwNew2, setPwNew2] = useState('')
     const [pwErr, setPwErr] = useState<string | null>(null)
     const [pwBusy, setPwBusy] = useState(false)
-    const [pwCountdown, setPwCountdown] = useState(0)
-
-    useEffect(() => {
-        if (pwCountdown <= 0) return
-        const id = window.setTimeout(() => setPwCountdown((n) => n - 1), 1000)
-        return () => window.clearTimeout(id)
-    }, [pwCountdown])
+    const [pwCountdown, setPwCountdown] = useCountdown()
 
     const load = useCallback(async (partyType: NonNullable<typeof session>['partyType']) => {
         try {
@@ -102,12 +97,7 @@ export function AccountSettingsPage() {
             .catch(() => undefined)
     }, [session?.partyType])
 
-    // 「已保存」两秒后自己消失，不用点关闭
-    useEffect(() => {
-        if (!saved) return
-        const id = window.setTimeout(() => setSaved(false), 2000)
-        return () => window.clearTimeout(id)
-    }, [saved])
+    useAutoClear(saved, () => setSaved(false))
 
     if (!session) return null
 
@@ -210,7 +200,7 @@ export function AccountSettingsPage() {
 
     return (
         <Page>
-            <Hello title={ti.account.title} />
+            <Hello title={t.account.title} />
 
             {/* 资料没加载出来：以前错误只在编辑弹框里显示，页面上只有一排横线，看不出是出错了 */}
             {!profile && err && !editing && (
@@ -235,7 +225,7 @@ export function AccountSettingsPage() {
                         )}
                         <KvRow k={p.email} v={profile?.email ?? '—'} sans />
                         <KvRow k={p.role} v={PARTY_LABEL(t)[profile?.partyType ?? session.partyType]} sans />
-                        <KvRow k={p.joined} v={day(profile?.createdAt ?? '')} />
+                        <KvRow k={p.joined} v={fmtIsoDate(profile?.createdAt)} />
                     </Kv>
                     {saved && <Banner tone="ok" style={{ marginTop: 12 }}>{p.saved}</Banner>}
                 </CardBody>
