@@ -3,7 +3,7 @@
  */
 
 import { http } from '../core/http'
-import type { OrderLineView, OrderStatus, PagedResponse } from '../customer/orders'
+import type { OrderLineView, OrderStatus, PagedResponse, ShipTo } from '../customer/orders'
 import type { ViewUrl } from '../customer/parts'
 
 export interface OpsOrderSummaryView {
@@ -29,6 +29,7 @@ export interface OpsOrderView {
     wantedDate?: string | null
     createdAt: string
     submittedAt?: string | null
+    shipTo?: ShipTo | null
     lines: OrderLineView[]
 }
 

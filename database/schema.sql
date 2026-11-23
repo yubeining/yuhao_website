@@ -82,6 +82,15 @@ CREATE TABLE public.customer_order (
     wanted_date date,
     wanted_lead_days integer,
     submitted_at timestamp with time zone,
+    ship_to_country text,
+    ship_to_company text,
+    ship_to_contact text,
+    ship_to_phone text,
+    ship_to_line1 text,
+    ship_to_line2 text,
+    ship_to_city text,
+    ship_to_region text,
+    ship_to_postal_code text,
     CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'READY'::text, 'CANCELLED'::text]))),
     CONSTRAINT customer_order_wanted_lead_days_positive CHECK (((wanted_lead_days IS NULL) OR (wanted_lead_days > 0)))
 );

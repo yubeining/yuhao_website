@@ -6,6 +6,7 @@ import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Sort;
@@ -16,6 +17,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -52,6 +54,18 @@ class CustomerOrderController {
                                     @Size(max = 200) String surfaceTreatment) {
     }
 
+    /** 收货地址。必填：国家（ISO 两位大写）、公司、收货人、电话、地址行 1、城市；其余选填。 */
+    public record ShipToRequest(@NotBlank @Pattern(regexp = "[A-Z]{2}") String country,
+                                @NotBlank @Size(max = 200) String company,
+                                @NotBlank @Size(max = 200) String contact,
+                                @NotBlank @Size(max = 50) String phone,
+                                @NotBlank @Size(max = 200) String line1,
+                                @Size(max = 200) String line2,
+                                @NotBlank @Size(max = 100) String city,
+                                @Size(max = 100) String region,
+                                @Size(max = 20) String postalCode) {
+    }
+
     public record NewRevisionRequest(@Size(max = 50) String customerRev) {
     }
 
@@ -76,6 +90,14 @@ class CustomerOrderController {
     OrderView update(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                      @Valid @RequestBody OrderDraftRequest request) {
         return service.updateDraft(user.partyId(), orderId, request.title(), request.wantedDate());
+    }
+
+    /** ★ 整体替换：没带的选填项会被清空。订单就绪（READY）之前都能改。 */
+    @PutMapping("/customer/orders/{orderId}/ship-to")
+    OrderView updateShipTo(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
+                           @Valid @RequestBody ShipToRequest r) {
+        return service.updateShipTo(user.partyId(), orderId, new ShipTo(r.country(), r.company(), r.contact(),
+                r.phone(), r.line1(), r.line2(), r.city(), r.region(), r.postalCode()));
     }
 
     @PostMapping("/customer/orders/{orderId}/submit")

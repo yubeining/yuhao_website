@@ -401,6 +401,13 @@ export interface Strings {
             saved: string; created: string; deleted: (name: string) => string
             empty: string
         }
+    /** 订单收货地址（2026-11-23）：客户订单详情可编辑，运营订单详情只读 */
+    shipTo: {
+        title: string; fill: string; edit: string; empty: string; need: string
+        country: string; company: string; contact: string; phone: string; phoneHint: string
+        line1: string; line2: string; city: string; region: string; postalCode: string
+        cancel: string; save: string; requiredMissing: string; lockedNote: string
+    }
     /** 派单详情（生产订单） */
     prodDetail: {
         back: string; title: string; notFound: string
@@ -870,6 +877,14 @@ export const STRINGS: Record<Lang, Strings> = {
             saved: '已保存', created: '已新建', deleted: (name) => `已删除「${name}」`,
             empty: '还没有费率',
         },
+    shipTo: {
+        title: '收货地址', fill: '填写', edit: '编辑', empty: '还没填收货地址', need: '请先填写收货地址',
+        country: '国家/地区', company: '收货公司', contact: '收货人', phone: '电话',
+        phoneHint: '快递派送和清关时联系收货人用',
+        line1: '地址', line2: '楼层、单元等（选填）', city: '城市', region: '州/省', postalCode: '邮编',
+        cancel: '取消', save: '保存', requiredMissing: '请把带 * 的项填完整',
+        lockedNote: '订单已就绪，收货地址不能再改。',
+    },
     prodDetail: {
         back: '← 派单管理', title: '生产订单', notFound: '生产订单不存在',
         dueProblem: '请填对供交期（如 2026-10-20）', errNoSupplier: '请勾选要派的供应商',
@@ -927,6 +942,9 @@ export const STRINGS: Record<Lang, Strings> = {
             'part.file_not_found': '文件不存在',
             'order.not_found': '订单不存在',
             'order.not_draft': '订单已提交或已取消，不能再修改',
+            'order.ship_to_required': '请先填写收货地址',
+            'order.ship_to_locked': '订单已就绪或已取消，收货地址不能再改',
+            'order.ship_to_country_invalid': '请选择国家/地区',
             'order.line_not_found': '零件行不存在',
             'order.no_lines': '订单里还没有零件',
             'order.line_missing_drawing': '有零件还没传图纸，传完才能提交',
@@ -1433,6 +1451,14 @@ export const STRINGS: Record<Lang, Strings> = {
             saved: 'Saved', created: 'Created', deleted: (name) => `Deleted "${name}"`,
             empty: 'No rates yet',
         },
+    shipTo: {
+        title: 'Shipping address', fill: 'Add', edit: 'Edit', empty: 'No shipping address yet', need: 'Please add a shipping address',
+        country: 'Country/region', company: 'Company', contact: 'Recipient', phone: 'Phone',
+        phoneHint: 'Used by the carrier to contact the recipient for delivery and customs',
+        line1: 'Address', line2: 'Floor, unit, etc. (optional)', city: 'City', region: 'State/province', postalCode: 'Postal code',
+        cancel: 'Cancel', save: 'Save', requiredMissing: 'Please fill in all fields marked *',
+        lockedNote: 'The order is ready; the shipping address can no longer be changed.',
+    },
     prodDetail: {
         back: '← Dispatch', title: 'Production order', notFound: 'Production order not found',
         dueProblem: 'Enter the supplier due date (e.g. 2026-10-20)', errNoSupplier: 'Select at least one supplier',
@@ -1490,6 +1516,9 @@ export const STRINGS: Record<Lang, Strings> = {
             'part.file_not_found': 'File not found',
             'order.not_found': 'Order not found',
             'order.not_draft': 'The order was already submitted or cancelled',
+            'order.ship_to_required': 'Please add a shipping address',
+            'order.ship_to_locked': 'The order is ready or cancelled; the shipping address can no longer be changed',
+            'order.ship_to_country_invalid': 'Please select a country/region',
             'order.line_not_found': 'Order line not found',
             'order.no_lines': 'The order has no parts yet',
             'order.line_missing_drawing': 'Some parts have no drawing yet. Upload them before submitting',

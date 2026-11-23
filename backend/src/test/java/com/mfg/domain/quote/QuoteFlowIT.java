@@ -626,6 +626,9 @@ class QuoteFlowIT {
 
         JsonNode detail = get("/ops/customer-orders/" + o.id(), ops).path("data");
         assertThat(detail.path("status").asText()).isEqualTo("SUBMITTED");
+        // 运营要据此安排发货，看得到客户填的收货地址
+        assertThat(detail.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
+        assertThat(detail.path("shipTo").path("postalCode").asText()).isEqualTo("10115");
         JsonNode line = detail.path("lines").get(0);
         String fileId = line.path("revision").path("files").get(0).path("id").asText();
         assertThat(fileId).isEqualTo(o.fileIds().get(0).toString());
@@ -757,6 +760,10 @@ class QuoteFlowIT {
     }
 
     /** 请求体用 record 构造、走项目 ObjectMapper 序列化（CLAUDE.md §9）。字段名对齐接口。 */
+    private record ShipToBody(String country, String company, String contact, String phone, String line1, String line2,
+                              String city, String region, String postalCode) {
+    }
+
     private record OrderDraftBody(String title, LocalDate wantedDate) {
     }
 
@@ -808,8 +815,12 @@ class QuoteFlowIT {
                 .path("data").path("accessToken").asText();
     }
 
+    /** 建草稿并填好收货地址（提交前必填，2026-11-23）。 */
     private String createOrder(Customer c) throws Exception {
-        return post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("data").path("id").asText();
+        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("data").path("id").asText();
+        put("/customer/orders/" + orderId + "/ship-to", new ShipToBody("DE", "Acme Receiving GmbH", "Bob Weber",
+                "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token());
+        return orderId;
     }
 
     private JsonNode addLine(Customer c, String orderId, String code, int quantity) throws Exception {

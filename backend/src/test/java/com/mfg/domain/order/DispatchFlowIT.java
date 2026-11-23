@@ -150,6 +150,8 @@ class DispatchFlowIT {
         assertThat(offer.path("lines")).hasSize(2);
         assertThat(offer.path("lines").get(0).path("quantity").asInt()).isEqualTo(6);
         assertThat(offer.path("lines").get(0).path("files")).hasSize(1);
+        // 设计文档 1 §3.2：不向供应商暴露客户的收货地址
+        assertThat(offer.toString()).doesNotContain("Acme Receiving").doesNotContain("Hauptstr").doesNotContain("shipTo");
         JsonNode myPrices = get("/supplier/offer-prices?opsOrderIds=" + a, s1.token()).get(0);
         assertThat(myPrices.path("total").decimalValue()).isEqualByComparingTo("4480.00");
         assertThat(myPrices.path("lines").get(0).path("unitPriceCny").decimalValue()).isEqualByComparingTo("80.00");
@@ -718,6 +720,8 @@ class DispatchFlowIT {
             lineIds.add(UUID.fromString(line.path("id").asText()));
             fileIds.add(uploadPdf(c, line));
         }
+        ok(exchange("/customer/orders/" + orderId + "/ship-to", HttpMethod.PUT,
+                new CustomerOrderController.ShipToRequest("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token()));
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         return new SubmittedOrder(orderId, lineIds, fileIds);
     }

@@ -34,6 +34,7 @@ import {
 import { orderSt, quoteSt } from '../customer/status'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { EstimateCard } from './EstimateCard'
+import { ShipToCard } from '../../components/ShipToCard'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
@@ -286,6 +287,9 @@ export function OpsQuoteWorkPage() {
             </Card>
 
             <EstimateCard orderId={order.id} lines={order.lines} editable={editable} />
+
+            {/* 客户填的收货地址，运营只读（2026-11-23） */}
+            <ShipToCard shipTo={order.shipTo} />
 
             {quotes.length > 0 && (
                 <Card>

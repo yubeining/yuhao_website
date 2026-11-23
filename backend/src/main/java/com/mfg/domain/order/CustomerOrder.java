@@ -59,6 +59,36 @@ class CustomerOrder extends BaseEntity {
     @Column(name = "submitted_at", columnDefinition = "timestamp with time zone")
     private Instant submittedAt;
 
+    // ---------- 收货地址（2026-11-23）：提交时必填，READY 之前客户能改。必填项由 service 校验，列全部可空 ----------
+
+    /** ISO 3166-1 两位国家代码。为 null 表示还没填过地址（保存时必填项是一起校验的）。 */
+    @Column(name = "ship_to_country")
+    private String shipToCountry;
+
+    @Column(name = "ship_to_company")
+    private String shipToCompany;
+
+    @Column(name = "ship_to_contact")
+    private String shipToContact;
+
+    @Column(name = "ship_to_phone")
+    private String shipToPhone;
+
+    @Column(name = "ship_to_line1")
+    private String shipToLine1;
+
+    @Column(name = "ship_to_line2")
+    private String shipToLine2;
+
+    @Column(name = "ship_to_city")
+    private String shipToCity;
+
+    @Column(name = "ship_to_region")
+    private String shipToRegion;
+
+    @Column(name = "ship_to_postal_code")
+    private String shipToPostalCode;
+
     protected CustomerOrder() {
     }
 
@@ -72,6 +102,28 @@ class CustomerOrder extends BaseEntity {
     void updateDraft(String title, LocalDate wantedDate) {
         this.title = title;
         this.wantedDate = wantedDate;
+    }
+
+    /** 整体替换，没带的选填项清空。 */
+    void replaceShipTo(ShipTo a) {
+        this.shipToCountry = a.country();
+        this.shipToCompany = a.company();
+        this.shipToContact = a.contact();
+        this.shipToPhone = a.phone();
+        this.shipToLine1 = a.line1();
+        this.shipToLine2 = a.line2();
+        this.shipToCity = a.city();
+        this.shipToRegion = a.region();
+        this.shipToPostalCode = a.postalCode();
+    }
+
+    /** 没填过地址返回 null。 */
+    ShipTo getShipTo() {
+        if (shipToCountry == null) {
+            return null;
+        }
+        return new ShipTo(shipToCountry, shipToCompany, shipToContact, shipToPhone, shipToLine1, shipToLine2,
+                shipToCity, shipToRegion, shipToPostalCode);
     }
 
     UUID getCustomerOrgId() {

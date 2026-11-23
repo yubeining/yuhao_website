@@ -2,7 +2,8 @@
  * 订单详情 —— 草稿里加零件、每个零件传自己的图纸，传齐后提交。
  *
  * ★ 提交条件（2026-09-14 拍板）：每个零件行都要有至少一份传完的图纸。
- * ★ 提交时锁定各行的图纸版本，之后这张订单不能再改。
+ * ★ 提交时锁定各行的图纸版本，之后这张订单不能再改 —— 收货地址除外：
+ *   提交时必填，订单就绪（READY）之前都能改（2026-11-23 拍板，见 ShipToEditor）。
  * ★ 提交之后这里只写「已提交、图纸已锁定」这一个事实 —— 不承诺报价时间：
  *   平台什么时候报价没有约定，写「预计 X 内报价」就是一句没有依据的承诺（CLAUDE.md §10 C5）。
  *   报价发出后（QUOTED / CONFIRMED）给一个去报价页的入口。
@@ -24,6 +25,7 @@ import {
     ApiError, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
     type CustomerQuoteView, type OrderView,
 } from '../../services'
+import { ShipToEditor } from './ShipToEditor'
 import { lineFulfillSt, orderSt } from './status'
 
 export function OrderDetailPage() {
@@ -114,7 +116,10 @@ export function OrderDetailPage() {
     const missingCompany = orgName !== null && !orgName.trim()
     // 期望交期必填（2026-11-15）：报价的承诺交期从它起，提交前必须有
     const missingWantedDate = !order.wantedDate
+    // 收货地址提交时必填（2026-11-23）
+    const missingShipTo = !order.shipTo
     const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany && !missingWantedDate
+        && !missingShipTo
 
     const saveDraftInfo = async (nextDate?: string) => {
         const date = (nextDate ?? wantedDate).trim() || null
@@ -175,7 +180,12 @@ export function OrderDetailPage() {
                                         {t.customer.orderDetail.needWantedDate}
                                     </span>
                                 )}
-                                {missingCompany && !missingWantedDate && order.lines.length > 0 && (
+                                {missingShipTo && !missingWantedDate && order.lines.length > 0 && (
+                                    <span className="t2" style={{ color: 'var(--muted)' }}>
+                                        {t.shipTo.need}
+                                    </span>
+                                )}
+                                {missingCompany && !missingWantedDate && !missingShipTo && order.lines.length > 0 && (
                                     <span className="t2" style={{ color: 'var(--muted)' }}>
                                         {t.customer.orderDetail.needCompany}
                                         {' '}<Link className="linkbtn" to="/customer/settings">{t.customer.orderDetail.fillCompany}</Link>
@@ -274,6 +284,8 @@ export function OrderDetailPage() {
                     </div>
                 </CardBody>
             </Card>
+
+            <ShipToEditor order={order} onSaved={(o) => { apply(o); setErr(null) }} />
 
             <Card>
                 <CardHead title={t.customer.orderDetail.partsTitle(order.lines.length)} />

@@ -44,6 +44,12 @@ class CustomerOrderService {
 
     private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(CustomerOrderService.class);
 
+    /** 收货地址能改的状态：就绪（READY）之前（2026-11-23 拍板「发货前都能改」，系统里发货前的最后一个状态是 READY）。 */
+    private static final Set<CustomerOrder.Status> SHIP_TO_EDITABLE = Set.of(CustomerOrder.Status.DRAFT,
+            CustomerOrder.Status.SUBMITTED, CustomerOrder.Status.QUOTED, CustomerOrder.Status.CONFIRMED);
+
+    private static final Set<String> ISO_COUNTRIES = Set.of(java.util.Locale.getISOCountries());
+
     private final CustomerOrderRepository orders;
     private final CustomerOrderPartRepository lines;
     private final PartDesignRepository parts;
@@ -107,6 +113,27 @@ class CustomerOrderService {
     }
 
     /**
+     * 改收货地址（整体替换）。2026-11-23 拍板：提交时必填，订单就绪（READY）之前客户都能改 ——
+     * 所以不走 {@link #requireDraft}，而是允许草稿到已确认；就绪和已取消的拒绝。
+     * 必填项和长度由 controller 校验，国家代码在这里对 ISO 3166-1 列表核一次。
+     */
+    @Transactional
+    public OrderView updateShipTo(UUID customerOrgId, UUID orderId, ShipTo shipTo) {
+        CustomerOrder order = orders.lockByIdAndCustomerOrgId(orderId, customerOrgId)
+                .orElseThrow(() -> BusinessException.notFound("order.not_found"));
+        if (!SHIP_TO_EDITABLE.contains(order.getStatus())) {
+            throw BusinessException.conflict("order.ship_to_locked");
+        }
+        if (!ISO_COUNTRIES.contains(shipTo.country())) {
+            throw new BusinessException(400, "order.ship_to_country_invalid");
+        }
+        order.replaceShipTo(new ShipTo(shipTo.country(), shipTo.company().trim(), shipTo.contact().trim(),
+                shipTo.phone().trim(), shipTo.line1().trim(), blankToNull(shipTo.line2()), shipTo.city().trim(),
+                blankToNull(shipTo.region()), blankToNull(shipTo.postalCode())));
+        return view(customerOrgId, orders.saveAndFlush(order));
+    }
+
+    /**
      * 每行都要有传完的图纸 → 状态改成 SUBMITTED → 锁定各行版本。任何一步不过，整个事务回滚。
      *
      * <p>★ 顺序不能换：先锁订单（挡住并发的加 / 改 / 删行），读零件行；再锁各行版本（挡住并发的删图纸），
@@ -128,6 +155,10 @@ class CustomerOrderService {
         // 报价的承诺交期以客户期望交期为起点（2026-11-15 拍板），所以提交前必须有日期
         if (order.getWantedDate() == null) {
             throw new BusinessException(400, "order.wanted_date_required");
+        }
+        // 收货地址提交时必填（2026-11-23 拍板）；保存地址时必填项已一起校验，这里只看填没填过
+        if (order.getShipTo() == null) {
+            throw new BusinessException(400, "order.ship_to_required");
         }
         Set<UUID> revisionIds = orderLines.stream().map(CustomerOrderPart::getPartRevisionId).collect(Collectors.toSet());
         revisions.lockAllByIdIn(revisionIds, customerOrgId);
@@ -308,7 +339,7 @@ class CustomerOrderService {
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(order.getId(), customerOrgId);
         List<OrderLineView> views = lineViews(customerOrgId, orderLines);
         return new OrderView(order.getId(), order.getTitle(), order.getStatus().name(), order.getWantedDate(),
-                order.getCreatedAt(), order.getSubmittedAt(), views);
+                order.getCreatedAt(), order.getSubmittedAt(), order.getShipTo(), views);
     }
 
     /** 运营端看单也用这一份（{@link OpsCustomerOrderService}），两端看到的行内容一致。 */

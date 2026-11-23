@@ -383,6 +383,8 @@ class ProductionFlowIT {
         JsonNode line = post("/customer/orders/" + orderId + "/lines",
                 new AddLineBody(code, "Part " + code, quantity, "AL6061", null), c.token());
         uploadPdf(c, line);
+        ok(exchange("/customer/orders/" + orderId + "/ship-to", HttpMethod.PUT,
+                new CustomerOrderController.ShipToRequest("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token()));
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         ok(exchange("/ops/customers/" + c.orgId() + "/markup", HttpMethod.PUT, new MarkupBody(BigDecimal.ONE), ops));
         ok(rawPost("/ops/customer-orders/" + orderId + "/quotes", new SendQuoteBody("EUR", LocalDate.now().plusDays(20).toString(),

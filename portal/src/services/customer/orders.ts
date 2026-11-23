@@ -51,6 +51,19 @@ export interface OrderLineView {
     revision: RevisionView
 }
 
+/** 收货地址（2026-11-23）。country 是 ISO 3166-1 两位代码；line2 / region / postalCode 选填。 */
+export interface ShipTo {
+    country: string
+    company: string
+    contact: string
+    phone: string
+    line1: string
+    line2?: string | null
+    city: string
+    region?: string | null
+    postalCode?: string | null
+}
+
 export interface OrderView {
     id: string
     title?: string | null
@@ -58,6 +71,8 @@ export interface OrderView {
     wantedDate?: string | null
     createdAt: string
     submittedAt?: string | null
+    /** 没填过就没有这个字段 */
+    shipTo?: ShipTo | null
     lines: OrderLineView[]
 }
 
@@ -90,6 +105,11 @@ export function createOrder(input: OrderDraftInput): Promise<OrderView> {
 
 export function updateOrder(orderId: string, input: OrderDraftInput): Promise<OrderView> {
     return http.patch<OrderView>(`/customer/orders/${orderId}`, input)
+}
+
+/** 整体替换收货地址。草稿到已确认都能改；就绪 / 已取消 409 order.ship_to_locked。 */
+export function updateShipTo(orderId: string, input: ShipTo): Promise<OrderView> {
+    return http.put<OrderView>(`/customer/orders/${orderId}/ship-to`, input)
 }
 
 /** 每行都要有传完的图纸，否则 409 order.line_missing_drawing。提交时锁定各行图纸版本。 */

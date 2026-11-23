@@ -149,6 +149,76 @@ class CustomerOrderFlowIT {
         assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
     }
 
+    // ---------- 收货地址（2026-11-23：提交时必填，订单就绪 READY 之前都能改） ----------
+
+    @Test
+    void orderCannotBeSubmittedWithoutAShipToAddress() throws Exception {
+        Customer c = register("noshipto");
+        String orderId = createOrderWithoutShipTo(c);
+        uploadPdf(c, addLine(c, orderId, uniqueCode(), "Bracket", 1));
+
+        ResponseEntity<String> rejected = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+        assertThat(rejected.getStatusCode().value()).as(rejected.getBody()).isEqualTo(400);
+        assertThat(messageOf(rejected)).isEqualTo("order.ship_to_required");
+        assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
+
+        JsonNode saved = json.readTree(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Berlin"), c.token())
+                .getBody()).path("data");
+        assertThat(saved.path("shipTo").path("country").asText()).isEqualTo("DE");
+        assertThat(saved.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
+        assertThat(saved.path("shipTo").path("city").asText()).isEqualTo("Berlin");
+        assertThat(saved.path("shipTo").has("line2")).isFalse();
+
+        assertThat(post("/customer/orders/" + orderId + "/submit", null, c.token()).path("data").path("status").asText())
+                .isEqualTo("SUBMITTED");
+    }
+
+    @Test
+    void draftWithoutShipToHasNoShipToField() throws Exception {
+        Customer c = register("blankshipto");
+        String orderId = createOrderWithoutShipTo(c);
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").has("shipTo")).isFalse();
+    }
+
+    @Test
+    void shipToCanBeChangedAfterSubmitUntilTheOrderIsReady() throws Exception {
+        Customer c = register("shiptoedit");
+        String orderId = createOrder(c);
+        uploadPdf(c, addLine(c, orderId, uniqueCode(), "Bracket", 1));
+        post("/customer/orders/" + orderId + "/submit", null, c.token());
+        String path = "/customer/orders/" + orderId + "/ship-to";
+
+        for (String status : List.of("SUBMITTED", "QUOTED", "CONFIRMED")) {
+            jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
+            ResponseEntity<String> res = rawPut(path, shipTo("Munich-" + status), c.token());
+            assertThat(res.getStatusCode().value()).as(status + " " + res.getBody()).isEqualTo(200);
+            assertThat(json.readTree(res.getBody()).path("data").path("shipTo").path("city").asText())
+                    .isEqualTo("Munich-" + status);
+        }
+        for (String status : List.of("READY", "CANCELLED")) {
+            jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
+            assertConflict(rawPut(path, shipTo("Cologne"), c.token()), "order.ship_to_locked");
+        }
+        assertThat(jdbc.queryForObject("select ship_to_city from customer_order where id = ?", String.class,
+                UUID.fromString(orderId))).isEqualTo("Munich-CONFIRMED");
+    }
+
+    @Test
+    void shipToRejectsMissingRequiredFieldsAndUnknownCountries() throws Exception {
+        Customer c = register("shiptobad");
+        String path = "/customer/orders/" + createOrderWithoutShipTo(c) + "/ship-to";
+
+        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("DE", " ", "Bob", "+49 1", "Str. 1", null,
+                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("DE", "Acme", "Bob", "+49 1", "Str. 1", null,
+                null, null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+        // 形如国家代码但不是 ISO 3166 里的国家
+        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("XX", "Acme", "Bob", "+49 1", "Str. 1", null,
+                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("de", "Acme", "Bob", "+49 1", "Str. 1", null,
+                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+    }
+
     @Test
     void emptyOrderCannotBeSubmitted() throws Exception {
         Customer c = register("empty");
@@ -394,6 +464,7 @@ class CustomerOrderFlowIT {
         assertNotFound(rawDelete(base + "/lines/" + line.path("id").asText(), other.token()));
         assertNotFound(rawPost(base + "/submit", null, other.token()));
         assertNotFound(rawPost(base + "/cancel", null, other.token()));
+        assertNotFound(rawPut(base + "/ship-to", shipTo("Hamburg"), other.token()));
         assertThat(get("/customer/orders", other.token()).path("data").path("total").asInt()).isZero();
     }
 
@@ -583,10 +654,23 @@ class CustomerOrderFlowIT {
                 UUID.fromString(reg.path("data").path("id").asText()));
     }
 
+    /** 建草稿并填好收货地址（提交前必填，2026-11-23）。只想测「没填地址」时用 {@link #createOrderWithoutShipTo}。 */
     private String createOrder(Customer c) throws Exception {
+        String orderId = createOrderWithoutShipTo(c);
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Berlin"), c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
+        return orderId;
+    }
+
+    private String createOrderWithoutShipTo(Customer c) throws Exception {
         return post("/customer/orders",
                 new CustomerOrderController.OrderDraftRequest(null, LocalDate.now().plusDays(30)), c.token())
                 .path("data").path("id").asText();
+    }
+
+    private static CustomerOrderController.ShipToRequest shipTo(String city) {
+        return new CustomerOrderController.ShipToRequest("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567",
+                "Hauptstr. 1", null, city, null, "10115");
     }
 
     private CustomerOrderController.AddLineRequest lineRequest(String code, String name, int quantity) {
@@ -651,6 +735,10 @@ class CustomerOrderFlowIT {
 
     private ResponseEntity<String> rawPost(String path, Object body, String bearer) {
         return exchange(path, HttpMethod.POST, body, bearer);
+    }
+
+    private ResponseEntity<String> rawPut(String path, Object body, String bearer) {
+        return exchange(path, HttpMethod.PUT, body, bearer);
     }
 
     private ResponseEntity<String> rawPatch(String path, Object body, String bearer) {
