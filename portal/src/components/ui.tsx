@@ -149,6 +149,14 @@ export function Pending({ err, onRetry, back }: { err: string | null; onRetry: (
 
 /* ── 提示条 ───────────────────────────────────────────────────────── */
 
+/**
+ * 操作成功的短提示，浮在页面顶部，不占文档流 —— 配 useAutoClear 2 秒后消失时，下面的内容不会往上跳
+ * （派单页以前用 Banner，提示一收起整页上移，紧接着的点击会点错行）。
+ */
+export function Toast({ children }: { children: ReactNode }) {
+    return <div className="toast" role="status">{children}</div>
+}
+
 export function Banner({ tone, icon, children, style }: {
     tone: 'in' | 'wa' | 'ok'
     icon?: string

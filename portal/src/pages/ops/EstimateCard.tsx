@@ -15,6 +15,11 @@ import { fmtDateTime, X } from '../../lib/format'
 import { estimateLine, listLatestEstimates, type EstimateItem, type PriceEstimateView } from '../../services'
 
 const money = (v: number | null | undefined) => (v == null ? X : v.toFixed(2))
+/**
+ * 每件成本合计。合计 ≤ 0 不是一个算出来的成本（缺工时、缺费率时各项都是 0），显示占位符 ——
+ * 以前这里显示 0.00，运营扫一眼会当成「成本就是 0」（2026-11-24 全流程演示里撞到）。
+ */
+const cost = (v: number | null | undefined) => (v == null || v <= 0 ? X : v.toFixed(2))
 
 export function EstimateCard({ orderId, lines, editable }: {
     orderId: string
@@ -25,6 +30,15 @@ export function EstimateCard({ orderId, lines, editable }: {
     const e = t.estimate
     const [byLine, setByLine] = useState<Record<string, PriceEstimateView>>({})
     const [running, setRunning] = useState<string | null>(null)
+    // 估价要读图 + 调模型，常常要几十秒；按钮上显示已经等了多久，免得以为卡死了
+    const [elapsed, setElapsed] = useState(0)
+    useEffect(() => {
+        if (running === null) return
+        setElapsed(0)
+        const started = Date.now()
+        const id = window.setInterval(() => setElapsed(Math.floor((Date.now() - started) / 1000)), 1000)
+        return () => window.clearInterval(id)
+    }, [running])
     const [err, setErr] = useState<string | null>(null)
     const [open, setOpen] = useState<{ code: string; view: PriceEstimateView } | null>(null)
 
@@ -77,8 +91,8 @@ export function EstimateCard({ orderId, lines, editable }: {
                                     <td className="n">{i + 1}</td>
                                     <td className="m">{l.code}</td>
                                     <td className="t1">{l.partName}</td>
-                                    {/* 一项都没算出来时合计是 0.00，那不是一个算出来的成本 —— 显示占位符 */}
-                                    <td className="n">{v && v.breakdown.items.some((it) => it.amount != null) ? money(v.unitCostCny) : X}</td>
+                                    {/* 一项都没算出来、或合计是 0 时，那不是一个算出来的成本 —— 显示占位符 */}
+                                    <td className="n">{v && v.breakdown.items.some((it) => it.amount != null) ? cost(v.unitCostCny) : X}</td>
                                     <td>{v ? result(v) : X}</td>
                                     <td className="n">{v ? fmtDateTime(new Date(v.estimatedAt)) : X}</td>
                                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -89,7 +103,7 @@ export function EstimateCard({ orderId, lines, editable }: {
                                         {editable && (
                                             <button className="btn sm" type="button" disabled={running !== null}
                                                 onClick={() => void run(l.id)}>
-                                                {running === l.id ? e.running : v ? e.rerun : e.run}
+                                                {running === l.id ? e.runningFor(elapsed) : v ? e.rerun : e.run}
                                             </button>
                                         )}
                                     </td>
@@ -159,7 +173,7 @@ function EstimateDetail({ code, v, onClose }: { code: string; v: PriceEstimateVi
                             })}
                             <tr>
                                 <td colSpan={5} className="t1">{e.total}</td>
-                                <td className="n"><b>{money(v.unitCostCny)}</b></td>
+                                <td className="n"><b>{cost(v.unitCostCny)}</b></td>
                             </tr>
                         </tbody>
                     </TableWrap>

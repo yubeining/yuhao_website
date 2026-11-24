@@ -13,7 +13,7 @@ import { useBusy } from '../../components/useBusy'
 import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Input } from '../../components/form'
 import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pending, pill, TableWrap,
+    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Pending, pill, TableWrap, Toast,
 } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useI18n } from '../../i18n/I18nProvider'
@@ -112,7 +112,7 @@ export function OpsDispatchPage() {
         <Page>
             <Hello title={t.ops.dispatchPage.title} right={<button className="btn pri" type="button" disabled={busy} onClick={() => void create()}>{t.ops.dispatchPage.newOpsOrder}</button>} />
             {err && pool !== null && orders !== null && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
-            {ok && <Banner tone="ok" style={{ marginBottom: 14 }}>{ok}</Banner>}
+            {ok && <Toast>{ok}</Toast>}
 
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={t.ops.dispatchPage.poolTitle} rid={pool ? t.ops.dispatchPage.poolCount(poolTotal) : undefined} />

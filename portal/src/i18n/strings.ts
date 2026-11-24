@@ -394,6 +394,8 @@ export interface Strings {
             title: string; sub: string
             colCost: string; colResult: string; colAt: string
             run: string; rerun: string; running: string; details: string
+            /** 估价进行中，按钮上带已等待秒数 */
+            runningFor: (sec: number) => string
             stComplete: string; stIncomplete: string; stNotMachined: string
             modalTitle: (code: string) => string
             kind: Record<string, string>; unit: Record<string, string>
@@ -884,6 +886,7 @@ export const STRINGS: Record<Lang, Strings> = {
             title: 'AI 成本估算', sub: '仅供参考 · 不含毛利 · 原价由运营填写',
             colCost: '估算成本 ¥/件', colResult: '结果', colAt: '估算时间',
             run: '估价', rerun: '重新估价', running: '估价中…', details: '明细',
+            runningFor: (sec) => `估价中… ${sec} 秒`,
             stComplete: '完整', stIncomplete: '有缺项', stNotMachined: '非机加件，需人工',
             modalTitle: (code) => `AI 成本估算 · ${code}`,
             kind: { MATERIAL: '材料', PROCESS: '工序', OUTSOURCE: '外协', FIXED: '固定费' },
@@ -1480,6 +1483,7 @@ export const STRINGS: Record<Lang, Strings> = {
             title: 'AI cost estimate', sub: 'For reference only · no margin · base price is entered by ops',
             colCost: 'Est. cost ¥/pc', colResult: 'Result', colAt: 'Estimated',
             run: 'Estimate', rerun: 'Re-estimate', running: 'Estimating…', details: 'Details',
+            runningFor: (sec) => `Estimating… ${sec}s`,
             stComplete: 'Complete', stIncomplete: 'Has gaps', stNotMachined: 'Not machined, manual',
             modalTitle: (code) => `AI cost estimate · ${code}`,
             kind: { MATERIAL: 'Material', PROCESS: 'Process', OUTSOURCE: 'Outsourced', FIXED: 'Fixed cost' },
