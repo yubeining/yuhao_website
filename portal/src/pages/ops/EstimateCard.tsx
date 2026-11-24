@@ -15,11 +15,6 @@ import { fmtDateTime, X } from '../../lib/format'
 import { estimateLine, listLatestEstimates, type EstimateItem, type PriceEstimateView } from '../../services'
 
 const money = (v: number | null | undefined) => (v == null ? X : v.toFixed(2))
-/**
- * 每件成本合计。合计 ≤ 0 不是一个算出来的成本（缺工时、缺费率时各项都是 0），显示占位符 ——
- * 以前这里显示 0.00，运营扫一眼会当成「成本就是 0」（2026-11-24 全流程演示里撞到）。
- */
-const cost = (v: number | null | undefined) => (v == null || v <= 0 ? X : v.toFixed(2))
 
 export function EstimateCard({ orderId, lines, editable }: {
     orderId: string
@@ -91,8 +86,8 @@ export function EstimateCard({ orderId, lines, editable }: {
                                     <td className="n">{i + 1}</td>
                                     <td className="m">{l.code}</td>
                                     <td className="t1">{l.partName}</td>
-                                    {/* 一项都没算出来、或合计是 0 时，那不是一个算出来的成本 —— 显示占位符 */}
-                                    <td className="n">{v && v.breakdown.items.some((it) => it.amount != null) ? cost(v.unitCostCny) : X}</td>
+                                    {/* 一项都没算出来时合计是 0.00，那不是一个算出来的成本 —— 显示占位符 */}
+                                    <td className="n">{v && v.breakdown.items.some((it) => it.amount != null) ? money(v.unitCostCny) : X}</td>
                                     <td>{v ? result(v) : X}</td>
                                     <td className="n">{v ? fmtDateTime(new Date(v.estimatedAt)) : X}</td>
                                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -173,7 +168,7 @@ function EstimateDetail({ code, v, onClose }: { code: string; v: PriceEstimateVi
                             })}
                             <tr>
                                 <td colSpan={5} className="t1">{e.total}</td>
-                                <td className="n"><b>{cost(v.unitCostCny)}</b></td>
+                                <td className="n"><b>{money(v.unitCostCny)}</b></td>
                             </tr>
                         </tbody>
                     </TableWrap>
