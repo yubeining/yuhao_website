@@ -167,7 +167,7 @@ export interface Strings {
     }
     /** 订单 / 零件 / 报价的状态文案。★ 以后端枚举名为 key，不要自己起名。 */
     status: {
-        order: Record<'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'READY' | 'CANCELLED', string>
+        order: Record<'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'READY' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED', string>
         line: Record<'PENDING' | 'IN_PROGRESS' | 'FULFILLED' | 'CANCELLED', string>
         quote: Record<'SENT' | 'SUPERSEDED' | 'REJECTED' | 'CONFIRMED', string>
     }
@@ -374,6 +374,8 @@ export interface Strings {
             markupUnset: string
             customerRev: (v: string) => string
             needMarkup: string
+            /** 原价口径提示（2026-11-24 需求方定：原价是标准价，不是成本） */
+            basePriceHint: string
             resendBtn: string; sendBtn: string
             historyTitle: string
             colVersion: string; colCurrency: string; colLead: string; colMarkup: string
@@ -453,6 +455,17 @@ export interface Strings {
         createContract: string; dropContract: string; recall: string
         revokeSupplier: string; ship: string; cancelHistory: string
         colReason: string; colAcceptedAt: string; colCancelledAt: string
+    }
+    /** 发货（2026-11-24）：运营发给客户、随货文件、客户确认收货、供应商发给平台的承运商 / 运单号 */
+    shipping: {
+        title: string; carrier: string; trackingNo: string; shippedAt: string; receivedAt: string
+        shipBtn: string; shipModalTitle: string; shipSubmit: string; needBoth: string; shipped: string
+        docsTitle: string; docsHint: string; docsEmpty: string; upload: string; uploading: string
+        uploaded: (name: string) => string; download: string
+        customerShipped: string; confirmReceipt: string; confirmReceiptTitle: string; confirmReceiptBody: string
+        customerCompleted: (when: string) => string
+        supplierShipTitle: string; supplierShipSubmit: string; batches: string
+        batch: (carrier: string, trackingNo: string, when: string) => string
     }
     /** 后端返回的 i18n code → 文案。后端只返 code（CLAUDE.md §6），翻译全在这里。 */
     errors: Record<string, string>
@@ -622,7 +635,7 @@ export const STRINGS: Record<Lang, Strings> = {
         status: {
             order: {
                 DRAFT: '草稿中', SUBMITTED: '已提交', QUOTED: '待确认报价',
-                CONFIRMED: '已确认报价', READY: '已完工 · 待发货', CANCELLED: '已取消',
+                CONFIRMED: '已确认报价', READY: '已完工 · 待发货', SHIPPED: '已发货', COMPLETED: '已完成', CANCELLED: '已取消',
             },
             line: { PENDING: '待安排', IN_PROGRESS: '进行中', FULFILLED: '已完成', CANCELLED: '已取消' },
             quote: { SENT: '待确认', SUPERSEDED: '已被重报取代', REJECTED: '已拒绝', CONFIRMED: '已确认' },
@@ -858,6 +871,7 @@ export const STRINGS: Record<Lang, Strings> = {
             cancelledBanner: '订单已取消，不能报价。',
             quoteTitle: '零件', requoteTitle: '重新报价',
             needMarkup: '还没有报价系数，请先在「报价设置」里填全局默认值',
+            basePriceHint: '原价按标准价填：对客价 = 原价 × 报价系数，对供价 = 原价 × 各家折率。AI 估的是成本，不要直接填进来。',
             resendBtn: '重新发出', sendBtn: '发出报价',
             colPart: '零件', colMaterial: '材料', colSurface: '表面处理', colBasePrice: '原价 ¥/件',
             context: (customer, wanted, qty) => `客户 ${customer} · 期望交期 ${wanted} · 共 ${qty} 件`,
@@ -956,6 +970,19 @@ export const STRINGS: Record<Lang, Strings> = {
         revokeSupplier: '收回供应商', ship: '发货', cancelHistory: '取消记录',
         colReason: '原因', colAcceptedAt: '接单', colCancelledAt: '取消',
     },
+    shipping: {
+        title: '发货', carrier: '承运商', trackingNo: '运单号', shippedAt: '发货时间', receivedAt: '确认收货',
+        shipBtn: '发货给客户', shipModalTitle: '发货给客户', shipSubmit: '确认发货',
+        needBoth: '承运商和运单号都要填', shipped: '已发货',
+        docsTitle: '随货文件', docsHint: '质检报告、材质证明等，PDF / JPG / PNG。客户确认收货前都能补传。',
+        docsEmpty: '还没有随货文件', upload: '上传文件', uploading: '上传中…',
+        uploaded: (name) => `已上传 ${name}`, download: '下载',
+        customerShipped: '货已发出。收到货后请点「确认收货」。', confirmReceipt: '确认收货',
+        confirmReceiptTitle: '确认已经收到货？', confirmReceiptBody: '确认后订单完成，不能撤回。',
+        customerCompleted: (when) => `已于 ${when} 确认收货，订单已完成。`,
+        supplierShipTitle: '发给平台', supplierShipSubmit: '发出', batches: '发货批次',
+        batch: (carrier, trackingNo, when) => `${carrier} ${trackingNo} · ${when}`,
+    },
         errors: {
             'auth.bad_credentials': '账号或密码错误',
             'auth.otp_rate_limited': '发送太频繁，请稍后再试',
@@ -983,6 +1010,13 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.not_draft': '订单已提交或已取消，不能再修改',
             'order.ship_to_required': '请先填写收货地址',
             'order.ship_to_locked': '订单已就绪或已取消，收货地址不能再改',
+            'order.not_ready': '订单还没全部完工，或者已经发过货了',
+            'order.not_shipped': '订单还没发货，或者已经确认过收货',
+            'order.documents_locked': '订单还没完工，或者客户已经确认收货，不能再传随货文件',
+            'order.document_type_not_allowed': '只能传 PDF、JPG、PNG 文件',
+            'order.document_not_found': '文件不存在',
+            'order.document_not_pending': '这个文件已经处理过了',
+            'order.document_object_missing': '文件没有传上去，请重新上传',
             'order.ship_to_country_invalid': '请选择国家/地区',
             'order.line_not_found': '零件行不存在',
             'order.no_lines': '订单里还没有零件',
@@ -1218,7 +1252,7 @@ export const STRINGS: Record<Lang, Strings> = {
         status: {
             order: {
                 DRAFT: 'Draft', SUBMITTED: 'Submitted', QUOTED: 'Quote pending',
-                CONFIRMED: 'Quote confirmed', READY: 'Completed · awaiting shipment', CANCELLED: 'Cancelled',
+                CONFIRMED: 'Quote confirmed', READY: 'Completed · awaiting shipment', SHIPPED: 'Shipped', COMPLETED: 'Completed', CANCELLED: 'Cancelled',
             },
             line: { PENDING: 'Not scheduled', IN_PROGRESS: 'In progress', FULFILLED: 'Completed', CANCELLED: 'Cancelled' },
             quote: { SENT: 'Pending confirmation', SUPERSEDED: 'Superseded by a newer quote', REJECTED: 'Rejected', CONFIRMED: 'Confirmed' },
@@ -1460,6 +1494,7 @@ export const STRINGS: Record<Lang, Strings> = {
             markupUnset: 'Not set',
             customerRev: (v) => ` · customer mark ${v}`,
             needMarkup: 'No quote rate yet — set the global default in Quote settings',
+            basePriceHint: 'Enter the standard price: customer price = base × quote rate, supplier price = base × each supplier\'s rate. The AI estimate is a cost — do not copy it here.',
             resendBtn: 'Send again', sendBtn: 'Send quote',
             historyTitle: 'Quote history',
             colVersion: 'Version', colCurrency: 'Currency', colLead: 'Delivery date', colMarkup: 'Quote rate',
@@ -1553,6 +1588,19 @@ export const STRINGS: Record<Lang, Strings> = {
         revokeSupplier: 'Revoke supplier', ship: 'Ship', cancelHistory: 'Cancellation history',
         colReason: 'Reason', colAcceptedAt: 'Accepted', colCancelledAt: 'Cancelled',
     },
+    shipping: {
+        title: 'Shipping', carrier: 'Carrier', trackingNo: 'Tracking number', shippedAt: 'Shipped', receivedAt: 'Received',
+        shipBtn: 'Ship to customer', shipModalTitle: 'Ship to customer', shipSubmit: 'Confirm shipment',
+        needBoth: 'Carrier and tracking number are both required', shipped: 'Shipped',
+        docsTitle: 'Shipping documents', docsHint: 'QC reports, material certificates, etc. PDF / JPG / PNG. You can add more until the customer confirms receipt.',
+        docsEmpty: 'No shipping documents yet', upload: 'Upload file', uploading: 'Uploading…',
+        uploaded: (name) => `Uploaded ${name}`, download: 'Download',
+        customerShipped: 'Your order has shipped. Click "Confirm receipt" once it arrives.', confirmReceipt: 'Confirm receipt',
+        confirmReceiptTitle: 'Have you received the goods?', confirmReceiptBody: 'This completes the order and cannot be undone.',
+        customerCompleted: (when) => `Receipt confirmed on ${when}. The order is complete.`,
+        supplierShipTitle: 'Ship to us', supplierShipSubmit: 'Ship', batches: 'Shipments',
+        batch: (carrier, trackingNo, when) => `${carrier} ${trackingNo} · ${when}`,
+    },
         errors: {
             'auth.bad_credentials': 'Incorrect email or password',
             'auth.otp_rate_limited': 'Too many requests. Please try again later.',
@@ -1580,6 +1628,13 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.not_draft': 'The order was already submitted or cancelled',
             'order.ship_to_required': 'Please add a shipping address',
             'order.ship_to_locked': 'The order is ready or cancelled; the shipping address can no longer be changed',
+            'order.not_ready': 'The order is not fully completed yet, or it has already shipped',
+            'order.not_shipped': 'The order has not shipped yet, or receipt is already confirmed',
+            'order.documents_locked': 'Documents can only be added after completion and before the customer confirms receipt',
+            'order.document_type_not_allowed': 'Only PDF, JPG and PNG files are allowed',
+            'order.document_not_found': 'File not found',
+            'order.document_not_pending': 'This file has already been processed',
+            'order.document_object_missing': 'The file did not upload. Please try again.',
             'order.ship_to_country_invalid': 'Please select a country/region',
             'order.line_not_found': 'Order line not found',
             'order.no_lines': 'The order has no parts yet',

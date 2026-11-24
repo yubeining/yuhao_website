@@ -7,6 +7,7 @@
  * ★ 提交之后这里只写「已提交、图纸已锁定」这一个事实 —— 不承诺报价时间：
  *   平台什么时候报价没有约定，写「预计 X 内报价」就是一句没有依据的承诺（CLAUDE.md §10 C5）。
  *   报价发出后（QUOTED / CONFIRMED）给一个去报价页的入口。
+ * ★ 发货（2026-11-24）：运营发货后显示承运商 / 运单号 / 随货文件，客户点「确认收货」订单完成（不能撤回）。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -23,10 +24,11 @@ import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
 import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, fmtMoney, X } from '../../lib/format'
 import {
-    ApiError, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
+    ApiError, confirmReceipt, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
     type CustomerQuoteView, type OrderView,
 } from '../../services'
 import { ShipToEditor } from './ShipToEditor'
+import { ShipmentCard } from './ShipmentCard'
 import { lineFulfillSt, orderSt } from './status'
 
 export function OrderDetailPage() {
@@ -45,6 +47,7 @@ export function OrderDetailPage() {
     const [orgName, setOrgName] = useState<string | null>(null)
     const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
     const [confirmSubmit, setConfirmSubmit] = useState(false)
+    const [confirmReceive, setConfirmReceive] = useState(false)
     const [askConfirm, confirmDialog] = useConfirm()
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
@@ -105,7 +108,8 @@ export function OrderDetailPage() {
 
     const draft = order.status === 'DRAFT'
     // 确认报价之后才谈得上进度；在那之前这一列是空的，不如不显示（CLAUDE.md §10 C5）
-    const inProduction = order.status === 'CONFIRMED' || order.status === 'READY'
+    const inProduction = order.status === 'CONFIRMED' || order.status === 'READY' || order.status === 'SHIPPED'
+        || order.status === 'COMPLETED'
     const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
     const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
     // 只有「查到了、确实是空的」才算缺公司名。没查到（请求失败 / 还在路上）不拦按钮 ——
@@ -136,6 +140,19 @@ export function OrderDetailPage() {
         setBusy(true)
         try {
             apply(await submitOrder(order.id))
+            setErr(null)
+        } catch (e) {
+            setErr(errorText(t, e))
+            await load()
+        } finally {
+            setBusy(false)
+        }
+    }
+
+    const receive = async () => {
+        setBusy(true)
+        try {
+            apply(await confirmReceipt(order.id))
             setErr(null)
         } catch (e) {
             setErr(errorText(t, e))
@@ -212,6 +229,16 @@ export function OrderDetailPage() {
                     onConfirm={() => { void submit().then(() => setConfirmSubmit(false)) }}
                 />
             )}
+            {confirmReceive && (
+                <ConfirmDialog
+                    title={t.shipping.confirmReceiptTitle}
+                    message={t.shipping.confirmReceiptBody}
+                    confirmLabel={t.shipping.confirmReceipt}
+                    busy={busy}
+                    onCancel={() => setConfirmReceive(false)}
+                    onConfirm={() => { void receive().then(() => setConfirmReceive(false)) }}
+                />
+            )}
 
             {/* 状态条：一句话说明现在在等什么，右侧是这一步唯一需要做的事 */}
             {order.status === 'SUBMITTED' && (
@@ -246,12 +273,28 @@ export function OrderDetailPage() {
             {order.status === 'READY' && (
                 <Banner tone="ok" style={{ marginBottom: 14 }}>{t.customer.orderDetail.statusReady}</Banner>
             )}
+            {order.status === 'SHIPPED' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{t.shipping.customerShipped}</span>
+                        <button className="btn pri sm" type="button" disabled={busy}
+                            onClick={() => setConfirmReceive(true)}>{t.shipping.confirmReceipt}</button>
+                    </span>
+                </Banner>
+            )}
+            {order.status === 'COMPLETED' && order.shipment?.receivedAt && (
+                <Banner tone="ok" style={{ marginBottom: 14 }}>
+                    {t.shipping.customerCompleted(fmtDateTime(new Date(order.shipment.receivedAt)))}
+                </Banner>
+            )}
             {order.status === 'CANCELLED' && (
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.cancelledBanner}</Banner>
             )}
 
             {/* ★ 零件表放最上面（2026-11-24 改版）：零件是订单的主体，订单信息和收货地址是附属，
                 并排放在它下面 */}
+            <ShipmentCard order={order} />
+
             <Card style={{ marginBottom: 16 }}>
                 <CardHead title={t.customer.orderDetail.partsTitle(order.lines.length)} />
                 {order.lines.length ? (

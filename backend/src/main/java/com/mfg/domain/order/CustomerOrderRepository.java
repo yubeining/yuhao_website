@@ -79,4 +79,28 @@ interface CustomerOrderRepository extends JpaRepository<CustomerOrder, UUID> {
                          @Param("from") CustomerOrder.Status from,
                          @Param("to") CustomerOrder.Status to,
                          @Param("now") Instant now);
+
+    /** 运营发货：只有待发货（READY）的单能发，同时写下承运商 / 运单号 / 时间 / 发货人。两次并发只有一次改到行。 */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update CustomerOrder o set o.status = com.mfg.domain.order.CustomerOrder.Status.SHIPPED,"
+            + " o.shipmentCarrier = :carrier, o.shipmentTrackingNo = :trackingNo, o.shippedAt = :now,"
+            + " o.shippedByOpsUserId = :opsUserId, o.updatedAt = :now, o.version = o.version + 1"
+            + " where o.id = :id and o.customerOrgId = :orgId"
+            + " and o.status = com.mfg.domain.order.CustomerOrder.Status.READY")
+    int ship(@Param("id") UUID id,
+             @Param("orgId") UUID customerOrgId,
+             @Param("carrier") String carrier,
+             @Param("trackingNo") String trackingNo,
+             @Param("opsUserId") UUID opsUserId,
+             @Param("now") Instant now);
+
+    /** 客户确认收货：只有已发货的单能确认。 */
+    @Transactional
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("update CustomerOrder o set o.status = com.mfg.domain.order.CustomerOrder.Status.COMPLETED,"
+            + " o.receivedAt = :now, o.updatedAt = :now, o.version = o.version + 1"
+            + " where o.id = :id and o.customerOrgId = :orgId"
+            + " and o.status = com.mfg.domain.order.CustomerOrder.Status.SHIPPED")
+    int confirmReceipt(@Param("id") UUID id, @Param("orgId") UUID customerOrgId, @Param("now") Instant now);
 }

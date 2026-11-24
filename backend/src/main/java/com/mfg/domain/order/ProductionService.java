@@ -43,11 +43,12 @@ class ProductionService {
     private final CustomerOrderRepository customerOrders;
     private final CustomerOrderPartRepository customerLines;
     private final SupplierOrderViews views;
+    private final SupplierShipmentRepository shipments;
 
     ProductionService(OpsOrderRepository opsOrders, OpsOrderPartRepository opsParts,
                       SupplierOrderRepository supplierOrders, SupplierOrderPartRepository supplierParts,
                       CustomerOrderRepository customerOrders, CustomerOrderPartRepository customerLines,
-                      SupplierOrderViews views) {
+                      SupplierOrderViews views, SupplierShipmentRepository shipments) {
         this.opsOrders = opsOrders;
         this.opsParts = opsParts;
         this.supplierOrders = supplierOrders;
@@ -55,6 +56,7 @@ class ProductionService {
         this.customerOrders = customerOrders;
         this.customerLines = customerLines;
         this.views = views;
+        this.shipments = shipments;
     }
 
     /** 质检一行的判定：三个数之和必须等于该行件数。 */
@@ -92,9 +94,12 @@ class ProductionService {
      *
      * <p>2026-09-20 拍板「整单全部完工才能发」—— 所以只要还有行在待开工 / 生产中就拒。
      * 返工和重做的行做完之后再点一次，发的就是那几行。
+     *
+     * <p>2026-11-24：承运商 + 运单号必填（controller 校验非空），每发一次记一条 {@link SupplierShipment}。
      */
     @Transactional
-    public DispatchViews.SupplierOrderView ship(UUID supplierOrgId, UUID supplierOrderId) {
+    public DispatchViews.SupplierOrderView ship(UUID supplierOrgId, UUID userId, UUID supplierOrderId,
+                                                String carrier, String trackingNo) {
         SupplierOrder so = lockSigned(supplierOrgId, supplierOrderId);
         List<SupplierOrderPart> parts = supplierParts.findBySupplierOrderIdOrderByCreatedAtAsc(so.getId());
         if (parts.stream().anyMatch(p -> UNFINISHED.contains(p.getFulfillmentStatus()))) {
@@ -106,7 +111,9 @@ class ProductionService {
             throw BusinessException.conflict("production.nothing_to_ship");
         }
         Instant now = Instant.now();
-        ready.forEach(p -> p.ship(now));
+        SupplierShipment shipment = shipments.saveAndFlush(new SupplierShipment(so.getId(), supplierOrgId,
+                carrier.trim(), trackingNo.trim(), userId, now));
+        ready.forEach(p -> p.ship(now, shipment.getId()));
         supplierParts.saveAllAndFlush(ready);
         return views.forSupplier(so, rollUp(so));
     }

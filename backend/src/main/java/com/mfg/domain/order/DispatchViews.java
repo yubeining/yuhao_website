@@ -59,7 +59,14 @@ public final class DispatchViews {
     /** 运营的生产与质检页：一张已签字的供应商订单 + 它的零件行（2026-09-20）。 */
     public record OpsProductionOrder(UUID id, UUID opsOrderId, UUID supplierOrgId, String supplierName, String status,
                                      LocalDate supplierDueDate, Instant acceptedAt, Instant signedAt,
-                                     List<OpsLine> lines) {
+                                     List<OpsLine> lines, List<Shipment> shipments) {
+    }
+
+    /**
+     * 供应商发给平台的一批（2026-11-24）：承运商 / 运单号 / 发出时间 / 这一批发了哪几行。
+     * 运营和供应商看的是同一份，里面没有客户信息，两组都能用。
+     */
+    public record Shipment(UUID id, String carrier, String trackingNo, Instant shippedAt, List<UUID> lineIds) {
     }
 
     public record Allocation(UUID customerOrderPartId, List<AllocatedPart> parts) {
@@ -90,7 +97,7 @@ public final class DispatchViews {
     public record SupplierOrderView(UUID id, UUID opsOrderId, String status, LocalDate supplierDueDate,
                                     Instant acceptedAt, Instant contractCreatedAt, Instant signedAt,
                                     Instant signByDeadline, Instant cancelledAt, String cancelReason,
-                                    List<SupplierLine> lines) {
+                                    List<SupplierLine> lines, List<Shipment> shipments) {
     }
 
     public record Declined(UUID id, String status) {

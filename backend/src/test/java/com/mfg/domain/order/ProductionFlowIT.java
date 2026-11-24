@@ -62,9 +62,14 @@ import static org.assertj.core.api.Assertions.assertThat;
 @ActiveProfiles("test")
 class ProductionFlowIT {
 
+    /** 最小的合法 PNG 文件头（8 字节签名 + IHDR 块开头），tika 按它判成 image/png。 */
+    private static final byte[] PNG = new byte[] {(byte) 0x89, 'P', 'N', 'G', '\r', '\n', 0x1A, '\n',
+            0, 0, 0, 0x0D, 'I', 'H', 'D', 'R', 0, 0, 0, 1, 0, 0, 0, 1, 8, 2, 0, 0, 0};
     private static final byte[] PDF =
             "%PDF-1.7\n1 0 obj\n<< /Type /Catalog >>\nendobj\n".getBytes(StandardCharsets.US_ASCII);
     private static final LocalDate RATE_DAY = LocalDate.of(2026, 9, 16);
+    /** 供应商发给平台时必填承运商 + 运单号（2026-11-24 拍板）。 */
+    private static final Object SHIP = new ShipBody("SF Express", "SF0000000001");
 
     @LocalServerPort
     private int port;
@@ -122,7 +127,7 @@ class ProductionFlowIT {
         assertThat(lineOf(produced, line).path("status").asText()).isEqualTo("PRODUCED");
         assertThat(produced.path("status").asText()).isEqualTo("IN_PRODUCTION");
 
-        JsonNode shipped = post("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token());
+        JsonNode shipped = post("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token());
         assertThat(shipped.path("status").asText()).isEqualTo("SHIPPED");
         assertThat(lineOf(shipped, line).path("status").asText()).isEqualTo("QC_PENDING");
         assertThat(customerOrder(s).path("status").asText()).isEqualTo("CONFIRMED");
@@ -177,7 +182,7 @@ class ProductionFlowIT {
             ok(rawPost(supplierLine(s, id) + "/start", null, s.supplier().token()));
             ok(rawPost(supplierLine(s, id) + "/produced", null, s.supplier().token()));
         }
-        assertThat(post("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token())
+        assertThat(post("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token())
                 .path("status").asText()).isEqualTo("SHIPPED");
         ok(rawPost(opsLine(s, rework.path("id").asText()) + "/qc", new QcBody(2, 0, 0), ops));
         JsonNode done = post(opsLine(s, remakeLine.path("id").asText()) + "/qc", new QcBody(1, 0, 0), ops);
@@ -215,21 +220,21 @@ class ProductionFlowIT {
         String line = lineId(s);
         assertConflict(rawPost(supplierLine(s, line) + "/produced", null, s.supplier().token()),
                 "production.line_not_started");
-        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()),
+        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()),
                 "production.lines_unfinished");
         ok(rawPost(supplierLine(s, line) + "/start", null, s.supplier().token()));
         assertConflict(rawPost(supplierLine(s, line) + "/start", null, s.supplier().token()),
                 "production.line_not_pending");
-        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()),
+        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()),
                 "production.lines_unfinished");
         assertConflict(rawPost(opsLine(s, line) + "/qc", new QcBody(2, 0, 0), ops), "production.line_not_shipped");
 
         ok(rawPost(supplierLine(s, line) + "/produced", null, s.supplier().token()));
-        ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()));
+        ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()));
         assertThat(rawPost(opsLine(s, line) + "/qc", new QcBody(1, 0, 0), ops).getStatusCode().value()).isEqualTo(400);
         assertConflict(rawPost(opsLine(s, line) + "/remake", null, ops), "production.line_not_scrapped");
         ok(rawPost(opsLine(s, line) + "/qc", new QcBody(2, 0, 0), ops));
-        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()),
+        assertConflict(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()),
                 "production.nothing_to_ship");
     }
 
@@ -242,7 +247,7 @@ class ProductionFlowIT {
 
         assertThat(rawPost(supplierLine(s, line) + "/start", null, other.token()).getStatusCode().value())
                 .isEqualTo(404);
-        assertThat(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, other.token())
+        assertThat(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, other.token())
                 .getStatusCode().value()).isEqualTo(404);
         assertThat(rawPost(supplierLine(s, line) + "/start", null, s.customer().token()).getStatusCode().value())
                 .isEqualTo(403);
@@ -282,10 +287,155 @@ class ProductionFlowIT {
             assertThat(inParallel(() -> rawPost(supplierLine(s, line) + "/start", null, s.supplier().token())))
                     .isEqualTo(1);
             ok(rawPost(supplierLine(s, line) + "/produced", null, s.supplier().token()));
-            ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()));
+            ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()));
             assertThat(inParallel(() -> rawPost(opsLine(s, line) + "/qc", new QcBody(1, 1, 0), ops))).isEqualTo(1);
             assertConserved(s, 2);
         }
+    }
+
+    // ---------- 发货（2026-11-24 拍板） ----------
+
+    /** 供应商发给平台：承运商 + 运单号必填；返工后再发一次，两批的单号都留着，各自记着发了哪几行。 */
+    @Test
+    void supplierShipNeedsCarrierAndTrackingAndKeepsEveryBatch() throws Exception {
+        Signed s = signed("ship-batches", 4);
+        String line = lineId(s);
+        ok(rawPost(supplierLine(s, line) + "/start", null, s.supplier().token()));
+        ok(rawPost(supplierLine(s, line) + "/produced", null, s.supplier().token()));
+        String ship = "/supplier/orders/" + s.supplierOrderId() + "/ship";
+        assertThat(rawPost(ship, null, s.supplier().token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPost(ship, new ShipBody(" ", "SF1"), s.supplier().token()).getStatusCode().value())
+                .isEqualTo(400);
+        assertThat(rawPost(ship, new ShipBody("SF", ""), s.supplier().token()).getStatusCode().value())
+                .isEqualTo(400);
+
+        JsonNode first = post(ship, new ShipBody("SF Express", "SF001"), s.supplier().token());
+        assertThat(first.path("shipments")).hasSize(1);
+        assertThat(first.path("shipments").get(0).path("carrier").asText()).isEqualTo("SF Express");
+        assertThat(first.path("shipments").get(0).path("trackingNo").asText()).isEqualTo("SF001");
+        assertThat(first.path("shipments").get(0).path("lineIds").get(0).asText()).isEqualTo(line);
+
+        JsonNode qc = post(opsLine(s, line) + "/qc", new QcBody(2, 2, 0), ops);
+        String rework = childrenOf(qc, line).get(0).path("id").asText();
+        ok(rawPost(supplierLine(s, rework) + "/start", null, s.supplier().token()));
+        ok(rawPost(supplierLine(s, rework) + "/produced", null, s.supplier().token()));
+        JsonNode second = post(ship, new ShipBody("JD Logistics", "JD002"), s.supplier().token());
+        assertThat(second.path("shipments")).hasSize(2);
+        assertThat(second.path("shipments").get(1).path("trackingNo").asText()).isEqualTo("JD002");
+        assertThat(second.path("shipments").get(1).path("lineIds").get(0).asText()).isEqualTo(rework);
+
+        JsonNode opsView = post(opsLine(s, rework) + "/qc", new QcBody(2, 0, 0), ops);
+        assertThat(opsView.path("shipments")).hasSize(2);
+        assertThat(opsView.path("shipments").get(0).path("trackingNo").asText()).isEqualTo("SF001");
+        assertConserved(s, 4);
+    }
+
+    /** 运营整单发给客户（承运商 + 运单号必填，只有待发货的单能发）→ 客户确认收货 → 已完成。 */
+    @Test
+    void opsShipsTheReadyOrderAndTheCustomerConfirmsReceipt() throws Exception {
+        Signed s = signed("ship-customer", 2);
+        String line = lineId(s);
+        String ship = "/ops/customer-orders/" + s.customerOrderId() + "/ship";
+        String confirm = "/customer/orders/" + s.customerOrderId() + "/confirm-receipt";
+        shipAll(s);
+        assertConflict(rawPost(ship, new ShipBody("DHL", "DHL1"), ops), "order.not_ready");
+        ok(rawPost(opsLine(s, line) + "/qc", new QcBody(2, 0, 0), ops));
+        assertThat(customerOrder(s).path("status").asText()).isEqualTo("READY");
+        assertConflict(rawPost(confirm, null, s.customer().token()), "order.not_shipped");
+
+        assertThat(rawPost(ship, null, ops).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPost(ship, new ShipBody("DHL", " "), ops).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPost(ship, new ShipBody("DHL", "DHL1"), s.customer().token()).getStatusCode().value())
+                .isEqualTo(403);
+        JsonNode shipped = post(ship, new ShipBody(" DHL Express ", " 1234567890 "), ops);
+        assertThat(shipped.path("status").asText()).isEqualTo("SHIPPED");
+        assertThat(shipped.path("shipment").path("carrier").asText()).isEqualTo("DHL Express");
+        assertConflict(rawPost(ship, new ShipBody("DHL", "DHL2"), ops), "order.not_ready");
+
+        JsonNode seen = customerOrder(s);
+        assertThat(seen.path("status").asText()).isEqualTo("SHIPPED");
+        assertThat(seen.path("shipment").path("carrier").asText()).isEqualTo("DHL Express");
+        assertThat(seen.path("shipment").path("trackingNo").asText()).isEqualTo("1234567890");
+        assertThat(seen.path("shipment").path("shippedAt").asText()).isNotEmpty();
+        assertThat(seen.path("shipment").path("receivedAt").isMissingNode()
+                || seen.path("shipment").path("receivedAt").isNull()).isTrue();
+        // 发货人是谁不对客户暴露（白名单）
+        assertThat(seen.toString()).doesNotContain("shippedBy");
+
+        Customer other = register("ship-customer-other");
+        assertThat(rawPost(confirm, null, other.token()).getStatusCode().value()).isEqualTo(404);
+        JsonNode done = post(confirm, null, s.customer().token());
+        assertThat(done.path("status").asText()).isEqualTo("COMPLETED");
+        assertThat(done.path("shipment").path("receivedAt").asText()).isNotEmpty();
+        assertConflict(rawPost(confirm, null, s.customer().token()), "order.not_shipped");
+        assertThat(get("/ops/customer-orders/" + s.customerOrderId(), ops).path("status").asText())
+                .isEqualTo("COMPLETED");
+    }
+
+    /**
+     * 随货文件：运营在待发货 / 已发货时上传（PDF / JPG / PNG，按内容判），客户确认收货后不能再传；
+     * 客户只看得到传完的；每签发一次下载链接落一行审计，别家客户 404 且不落审计。
+     */
+    @Test
+    void shippingDocumentsAreUploadedByOpsAndAuditedOnDownload() throws Exception {
+        Signed s = signed("ship-docs", 1);
+        String line = lineId(s);
+        String docs = "/ops/customer-orders/" + s.customerOrderId() + "/documents";
+        shipAll(s);
+        assertConflict(rawPost(docs, new DocumentUploadBody("qc.pdf", "application/pdf"), ops),
+                "order.documents_locked");
+        ok(rawPost(opsLine(s, line) + "/qc", new QcBody(1, 0, 0), ops));
+
+        assertThat(rawPost(docs, new DocumentUploadBody("model.step", null), ops).getStatusCode().value())
+                .isEqualTo(400);
+        String docId = uploadDocument(s, "qc-report.pdf", PDF);
+        String fake = post(docs, new DocumentUploadBody("fake.pdf", "application/pdf"), ops).path("fileId").asText();
+        storage.put(documentKey(fake), new ByteArrayInputStream("hello".getBytes(StandardCharsets.UTF_8)), 5,
+                "application/pdf");
+        assertThat(rawPost(docs + "/" + fake + "/complete", null, ops).getStatusCode().value()).isEqualTo(400);
+
+        JsonNode seen = customerOrder(s);
+        assertThat(seen.path("documents")).hasSize(1);
+        assertThat(seen.path("documents").get(0).path("originalFilename").asText()).isEqualTo("qc-report.pdf");
+        assertThat(seen.toString()).doesNotContain("storageKey").doesNotContain("uploadedBy");
+
+        String customerUrl = "/customer/orders/" + s.customerOrderId() + "/documents/" + docId + "/view-url";
+        assertThat(get(customerUrl, s.customer().token()).path("url").asText()).isNotEmpty();
+        assertThat(auditRows(docId, "CUSTOMER")).isEqualTo(1);
+        Customer other = register("ship-docs-other");
+        assertThat(exchange(customerUrl, HttpMethod.GET, null, other.token()).getStatusCode().value()).isEqualTo(404);
+        assertThat(exchange("/customer/orders/" + s.customerOrderId() + "/documents/" + fake + "/view-url",
+                HttpMethod.GET, null, s.customer().token()).getStatusCode().value()).isEqualTo(404);
+        assertThat(get(docs + "/" + docId + "/view-url", ops).path("url").asText()).isNotEmpty();
+        assertThat(auditRows(docId, "CUSTOMER")).isEqualTo(1);
+        assertThat(auditRows(docId, "OPERATOR")).isEqualTo(1);
+
+        ok(rawPost("/ops/customer-orders/" + s.customerOrderId() + "/ship", new ShipBody("UPS", "1Z999"), ops));
+        uploadDocument(s, "material-cert.png", PNG);
+        assertThat(customerOrder(s).path("documents")).hasSize(2);
+        ok(rawPost("/customer/orders/" + s.customerOrderId() + "/confirm-receipt", null, s.customer().token()));
+        assertConflict(rawPost(docs, new DocumentUploadBody("late.pdf", "application/pdf"), ops),
+                "order.documents_locked");
+    }
+
+    private String uploadDocument(Signed s, String filename, byte[] bytes) throws Exception {
+        String docs = "/ops/customer-orders/" + s.customerOrderId() + "/documents";
+        String id = post(docs, new DocumentUploadBody(filename, null), ops).path("fileId").asText();
+        storage.put(documentKey(id), new ByteArrayInputStream(bytes), bytes.length, "application/octet-stream");
+        assertThat(post(docs + "/" + id + "/complete", null, ops).path("uploadStatus").asText())
+                .isEqualTo("COMPLETED");
+        return id;
+    }
+
+    private String documentKey(String documentId) {
+        return jdbc.queryForObject("select storage_key from customer_order_document where id = ?", String.class,
+                UUID.fromString(documentId));
+    }
+
+    private int auditRows(String documentId, String party) {
+        Integer n = jdbc.queryForObject("select count(*) from customer_order_document_access_log"
+                + " where document_id = ? and accessor_party_type = ?", Integer.class, UUID.fromString(documentId), party);
+        return n == null ? 0 : n;
     }
 
     // ---------- 断言 ----------
@@ -365,6 +515,12 @@ class ProductionFlowIT {
     }
 
     private record QcBody(int pass, int rework, int scrap) {
+    }
+
+    private record ShipBody(String carrier, String trackingNo) {
+    }
+
+    private record DocumentUploadBody(String filename, String contentType) {
     }
 
     private Signed signed(String tag, int quantity) throws Exception {
@@ -450,7 +606,7 @@ class ProductionFlowIT {
                 ok(rawPost(supplierLine(s, l.path("id").asText()) + "/produced", null, s.supplier().token()));
             }
         }
-        ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", null, s.supplier().token()));
+        ok(rawPost("/supplier/orders/" + s.supplierOrderId() + "/ship", SHIP, s.supplier().token()));
     }
 
     // ---------- 取数 ----------

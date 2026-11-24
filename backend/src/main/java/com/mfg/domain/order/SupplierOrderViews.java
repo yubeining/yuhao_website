@@ -21,27 +21,46 @@ class SupplierOrderViews {
     private final DispatchLineDetails details;
     private final SignDeadline signDeadline;
     private final OrganizationRepository organizations;
+    private final SupplierShipmentRepository shipments;
 
     SupplierOrderViews(OpsOrderPartRepository opsParts, DispatchLineDetails details, SignDeadline signDeadline,
-                       OrganizationRepository organizations) {
+                       OrganizationRepository organizations, SupplierShipmentRepository shipments) {
         this.opsParts = opsParts;
         this.details = details;
         this.signDeadline = signDeadline;
         this.organizations = organizations;
+        this.shipments = shipments;
     }
 
     DispatchViews.SupplierOrderView forSupplier(SupplierOrder so, List<SupplierOrderPart> ps) {
         return new DispatchViews.SupplierOrderView(so.getId(), so.getOpsOrderId(), so.getStatus().name(),
                 so.getSupplierDueDate(), so.getAcceptedAt(), so.getContractCreatedAt(), so.getSignedAt(),
                 signDeadline.deadlineOf(so.getAcceptedAt()), so.getCancelledAt(),
-                so.getCancelReason() == null ? null : so.getCancelReason().name(), details.forSupplier(rows(ps)));
+                so.getCancelReason() == null ? null : so.getCancelReason().name(), details.forSupplier(rows(ps)),
+                shipmentsOf(so, ps));
     }
 
     DispatchViews.OpsProductionOrder forOps(SupplierOrder so, List<SupplierOrderPart> ps) {
         String supplierName = organizations.findById(so.getSupplierOrgId()).map(Organization::getName).orElse(null);
         return new DispatchViews.OpsProductionOrder(so.getId(), so.getOpsOrderId(), so.getSupplierOrgId(),
                 supplierName, so.getStatus().name(), so.getSupplierDueDate(), so.getAcceptedAt(), so.getSignedAt(),
-                details.forOps(rows(ps)));
+                details.forOps(rows(ps)), shipmentsOf(so, ps));
+    }
+
+    /** 每一批发了哪几行：按零件行上记的批次 id 归组。还没发过就是空列表。 */
+    private List<DispatchViews.Shipment> shipmentsOf(SupplierOrder so, List<SupplierOrderPart> ps) {
+        List<SupplierShipment> batches = shipments.findBySupplierOrderIdOrderByShippedAtAsc(so.getId());
+        if (batches.isEmpty()) {
+            return List.of();
+        }
+        Map<UUID, List<UUID>> linesByBatch = ps.stream()
+                .filter(p -> p.getSupplierShipmentId() != null)
+                .collect(Collectors.groupingBy(SupplierOrderPart::getSupplierShipmentId,
+                        Collectors.mapping(SupplierOrderPart::getId, Collectors.toList())));
+        return batches.stream()
+                .map(b -> new DispatchViews.Shipment(b.getId(), b.getCarrier(), b.getTrackingNo(), b.getShippedAt(),
+                        linesByBatch.getOrDefault(b.getId(), List.of())))
+                .toList();
     }
 
     /** 叶子行 → 显示行：零件名称 / 图号 / 材料这些要顺着上游取到客户零件行。 */

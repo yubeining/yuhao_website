@@ -89,6 +89,12 @@ export function OpsProductionPage() {
                             <Fld k={t.ops.production.fldOpsOrder} v={shortId(o.opsOrderId)} mono />
                             <Fld k={t.ops.production.fldDue} v={o.supplierDueDate} mono />
                             <Fld k={t.ops.production.fldSignedAt} v={o.signedAt ? fmtDateTime(new Date(o.signedAt)) : X} mono />
+                            {/* 供应商每次发给平台填的承运商 / 运单号（2026-11-24），收货时按它核对；还没发过就不显示 */}
+                            {o.shipments.length > 0 && (
+                                <Fld k={t.shipping.batches} v={o.shipments.map((b) => (
+                                    <div key={b.id}>{t.shipping.batch(b.carrier, b.trackingNo, fmtDateTime(new Date(b.shippedAt)))}</div>
+                                ))} mono />
+                            )}
                         </Fields>
                     </CardBody>
                     <CardBody flush>

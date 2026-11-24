@@ -69,6 +69,8 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `supplier_invite` | `platform/identity` | 平台。供应商只能凭运营邀请注册，建组织和用户本来就在这里 |
 | `supplier_profile` | `domain/supplier` | 供应商域。折率和能力，运营录；订单域、报价域经 `SupplierDirectory` 读 |
 | `ops_order_offer` | `domain/order` | 订单域。定向派单每轮派给了谁、谁拒接了 |
+| `supplier_shipment` | `domain/order` | 订单域。供应商每次发给平台的承运商 / 运单号（返工再发会多一条），零件行用 `supplier_shipment_id` 指回来 |
+| `customer_order_document` / `customer_order_document_access_log` | `domain/order` | 订单域。随货文件（质检报告 / 材质证明，运营上传）挂在客户订单下，及其下载审计；不是通用附件，不复用图纸那套 |
 | `supplier_price_line` | `domain/quote` | 报价域。供应商接单那一刻的对供价快照（原价 × 折率）；价格不往订单表加列 |
 | `customer_markup` / `quote` / `quote_line` | `domain/quote` | 报价域。加成率不往 `organization` 加列；报价行用裸 uuid 指回订单行，订单域不知道报价的存在（设计文档 13 §3.5） |
 | `cost_rate` / `price_estimate` | `domain/quote` | 报价域。AI 成本估算的费率表（运营维护）和每次估算的快照（含当时的费率、AI 原始输出）；估算按订单行落，裸 uuid 指回订单行（设计文档 8 / 13 §2「基准价」） |
@@ -112,10 +114,11 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `2026-11-17_01_cost-estimate.sql` | AI 成本估算：费率表（含手册初始值）/ 估算快照（2 张）；图纸审计加 `READ_FOR_AI` |
 | `2026-11-23_01_customer-order-ship-to.sql` | 客户订单加收货地址 9 列（不加表） |
 | `2026-11-23_02_delete-corrupted-price-estimates.sql` | 删掉 jsonb 映射器用错（Jackson 2）期间写坏的 AI 估价记录（只删数据） |
+| `2026-11-24_01_shipping.sql` | 发货：客户订单加发货 5 列和 `SHIPPED` / `COMPLETED` 两个状态；供应商发货批次、随货文件、随货文件下载审计（3 张）；供应商零件行加发货批次 id |
 
-当前库里共 27 张业务表（另有迁移账本 `schema_migrations`）。
+当前库里共 30 张业务表（另有迁移账本 `schema_migrations`）。
 
-发货给客户、换家补料（RESOURCE）、单据 / 发票 / 结算都还没建 ——
+换家补料（RESOURCE）、单据 / 发票 / 结算都还没建 ——
 分别见设计文档 12 §5 §11 和 13 §2，到那一步再加。
 
 ## 已存在数据库的接入

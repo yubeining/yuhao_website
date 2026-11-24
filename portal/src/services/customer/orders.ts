@@ -1,7 +1,7 @@
 /**
  * 客户端：订单（后端 CustomerOrderController）。
  *
- * 状态是后端现在真有的五个；派单之后的状态随后续步骤加。
+ * 发货（2026-11-24）：READY → 运营发货 → SHIPPED → 客户确认收货 → COMPLETED。
  *
  * ★ 后端不输出值为 null 的字段，可能为空的字段一律可选（见 parts.ts 顶部说明）。
  */
@@ -9,7 +9,7 @@
 import { http } from '../core/http'
 import type { RevisionView, ViewUrl } from './parts'
 
-export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'READY' | 'CANCELLED'
+export type OrderStatus = 'DRAFT' | 'SUBMITTED' | 'QUOTED' | 'CONFIRMED' | 'READY' | 'SHIPPED' | 'COMPLETED' | 'CANCELLED'
 
 /** 客户看得到的零件进度 —— 只有四态；返工、报废、换供应商一律折成「进行中」（文档 12 §7）。 */
 export type LineFulfillmentStatus = 'PENDING' | 'IN_PROGRESS' | 'FULFILLED' | 'CANCELLED'
@@ -74,6 +74,27 @@ export interface OrderView {
     /** 没填过就没有这个字段 */
     shipTo?: ShipTo | null
     lines: OrderLineView[]
+    /** 运营发货之后才有 */
+    shipment?: OrderShipment | null
+    /** 传完的随货文件（质检报告 / 材质证明，不分类）；没有就是空数组 */
+    documents: OrderDocumentView[]
+}
+
+/** 发货信息（2026-11-24）：承运商是自由文本。 */
+export interface OrderShipment {
+    carrier: string
+    trackingNo: string
+    shippedAt: string
+    /** 客户确认收货后才有 */
+    receivedAt?: string | null
+}
+
+export interface OrderDocumentView {
+    id: string
+    originalFilename: string
+    uploadStatus: 'PENDING' | 'COMPLETED' | 'REJECTED'
+    sizeBytes?: number | null
+    completedAt?: string | null
 }
 
 export interface OrderDraftInput {
@@ -150,4 +171,14 @@ export function filePreviewUrl(fileId: string): Promise<ViewUrl> {
 
 export function lineFileViewUrl(orderId: string, lineId: string, fileId: string): Promise<ViewUrl> {
     return http.get<ViewUrl>(`/customer/orders/${orderId}/lines/${lineId}/files/${fileId}/view-url`)
+}
+
+/** 确认收货：只有已发货的单能确认，确认后订单完成（409 order.not_shipped）。 */
+export function confirmReceipt(orderId: string): Promise<OrderView> {
+    return http.post<OrderView>(`/customer/orders/${orderId}/confirm-receipt`)
+}
+
+/** 下载随货文件：后端校验归属后签 URL，并记一条审计。 */
+export function orderDocumentViewUrl(orderId: string, documentId: string): Promise<ViewUrl> {
+    return http.get<ViewUrl>(`/customer/orders/${orderId}/documents/${documentId}/view-url`)
 }

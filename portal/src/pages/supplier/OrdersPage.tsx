@@ -7,6 +7,7 @@
  * ★ 价格是接单那一刻按你的折率锁定的，之后平台改折率不影响。
  * ★ 生产（2026-09-20）：签完字之后每一行有「开工」「完工」两个动作 —— **只报这两个，不报件数**。
  *   整单全部完工才能「发给平台」。质检判返工 / 重做的行会以新行出现在这张单里，做完再发一次。
+ * ★ 发给平台（2026-11-24）：弹框填承运商 + 运单号，两个都必填；每发一次记一批，卡片上列出各批单号。
  */
 
 import { usePageParam } from '../../components/usePageParam'
@@ -25,6 +26,8 @@ import {
 } from '../../services'
 import { cancelReason, lineSt, shortId, supplierOrderSt } from '../ops/dispatchStatus'
 import { useConfirm } from '../../components/ConfirmDialog'
+import { Modal } from '../../components/Modal'
+import { Field, Input } from '../../components/form'
 
 /** 签完字之后才谈得上生产；取消的单什么都不做。 */
 const IN_PRODUCTION_FLOW = ['CONTRACTED', 'IN_PRODUCTION', 'SHIPPED', 'FULFILLED']
@@ -39,6 +42,11 @@ export function SupplierOrdersPage() {
     const [err, setErr] = useState<string | null>(null)
     const { busy, run } = useBusy((e) => setErr(errorText(t, e)))
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; orderId: string; lineId: string; fileId: string } | null>(null)
+    /** 正在填发货信息的那张单 */
+    const [shipFor, setShipFor] = useState<SupplierOrderView | null>(null)
+    const [carrier, setCarrier] = useState('')
+    const [trackingNo, setTrackingNo] = useState('')
+    const [shipTried, setShipTried] = useState(false)
 
     const load = useCallback(async (pageNo: number) => {
         try {
@@ -72,9 +80,22 @@ export function SupplierOrdersPage() {
         await load(page)
     })
 
-    const ship = async (o: SupplierOrderView) => {
-        if (!(await askConfirm(t.supplier.orders.shipConfirm))) return
-        act(() => shipSupplierOrder(o.id))
+    const ship = (o: SupplierOrderView) => {
+        setShipFor(o)
+        setCarrier('')
+        setTrackingNo('')
+        setShipTried(false)
+    }
+
+    const submitShip = () => {
+        setShipTried(true)
+        if (!shipFor || !carrier.trim() || !trackingNo.trim()) return
+        const id = shipFor.id
+        void run(async () => {
+            await shipSupplierOrder(id, carrier.trim(), trackingNo.trim())
+            setShipFor(null)
+            await load(page)
+        })
     }
 
     /** 看图是预览，不是下载；弹层里的「下载」才用带 attachment 的 URL。 */
@@ -123,6 +144,11 @@ export function SupplierOrdersPage() {
                                 {(o.status === 'ACCEPTED' || o.status === 'CONTRACT_PENDING') && (
                                     <Fld k={t.supplier.orders.fldSignDeadline}
                                         v={t.supplier.orders.signDeadlineNote(fmtDateTime(new Date(o.signByDeadline)))} mono />
+                                )}
+                                {o.shipments.length > 0 && (
+                                    <Fld k={t.shipping.batches} v={o.shipments.map((b) => (
+                                        <div key={b.id}>{t.shipping.batch(b.carrier, b.trackingNo, fmtDateTime(new Date(b.shippedAt)))}</div>
+                                    ))} mono />
                                 )}
                                 {o.status === 'CANCELLED' && (
                                     <Fld k={t.supplier.orders.fldCancel} v={`${o.cancelReason ? cancelReason(t)[o.cancelReason] : X} · ${o.cancelledAt ? fmtDateTime(new Date(o.cancelledAt)) : X}`} />
@@ -223,6 +249,24 @@ export function SupplierOrdersPage() {
                 <FilePreviewModal name={preview.name} url={preview.url} kind={preview.kind}
                     onClose={() => setPreview(null)}
                     onDownload={() => download(preview.orderId, preview.lineId, preview.fileId)} />
+            )}
+            {shipFor && (
+                <Modal title={t.shipping.supplierShipTitle} busy={busy} width={380} onClose={() => setShipFor(null)}
+                    footer={
+                        <>
+                            <button className="btn" type="button" disabled={busy} onClick={() => setShipFor(null)}>{t.common.cancel}</button>
+                            <button className="btn pri" type="button" disabled={busy} onClick={submitShip}>{t.shipping.supplierShipSubmit}</button>
+                        </>
+                    }>
+                    <div className="t2" style={{ marginBottom: 8 }}>{t.supplier.orders.shipConfirm}</div>
+                    <Field label={t.shipping.carrier} required>
+                        <Input value={carrier} onChange={setCarrier} bad={shipTried && !carrier.trim()} />
+                    </Field>
+                    <Field label={t.shipping.trackingNo} required>
+                        <Input value={trackingNo} onChange={setTrackingNo} bad={shipTried && !trackingNo.trim()} onEnter={submitShip} />
+                    </Field>
+                    {shipTried && (!carrier.trim() || !trackingNo.trim()) && <div className="errmsg">{t.shipping.needBoth}</div>}
+                </Modal>
             )}
             {confirmDialog}
         </Page>

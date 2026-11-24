@@ -73,7 +73,7 @@ class OpsCustomerOrderService {
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, orgId));
         return new OpsOrderView(order.getId(), orgId, customerNames(Set.of(orgId)).get(orgId), order.getTitle(),
                 order.getStatus().name(), order.getWantedDate(), order.getCreatedAt(), order.getSubmittedAt(),
-                order.getShipTo(), lineViews);
+                order.getShipTo(), lineViews, order.getShipment(), customerOrders.completedDocuments(order));
     }
 
     /**

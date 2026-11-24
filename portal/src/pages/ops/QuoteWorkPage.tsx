@@ -12,6 +12,8 @@
  * ★ 以前这一页是原型（AI 估价是模拟输出、利润率 / 议价空间是编的公式），第 3 步只做人工报价，已全部换掉。
  *   价格护栏（偏离多少提醒）的百分比还没给，这一页不做提醒。
  * ★ 2026-11-17 加了真的「AI 成本估算」（EstimateCard）：只给参考成本，不自动填原价。
+ * ★ 2026-11-24 发货（ShippingCard）：全部完工之后在这一页把整单发给客户、传随货文件 —— 运营没有单独的订单详情页，
+ *   看单、报价、发货都在这里。
  */
 
 import { useCallback, useEffect, useState } from 'react'
@@ -36,6 +38,7 @@ import { orderSt, quoteSt } from '../customer/status'
 import { useConfirm } from '../../components/ConfirmDialog'
 import { EstimateCard } from './EstimateCard'
 import { ShipToCard } from '../../components/ShipToCard'
+import { ShippingCard } from './ShippingCard'
 
 const PRICE_RE = /^\d+(\.\d{1,2})?$/
 
@@ -196,6 +199,10 @@ export function OpsQuoteWorkPage() {
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.quoteWork.cancelledBanner}</Banner>
             )}
 
+            {(order.status === 'READY' || order.status === 'SHIPPED' || order.status === 'COMPLETED') && (
+                <ShippingCard order={order} onChanged={() => load(false)} />
+            )}
+
             <Card style={{ marginBottom: 16 }}>
                 {(order.status === 'QUOTED' || !editable) && (
                     <CardHead title={editable ? t.quoteWork.requoteTitle : t.quoteWork.quoteTitle} />
@@ -264,6 +271,8 @@ export function OpsQuoteWorkPage() {
                         <span className="lbl">{t.quoteWork.lblCommitDate}
                             <DatePicker value={commitDate} onChange={(v) => edit(() => setCommitDate(v))} />
                         </span>
+                        {/* 原价是两头价格的基准，不是成本：照抄 AI 成本进来，对供价只剩成本的八折（2026-11-24 需求方定口径） */}
+                        <span className="tip">{t.quoteWork.basePriceHint}</span>
                     </div>
                 )}
 

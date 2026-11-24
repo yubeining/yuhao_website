@@ -107,6 +107,11 @@ class SupplierOrderPart extends BaseEntity {
     @Column(name = "qc_decided_at", columnDefinition = "timestamp with time zone")
     private Instant qcDecidedAt;
 
+    /** 这一行是哪一批发给平台的（{@link SupplierShipment}，2026-11-24）。拆出来的新行不继承。 */
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "supplier_shipment_id", columnDefinition = "uuid")
+    private UUID supplierShipmentId;
+
     protected SupplierOrderPart() {
     }
 
@@ -145,9 +150,10 @@ class SupplierOrderPart extends BaseEntity {
         this.producedAt = now;
     }
 
-    void ship(Instant now) {
+    void ship(Instant now, UUID shipmentId) {
         this.fulfillmentStatus = FulfillmentStatus.QC_PENDING;
         this.shippedAt = now;
+        this.supplierShipmentId = shipmentId;
     }
 
     /** 质检合格:本行留下 {@code passed} 件。 */
@@ -233,5 +239,9 @@ class SupplierOrderPart extends BaseEntity {
 
     Instant getQcDecidedAt() {
         return qcDecidedAt;
+    }
+
+    UUID getSupplierShipmentId() {
+        return supplierShipmentId;
     }
 }

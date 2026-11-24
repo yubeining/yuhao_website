@@ -2,8 +2,12 @@ package com.mfg.domain.order;
 
 import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.UUID;
@@ -33,9 +37,14 @@ class SupplierProductionController {
         return service.produced(user.partyId(), id, lineId);
     }
 
+    /** 承运商（自由文本）+ 运单号，都必填（2026-11-24 拍板）。 */
+    public record ShipRequest(@NotBlank @Size(max = 100) String carrier, @NotBlank @Size(max = 100) String trackingNo) {
+    }
+
     /** 整单全部完工才能发；返工 / 重做的行做完之后再点一次，发的就是那几行。 */
     @PostMapping("/supplier/orders/{id}/ship")
-    DispatchViews.SupplierOrderView ship(@CurrentUser UserPrincipal user, @PathVariable UUID id) {
-        return service.ship(user.partyId(), id);
+    DispatchViews.SupplierOrderView ship(@CurrentUser UserPrincipal user, @PathVariable UUID id,
+                                         @Valid @RequestBody ShipRequest request) {
+        return service.ship(user.partyId(), user.id(), id, request.carrier(), request.trackingNo());
     }
 }

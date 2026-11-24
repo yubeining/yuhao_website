@@ -91,9 +91,62 @@ CREATE TABLE public.customer_order (
     ship_to_city text,
     ship_to_region text,
     ship_to_postal_code text,
-    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'READY'::text, 'CANCELLED'::text]))),
+    shipment_carrier text,
+    shipment_tracking_no text,
+    shipped_at timestamp with time zone,
+    shipped_by_ops_user_id uuid,
+    received_at timestamp with time zone,
+    CONSTRAINT customer_order_status_chk CHECK ((status = ANY (ARRAY['DRAFT'::text, 'SUBMITTED'::text, 'QUOTED'::text, 'CONFIRMED'::text, 'READY'::text, 'SHIPPED'::text, 'COMPLETED'::text, 'CANCELLED'::text]))),
     CONSTRAINT customer_order_wanted_lead_days_positive CHECK (((wanted_lead_days IS NULL) OR (wanted_lead_days > 0)))
 );
+
+-- Name: customer_order_document; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.customer_order_document (
+    id uuid NOT NULL,
+    customer_order_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    storage_key text NOT NULL,
+    original_filename text NOT NULL,
+    declared_content_type text,
+    detected_type text,
+    size_bytes bigint,
+    upload_status text NOT NULL,
+    uploaded_by_ops_user_id uuid NOT NULL,
+    completed_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL,
+    CONSTRAINT customer_order_document_status_chk CHECK ((upload_status = ANY (ARRAY['PENDING'::text, 'COMPLETED'::text, 'REJECTED'::text])))
+);
+
+-- Name: customer_order_document_access_log; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.customer_order_document_access_log (
+    id bigint NOT NULL,
+    document_id uuid NOT NULL,
+    customer_order_id uuid NOT NULL,
+    customer_org_id uuid NOT NULL,
+    accessor_user_id uuid NOT NULL,
+    accessor_party_type text NOT NULL,
+    accessor_org_id uuid,
+    trace_id text,
+    accessed_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT customer_order_document_access_log_party_chk CHECK ((accessor_party_type = ANY (ARRAY['CUSTOMER'::text, 'OPERATOR'::text])))
+);
+
+-- Name: customer_order_document_access_log_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+
+CREATE SEQUENCE public.customer_order_document_access_log_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+-- Name: customer_order_document_access_log_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+
+ALTER SEQUENCE public.customer_order_document_access_log_id_seq OWNED BY public.customer_order_document_access_log.id;
 
 -- Name: customer_order_part; Type: TABLE; Schema: public; Owner: -
 
@@ -504,6 +557,7 @@ CREATE TABLE public.supplier_order_part (
     produced_at timestamp with time zone,
     shipped_at timestamp with time zone,
     qc_decided_at timestamp with time zone,
+    supplier_shipment_id uuid,
     CONSTRAINT supplier_order_part_quantity_positive CHECK ((quantity >= 1)),
     CONSTRAINT supplier_order_part_status_chk CHECK ((fulfillment_status = ANY (ARRAY['PENDING'::text, 'IN_PRODUCTION'::text, 'PRODUCED'::text, 'QC_PENDING'::text, 'QC_PASSED'::text, 'SUPERSEDED'::text, 'SCRAPPED'::text, 'CANCELLED'::text]))),
     CONSTRAINT supplier_order_part_superseded_chk CHECK (((fulfillment_status <> 'SUPERSEDED'::text) OR (superseded_by IS NOT NULL))),
@@ -546,6 +600,21 @@ CREATE TABLE public.supplier_profile (
     CONSTRAINT supplier_profile_discount_positive CHECK (((discount_rate IS NULL) OR (discount_rate > (0)::numeric)))
 );
 
+-- Name: supplier_shipment; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.supplier_shipment (
+    id uuid NOT NULL,
+    supplier_order_id uuid NOT NULL,
+    supplier_org_id uuid NOT NULL,
+    carrier text NOT NULL,
+    tracking_no text NOT NULL,
+    shipped_by_user_id uuid NOT NULL,
+    shipped_at timestamp with time zone NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
 -- Name: user_role; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.user_role (
@@ -557,6 +626,10 @@ CREATE TABLE public.user_role (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     version bigint DEFAULT 0 NOT NULL
 );
+
+-- Name: customer_order_document_access_log id; Type: DEFAULT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_order_document_access_log ALTER COLUMN id SET DEFAULT nextval('public.customer_order_document_access_log_id_seq'::regclass);
 
 -- Name: fx_rate id; Type: DEFAULT; Schema: public; Owner: -
 
@@ -580,6 +653,16 @@ ALTER TABLE ONLY public.cost_rate
 
 ALTER TABLE ONLY public.customer_markup
     ADD CONSTRAINT customer_markup_pkey PRIMARY KEY (id);
+
+-- Name: customer_order_document_access_log customer_order_document_access_log_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_order_document_access_log
+    ADD CONSTRAINT customer_order_document_access_log_pkey PRIMARY KEY (id);
+
+-- Name: customer_order_document customer_order_document_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.customer_order_document
+    ADD CONSTRAINT customer_order_document_pkey PRIMARY KEY (id);
 
 -- Name: customer_order_part customer_order_part_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
@@ -701,6 +784,11 @@ ALTER TABLE ONLY public.supplier_price_line
 ALTER TABLE ONLY public.supplier_profile
     ADD CONSTRAINT supplier_profile_pkey PRIMARY KEY (id);
 
+-- Name: supplier_shipment supplier_shipment_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.supplier_shipment
+    ADD CONSTRAINT supplier_shipment_pkey PRIMARY KEY (id);
+
 -- Name: user_role user_role_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.user_role
@@ -717,6 +805,26 @@ CREATE UNIQUE INDEX cost_rate_kind_name_uk ON public.cost_rate USING btree (kind
 -- Name: customer_markup_customer_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX customer_markup_customer_uk ON public.customer_markup USING btree (customer_org_id);
+
+-- Name: customer_order_document_access_log_doc_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_document_access_log_doc_idx ON public.customer_order_document_access_log USING btree (document_id, accessed_at DESC);
+
+-- Name: customer_order_document_access_log_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_document_access_log_order_idx ON public.customer_order_document_access_log USING btree (customer_order_id);
+
+-- Name: customer_order_document_customer_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_document_customer_idx ON public.customer_order_document USING btree (customer_org_id);
+
+-- Name: customer_order_document_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX customer_order_document_order_idx ON public.customer_order_document USING btree (customer_order_id);
+
+-- Name: customer_order_document_storage_key_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX customer_order_document_storage_key_uk ON public.customer_order_document USING btree (storage_key);
 
 -- Name: customer_order_org_idx; Type: INDEX; Schema: public; Owner: -
 
@@ -938,6 +1046,10 @@ CREATE INDEX supplier_order_part_order_status_idx ON public.supplier_order_part 
 
 CREATE INDEX supplier_order_part_replaces_idx ON public.supplier_order_part USING btree (replaces_part_id);
 
+-- Name: supplier_order_part_shipment_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_order_part_shipment_idx ON public.supplier_order_part USING btree (supplier_shipment_id);
+
 -- Name: supplier_order_part_source_customer_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX supplier_order_part_source_customer_idx ON public.supplier_order_part USING btree (source_customer_id);
@@ -977,6 +1089,10 @@ CREATE INDEX supplier_price_line_supplier_idx ON public.supplier_price_line USIN
 -- Name: supplier_profile_org_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX supplier_profile_org_uk ON public.supplier_profile USING btree (supplier_org_id);
+
+-- Name: supplier_shipment_order_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX supplier_shipment_order_idx ON public.supplier_shipment USING btree (supplier_order_id, shipped_at);
 
 -- Name: user_role_role_idx; Type: INDEX; Schema: public; Owner: -
 

@@ -57,6 +57,17 @@ export interface SupplierOrderView {
     cancelledAt?: string | null
     cancelReason?: 'WITHDRAWN' | 'REVOKED' | 'SIGN_TIMEOUT' | null
     lines: SupplierLine[]
+    /** 发给平台的每一批（返工修好再发会多一条），按发出时间排 */
+    shipments: SupplierShipmentView[]
+}
+
+/** 供应商发给平台的一批（2026-11-24：承运商 + 运单号必填）。lineIds 是这一批发出的零件行。 */
+export interface SupplierShipmentView {
+    id: string
+    carrier: string
+    trackingNo: string
+    shippedAt: string
+    lineIds: string[]
 }
 
 export interface LinePrice {
@@ -124,9 +135,9 @@ export function producedSupplierLine(orderId: string, lineId: string): Promise<S
     return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/lines/${lineId}/produced`)
 }
 
-/** 发给平台：整单全部完工才能发；返工 / 重做的行做完后再发那几行。 */
-export function shipSupplierOrder(orderId: string): Promise<SupplierOrderView> {
-    return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/ship`)
+/** 发给平台：整单全部完工才能发；返工 / 重做的行做完后再发那几行。承运商、运单号必填。 */
+export function shipSupplierOrder(orderId: string, carrier: string, trackingNo: string): Promise<SupplierOrderView> {
+    return http.post<SupplierOrderView>(`/supplier/orders/${orderId}/ship`, { carrier, trackingNo })
 }
 
 export function supplierOrderFileUrl(id: string, lineId: string, fileId: string): Promise<ViewUrl> {

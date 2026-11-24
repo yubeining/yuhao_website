@@ -21,6 +21,8 @@ export const orderSt = (t: Strings): Record<ApiOrderStatus, PillSpec> => ({
     QUOTED: ['wa', t.status.order.QUOTED],
     CONFIRMED: ['ok', t.status.order.CONFIRMED],
     READY: ['ok', t.status.order.READY],
+    SHIPPED: ['in', t.status.order.SHIPPED],
+    COMPLETED: ['ok', t.status.order.COMPLETED],
     CANCELLED: ['ba', t.status.order.CANCELLED],
 })
 

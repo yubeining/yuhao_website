@@ -8,6 +8,7 @@
 import { http } from '../core/http'
 import type { OpsLine, SupplierOrderStatus } from './dispatch'
 import type { PagedResponse } from '../customer/orders'
+import type { SupplierShipmentView } from '../supplier/offers'
 
 export interface OpsProductionOrder {
     id: string
@@ -19,6 +20,8 @@ export interface OpsProductionOrder {
     acceptedAt: string
     signedAt?: string | null
     lines: OpsLine[]
+    /** 供应商每次发给平台的承运商 / 运单号 */
+    shipments: SupplierShipmentView[]
 }
 
 export function listProduction(page = 1, pageSize = 20): Promise<PagedResponse<OpsProductionOrder>> {

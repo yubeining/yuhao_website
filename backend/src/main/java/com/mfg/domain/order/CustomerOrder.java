@@ -26,8 +26,12 @@ class CustomerOrder extends BaseEntity {
 
     enum Status {
         DRAFT, SUBMITTED, QUOTED, CONFIRMED,
-        /** 零件全部质检合格，等发给客户（发货那一轮再往下走，文档 12 §2） */
+        /** 零件全部质检合格，等发给客户（文档 12 §2） */
         READY,
+        /** 运营整单发给客户（2026-11-24），承运商 + 运单号必填 */
+        SHIPPED,
+        /** 客户确认收货 */
+        COMPLETED,
         CANCELLED
     }
 
@@ -89,6 +93,24 @@ class CustomerOrder extends BaseEntity {
     @Column(name = "ship_to_postal_code")
     private String shipToPostalCode;
 
+    // ---------- 发货（2026-11-24）：整单只发一次，所以直接放在订单上。由仓库的条件更新写入，这里只读 ----------
+
+    @Column(name = "shipment_carrier")
+    private String shipmentCarrier;
+
+    @Column(name = "shipment_tracking_no")
+    private String shipmentTrackingNo;
+
+    @Column(name = "shipped_at", columnDefinition = "timestamp with time zone")
+    private Instant shippedAt;
+
+    @JdbcTypeCode(SqlTypes.UUID)
+    @Column(name = "shipped_by_ops_user_id", columnDefinition = "uuid")
+    private UUID shippedByOpsUserId;
+
+    @Column(name = "received_at", columnDefinition = "timestamp with time zone")
+    private Instant receivedAt;
+
     protected CustomerOrder() {
     }
 
@@ -148,5 +170,13 @@ class CustomerOrder extends BaseEntity {
 
     Instant getSubmittedAt() {
         return submittedAt;
+    }
+
+    /** 没发货返回 null。发货人不对外，不在视图里。 */
+    OrderShipment getShipment() {
+        if (shippedAt == null) {
+            return null;
+        }
+        return new OrderShipment(shipmentCarrier, shipmentTrackingNo, shippedAt, receivedAt);
     }
 }

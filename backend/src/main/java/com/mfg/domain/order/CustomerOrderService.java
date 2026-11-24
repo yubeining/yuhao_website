@@ -59,12 +59,14 @@ class CustomerOrderService {
     private final OrganizationRepository organizations;
     private final PartFileAccessLogRepository accessLogs;
     private final StorageService storage;
+    private final CustomerOrderDocumentRepository documents;
 
     CustomerOrderService(CustomerOrderRepository orders, CustomerOrderPartRepository lines,
                          PartDesignRepository parts, PartRevisionRepository revisions,
                          PartFileRepository files, PartDrawingService drawings,
                          OrganizationRepository organizations,
-                         PartFileAccessLogRepository accessLogs, StorageService storage) {
+                         PartFileAccessLogRepository accessLogs, StorageService storage,
+                         CustomerOrderDocumentRepository documents) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
@@ -74,6 +76,7 @@ class CustomerOrderService {
         this.organizations = organizations;
         this.accessLogs = accessLogs;
         this.storage = storage;
+        this.documents = documents;
     }
 
     // ---------- 订单 ----------
@@ -339,7 +342,16 @@ class CustomerOrderService {
                 lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(order.getId(), customerOrgId);
         List<OrderLineView> views = lineViews(customerOrgId, orderLines);
         return new OrderView(order.getId(), order.getTitle(), order.getStatus().name(), order.getWantedDate(),
-                order.getCreatedAt(), order.getSubmittedAt(), order.getShipTo(), views);
+                order.getCreatedAt(), order.getSubmittedAt(), order.getShipTo(), views, order.getShipment(),
+                completedDocuments(order));
+    }
+
+    /** 传完的随货文件。运营端看单也用这一份。 */
+    List<OrderDocumentView> completedDocuments(CustomerOrder order) {
+        return documents.findByCustomerOrderIdAndCustomerOrgIdAndUploadStatusOrderByCreatedAtAsc(order.getId(),
+                        order.getCustomerOrgId(), CustomerOrderDocument.UploadStatus.COMPLETED).stream()
+                .map(OrderDocumentView::of)
+                .toList();
     }
 
     /** 运营端看单也用这一份（{@link OpsCustomerOrderService}），两端看到的行内容一致。 */
