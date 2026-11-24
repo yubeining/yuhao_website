@@ -250,41 +250,9 @@ export function OrderDetailPage() {
                 <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.cancelledBanner}</Banner>
             )}
 
+            {/* ★ 零件表放最上面（2026-11-24 改版）：零件是订单的主体，订单信息和收货地址是附属，
+                并排放在它下面 */}
             <Card style={{ marginBottom: 16 }}>
-                <CardHead title={t.customer.orderDetail.infoTitle}
-                    right={saved ? <span className="t2" style={{ color: 'var(--muted)' }}>{t.common.saved}</span> : undefined} />
-                <CardBody>
-                    {/* ★ 同一张卡只用一套规格：标签 12.5px 常规、值 14px。
-                        可编辑与只读靠「输入框 vs 纯文本」区分，不靠字号 —— 之前混了 Fld(10.5 大写/13 等宽)。 */}
-                    <FieldRow>
-                        <Field label={t.customer.orderDetail.fldName}>
-                            {draft
-                                ? <Input value={title} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
-                                : <div className="ro">{order.title || X}</div>}
-                        </Field>
-                        {/* 「必填」只对还能改的草稿有意义；提交后是只读文本，再挂必填是噪音 */}
-                        <Field label={t.customer.orderDetail.fldLead} required={!!draft}>
-                            {draft
-                                ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
-                                : <div className="ro">{order.wantedDate || X}</div>}
-                        </Field>
-                    </FieldRow>
-
-                    <div className="f4row" style={{ marginTop: 14 }}>
-                        <Field label={t.customer.orderDetail.fldParts}><div className="ro">{order.lines.length}</div></Field>
-                        <Field label={t.customer.orderDetail.fldTotalQty}><div className="ro">{totalQty}</div></Field>
-                        {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示（CLAUDE.md §4） */}
-                        <Field label={t.customer.orderDetail.fldCreated}><div className="ro">{fmtDate(new Date(order.createdAt))}</div></Field>
-                        <Field label={t.customer.orderDetail.fldSubmitted}>
-                            <div className="ro">{order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X}</div>
-                        </Field>
-                    </div>
-                </CardBody>
-            </Card>
-
-            <ShipToEditor order={order} onSaved={(o) => { apply(o); setErr(null) }} />
-
-            <Card>
                 <CardHead title={t.customer.orderDetail.partsTitle(order.lines.length)} />
                 {order.lines.length ? (
                     <CardBody flush>
@@ -335,6 +303,42 @@ export function OrderDetailPage() {
                     />
                 )}
             </Card>
+
+            <div className="cols">
+                <Card style={{ marginBottom: 16 }}>
+                    <CardHead title={t.customer.orderDetail.infoTitle}
+                        right={saved ? <span className="t2" style={{ color: 'var(--muted)' }}>{t.common.saved}</span> : undefined} />
+                    <CardBody>
+                        {/* ★ 同一张卡只用一套规格：标签 12.5px 常规、值 14px。
+                            可编辑与只读靠「输入框 vs 纯文本」区分，不靠字号 —— 之前混了 Fld(10.5 大写/13 等宽)。 */}
+                        <FieldRow>
+                            <Field label={t.customer.orderDetail.fldName}>
+                                {draft
+                                    ? <Input value={title} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
+                                    : <div className="ro">{order.title || X}</div>}
+                            </Field>
+                            {/* 「必填」只对还能改的草稿有意义；提交后是只读文本，再挂必填是噪音 */}
+                            <Field label={t.customer.orderDetail.fldLead} required={!!draft}>
+                                {draft
+                                    ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
+                                    : <div className="ro">{order.wantedDate || X}</div>}
+                            </Field>
+                        </FieldRow>
+
+                        <div className="f4row" style={{ marginTop: 14 }}>
+                            <Field label={t.customer.orderDetail.fldParts}><div className="ro">{order.lines.length}</div></Field>
+                            <Field label={t.customer.orderDetail.fldTotalQty}><div className="ro">{totalQty}</div></Field>
+                            {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示（CLAUDE.md §4） */}
+                            <Field label={t.customer.orderDetail.fldCreated}><div className="ro">{fmtDate(new Date(order.createdAt))}</div></Field>
+                            <Field label={t.customer.orderDetail.fldSubmitted}>
+                                <div className="ro">{order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X}</div>
+                            </Field>
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <ShipToEditor order={order} onSaved={(o) => { apply(o); setErr(null) }} />
+            </div>
         </Page>
     )
 }

@@ -1,8 +1,11 @@
 /**
- * 三端共用的应用外壳：深色顶栏 + 深色侧栏 + 浅色主区。
+ * 三端共用的应用外壳：石墨色侧栏 + 浅色主区，没有顶栏（2026-11-24 改版）。
  *
  * ★ 三端共用一个外壳是刻意的 —— 客户、供应商、内部看到的是同一个产品，
- *   区别只在导航项和顶栏右侧的徽标。各端各写一个壳，样式必然漂移。
+ *   区别只在导航项和侧栏顶部的端标识。各端各写一个壳，样式必然漂移。
+ *
+ * ★ 原来顶栏上的东西全部收进侧栏：品牌 + 端标识 / 大区切换在顶部，用户菜单在底部。
+ *   所以侧栏总是渲染 —— 供应商的订单市场以前是通栏，现在也有侧栏，只是没有导航项。
  *
  * ★ 导航项走 NavLink，aria-current 由 React Router 按当前 URL 自动给，
  *   不自己比字符串 —— 比字符串在嵌套路由下必然漏掉子路径高亮。
@@ -44,13 +47,13 @@ export interface AreaTab {
 
 interface Props {
     children: ReactNode
-    /** 侧栏导航。不给则不渲染侧栏（订单市场是通栏的）。 */
+    /** 侧栏导航项。不给则侧栏只有品牌、大区切换和用户菜单（订单市场）。 */
     nav?: NavItem[]
     /** 设置页的路径。给了就在侧栏底部固定一个「设置」。 */
     settingsTo?: string
     /** 全应用提示条（公司信息未完善等），显示在页面内容之上 */
     notice?: ReactNode
-    /** 顶栏右上的徽标文字，和 areas 二选一 */
+    /** 侧栏顶部品牌下的端标识，和 areas 二选一 */
     badge?: string
     areas?: AreaTab[]
     currentPath?: string
@@ -60,54 +63,21 @@ interface Props {
 
 export function AppShell({ children, nav, settingsTo, badge, areas, currentPath, sub, notice }: Props) {
     return (
-        <div className="appwrap">
-            <GlobalNav badge={badge} areas={areas} currentPath={currentPath} sub={sub} settingsTo={settingsTo} />
-            {notice}
-            <div className="appshell">
-                {nav && <SideNav items={nav} settingsTo={settingsTo} />}
-                <main className="appmain">{children}</main>
-            </div>
-        </div>
-    )
-}
-
-function GlobalNav({ badge, areas, currentPath, sub, settingsTo }:
-    Pick<Props, 'badge' | 'areas' | 'currentPath' | 'sub' | 'settingsTo'>) {
-    return (
-        <div className="gnav">
-            <div className="gin">
-                <div className="gbrand">
-                    <div className="gl"><Logo /></div>
-                    {/* i18n-exempt-start: 品牌名不译 */}
-                    <span className="gnm">融一智造</span>
-                    {/* i18n-exempt-end */}
-                </div>
-                {areas ? (
-                    <div className="gareas">
-                        {areas.map((a) => (
-                            <NavLink key={a.to} to={a.to} className="garea"
-                                aria-current={currentPath && a.match(currentPath) ? 'page' : undefined}>
-                                {a.label}
-                            </NavLink>
-                        ))}
-                    </div>
-                ) : (
-                    <span className="gsub">{badge}</span>
-                )}
-                <span className="gsp" />
-                {/* ★ 消息按钮整个删掉（2026-09-09）。原先只去掉了未读红点、留着按钮，
-                    但按钮本身同样是一句承诺：没有消息系统，点了什么都不会发生。
-                    红点是状态、按钮是入口，没有后端时两个都不该在。 */}
-                <UserMenu sub={sub} settingsTo={settingsTo} />
-            </div>
+        <div className="appshell">
+            <SideNav items={nav ?? []} settingsTo={settingsTo} badge={badge}
+                areas={areas} currentPath={currentPath} sub={sub} />
+            <main className="appmain">
+                {notice}
+                {children}
+            </main>
         </div>
     )
 }
 
 /**
- * 用户菜单 —— 账号设置 + 退出。
+ * 用户菜单 —— 账号设置 + 退出。在侧栏底部，菜单向上展开（窄屏侧栏变成顶部横条时向下）。
  *
- * ★ 设置入口在侧栏底部也有一个；放这里是因为供应商端 full 模式没有侧栏，那时这里是唯一入口。
+ * ★ 设置入口在侧栏底部也有一个导航项；菜单里保留一份，和 2026-11 定的「账号设置 / 退出登录」一致。
  *
  * ★ 身份切换（一个账号多身份）是原型演示专属功能，2026-11-02 随 mock 层一起删掉：
  *   真实登录下一个账号只属于一个端，不存在「切换」。原来那段代码在空种子下
@@ -134,15 +104,15 @@ function UserMenu({ sub, settingsTo }: { sub: string; settingsTo?: string }) {
 
     return (
         <div className="gwrap">
-            <button className="guser" type="button" onClick={() => setOpen((v) => !v)}>
+            <button className="guser" type="button" onClick={() => setOpen((v) => !v)} title={displayName}>
                 <span className="av"><UserGlyph /></span>
-                <span>
+                <span className="uw">
                     <span className="un">{displayName}</span>
                     <span className="ur">{sub}</span>
                 </span>
             </button>
             {open && (
-                <div className="idmenu down">
+                <div className="idmenu">
                     {settingsTo && (
                         <>
                             <button type="button" onClick={() => { setOpen(false); navigate(settingsTo) }}>
@@ -160,38 +130,63 @@ function UserMenu({ sub, settingsTo }: { sub: string; settingsTo?: string }) {
     )
 }
 
-function SideNav({ items, settingsTo }: { items: NavItem[]; settingsTo?: string }) {
+function SideNav({ items, settingsTo, badge, areas, currentPath, sub }: {
+    items: NavItem[]
+    settingsTo?: string
+} & Pick<Props, 'badge' | 'areas' | 'currentPath' | 'sub'>) {
     const { t } = useI18n()
     return (
         <nav className="appnav">
-            {items.map((it, i) =>
-                it.sec ? (
-                    <div className="sec" key={`sec-${i}`}>{it.sec}</div>
-                ) : (
-                    <div key={it.to}>
-                        {/* title：窄屏收成图标栏时，靠悬停看名称 */}
-                        <NavLink to={it.to!} end={it.to === '/customer'} className="it" title={it.n}>
-                            <span className="ic">{it.ic}</span>
-                            <span className="lb">{it.n}</span>
-                            {it.cnt ? <span className={`cnt${it.hot ? ' hot' : ''}`}>{it.cnt}</span> : null}
+            <div className="nbrand">
+                <div className="gl"><Logo /></div>
+                <span className="nbt">
+                    {/* i18n-exempt-start: 品牌名不译 */}
+                    <span className="gnm">融一智造</span>
+                    {/* i18n-exempt-end */}
+                    {!areas && badge && <span className="gsub">{badge}</span>}
+                </span>
+            </div>
+            {areas && (
+                <div className="gareas">
+                    {areas.map((a) => (
+                        <NavLink key={a.to} to={a.to} className="garea"
+                            aria-current={currentPath && a.match(currentPath) ? 'page' : undefined}>
+                            {a.label}
                         </NavLink>
-                        {it.children && (
-                            <div className="subnav">
-                                {it.children.map((c) => (
-                                    <NavLink key={c.to} to={c.to} className="it sub">{c.n}</NavLink>
-                                ))}
-                            </div>
-                        )}
-                    </div>
-                ),
+                    ))}
+                </div>
             )}
-            {settingsTo && (
-                <div className="navfoot">
+            <div className="navlist">
+                {items.map((it, i) =>
+                    it.sec ? (
+                        <div className="sec" key={`sec-${i}`}>{it.sec}</div>
+                    ) : (
+                        <div key={it.to}>
+                            {/* title：窄屏收起名称时，靠悬停看名称 */}
+                            <NavLink to={it.to!} end={it.to === '/customer'} className="it" title={it.n}>
+                                <span className="ic">{it.ic}</span>
+                                <span className="lb">{it.n}</span>
+                                {it.cnt ? <span className={`cnt${it.hot ? ' hot' : ''}`}>{it.cnt}</span> : null}
+                            </NavLink>
+                            {it.children && (
+                                <div className="subnav">
+                                    {it.children.map((c) => (
+                                        <NavLink key={c.to} to={c.to} className="it sub">{c.n}</NavLink>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    ),
+                )}
+            </div>
+            <div className="navfoot">
+                {settingsTo && (
                     <NavLink to={settingsTo} className="it" title={t.nav.settings}>
                         <span className="ic">⚙</span><span className="lb">{t.nav.settings}</span>
                     </NavLink>
-                </div>
-            )}
+                )}
+                <UserMenu sub={sub} settingsTo={settingsTo} />
+            </div>
         </nav>
     )
 }
