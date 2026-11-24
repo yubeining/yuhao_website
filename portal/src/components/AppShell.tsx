@@ -7,11 +7,14 @@
  * ★ 原来顶栏上的东西全部收进侧栏：品牌 + 端标识 / 大区切换在顶部，用户菜单在底部。
  *   所以侧栏总是渲染 —— 供应商的订单市场以前是通栏，现在也有侧栏，只是没有导航项。
  *
+ * ★ 窄屏（≤900px）侧栏是抽屉：平时收在屏幕左外侧，主区左上角一个菜单按钮拉出来，
+ *   点遮罩 / 按 Esc / 跳到别的页面就收回。需求方定的（2026-11-24）：手机上也必须是侧栏，不要横栏。
+ *
  * ★ 导航项走 NavLink，aria-current 由 React Router 按当前 URL 自动给，
  *   不自己比字符串 —— 比字符串在嵌套路由下必然漏掉子路径高亮。
  */
 
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useLocation, useNavigate } from 'react-router-dom'
 import { useEffect, useState, type ReactNode } from 'react'
 import { Logo } from './brand'
 import { UserGlyph } from './icons'
@@ -62,11 +65,28 @@ interface Props {
 }
 
 export function AppShell({ children, nav, settingsTo, badge, areas, currentPath, sub, notice }: Props) {
+    const { t } = useI18n()
+    const { pathname } = useLocation()
+    // 抽屉开关只在窄屏有意义；宽屏下 CSS 不看这个状态
+    const [drawer, setDrawer] = useState(false)
+    // 点了导航跳到别的页面就收回抽屉
+    useEffect(() => { setDrawer(false) }, [pathname])
+    useEffect(() => {
+        if (!drawer) return
+        const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') setDrawer(false) }
+        window.addEventListener('keydown', onKey)
+        return () => window.removeEventListener('keydown', onKey)
+    }, [drawer])
     return (
-        <div className="appshell">
+        <div className={`appshell${drawer ? ' navopen' : ''}`}>
             <SideNav items={nav ?? []} settingsTo={settingsTo} badge={badge}
                 areas={areas} currentPath={currentPath} sub={sub} />
+            <div className="navmask" onClick={() => setDrawer(false)} />
             <main className="appmain">
+                <button className="navtoggle" type="button" aria-label={t.nav.menu}
+                    aria-expanded={drawer} onClick={() => setDrawer(true)}>
+                    <span /><span /><span />
+                </button>
                 {notice}
                 {children}
             </main>
@@ -75,7 +95,7 @@ export function AppShell({ children, nav, settingsTo, badge, areas, currentPath,
 }
 
 /**
- * 用户菜单 —— 账号设置 + 退出。在侧栏底部，菜单向上展开（窄屏侧栏变成顶部横条时向下）。
+ * 用户菜单 —— 账号设置 + 退出。在侧栏底部，菜单向上展开。
  *
  * ★ 设置入口在侧栏底部也有一个导航项；菜单里保留一份，和 2026-11 定的「账号设置 / 退出登录」一致。
  *
@@ -162,7 +182,6 @@ function SideNav({ items, settingsTo, badge, areas, currentPath, sub }: {
                         <div className="sec" key={`sec-${i}`}>{it.sec}</div>
                     ) : (
                         <div key={it.to}>
-                            {/* title：窄屏收起名称时，靠悬停看名称 */}
                             <NavLink to={it.to!} end={it.to === '/customer'} className="it" title={it.n}>
                                 <span className="ic">{it.ic}</span>
                                 <span className="lb">{it.n}</span>

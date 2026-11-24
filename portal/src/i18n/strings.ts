@@ -260,6 +260,8 @@ export interface Strings {
     /** 导航与外壳。三端共用，所以按端分组，不要混成一锅。 */
     nav: {
         settings: string; signOut: string
+        /** 手机上展开侧栏抽屉的按钮（无障碍名称） */
+        menu: string
         defaultUser: string; supplierFallback: string
         customer: { orders: string; quotes: string }
         supplier: {
@@ -730,7 +732,7 @@ export const STRINGS: Record<Lang, Strings> = {
         settings: '设置', appearance: '外观', light: '浅色', dark: '深色',
     },
         nav: {
-            settings: '设置', signOut: '退出登录',
+            settings: '设置', signOut: '退出登录', menu: '菜单',
             defaultUser: '用户', supplierFallback: '供应商',
             customer: { orders: '我的订单', quotes: '我的报价' },
             supplier: {
@@ -1327,7 +1329,7 @@ export const STRINGS: Record<Lang, Strings> = {
         settings: 'Settings', appearance: 'Appearance', light: 'Light', dark: 'Dark',
     },
         nav: {
-            settings: 'Settings', signOut: 'Sign out',
+            settings: 'Settings', signOut: 'Sign out', menu: 'Menu',
             defaultUser: 'User', supplierFallback: 'Supplier',
             customer: { orders: 'Orders', quotes: 'Quotes' },
             supplier: {

@@ -377,25 +377,18 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .guser .ur{display:block;font-size:11px;color:var(--deep-mut);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
 .gwrap .idmenu{left:0;right:0;bottom:calc(100% + 6px);}
 
-/* 窄屏：侧栏变成顶部横条。导航项只留图标（名称靠 title 悬停），用户菜单改成向下展开。
-   以前是收成 56px 图标栏，但大区切换是文字、没有图标，收不进去 —— 供应商在手机上就切不了大区了。 */
+/* 窄屏：侧栏变成抽屉（需求方定：手机上也必须是侧栏，不要横栏）。
+   平时收在屏幕左外侧，主区左上角的菜单按钮拉出来，盖在页面上，后面一层遮罩，点遮罩收回。 */
+.navtoggle,.navmask{display:none;}
 @media (max-width:900px){
-  .appshell{flex-direction:column;}
-  .appnav{width:auto;height:auto;flex-direction:row;align-items:center;gap:6px;
-    border-right:0;border-bottom:1px solid var(--deep-line);padding:0 8px;z-index:30;}
-  .nbrand{padding:10px 6px;}
-  .nbt{display:none;}
-  .gareas{margin:0;}
-  .navlist{display:flex;align-items:center;overflow-x:auto;overflow-y:hidden;padding:0;}
-  .navlist > div{flex:none;}
-  .appnav .sec,.appnav .subnav,.appnav .it .lb,.appnav .it .cnt{display:none;}
-  .appnav .it{padding:10px 11px;border-left:0;border-bottom:2px solid transparent;}
-  .appnav .it[aria-current="page"]{border-bottom-color:var(--acc-hi);}
-  .appnav .it .ic{width:auto;font-size:14px;opacity:.9;}
-  .navfoot{display:flex;align-items:center;border-top:0;padding:0;}
-  .gwrap{margin:0;}
-  .guser .uw{display:none;}
-  .gwrap .idmenu{top:calc(100% + 6px);bottom:auto;left:auto;right:0;min-width:160px;white-space:nowrap;}
+  .appshell{display:block;}
+  .appnav{position:fixed;left:0;top:0;bottom:0;height:auto;width:min(264px,82vw);z-index:90;
+    transform:translateX(-100%);transition:transform .2s ease;}
+  .appshell.navopen .appnav{transform:none;box-shadow:var(--sh-3);}
+  .appshell.navopen .navmask{display:block;position:fixed;inset:0;z-index:85;background:rgba(10,12,14,.45);}
+  .navtoggle{display:inline-flex;flex-direction:column;justify-content:center;gap:4px;width:38px;height:38px;
+    margin:-6px 0 14px -4px;padding:0 10px;border:1px solid var(--line-2);border-radius:var(--r2);background:var(--panel);}
+  .navtoggle span{display:block;height:1.5px;background:var(--ink-2);border-radius:1px;}
 }
 
 /* ═══════════════════════════════ 大厅 · 搜索与筛选（1688 式） */
