@@ -344,38 +344,36 @@ class CustomerOrderFlowIT {
         assertThat(orderStatus(orderId)).isEqualTo("SUBMITTED");
     }
 
-    // ---------- 再次下单 / 换图纸 ----------
+    // ---------- 再次下单 ----------
 
-    /** 同一图号再次下单：挂上次锁定的版本、带出它的图纸；「换图纸」开新版本并改挂。 */
+    /**
+     * 图号不再唯一（2026-11-26 拍板，取代 D16）：同一图号再加一次就是一个新零件 + 第 1 版，
+     * 不沿用上次的版本和图纸；同一张订单里加两次同一图号也一样。
+     */
     @Test
-    void reorderingTheSameCodeReusesTheLockedRevisionUntilTheDrawingIsReplaced() throws Exception {
+    void sameCodeAlwaysCreatesANewPart() throws Exception {
         Customer c = register("reorder");
         String code = uniqueCode();
         String first = createOrder(c);
         JsonNode firstLine = addLine(c, first, code, "Bracket", 10);
-        UUID firstFile = uploadPdf(c, firstLine);
+        uploadPdf(c, firstLine);
         post("/customer/orders/" + first + "/submit", null, c.token());
 
         String second = createOrder(c);
-        JsonNode reused = addLine(c, second, code, "Bracket", 20);
-        assertThat(reused.path("revision").path("id").asText()).isEqualTo(firstLine.path("revision").path("id").asText());
-        assertThat(reused.path("revision").path("locked").asBoolean()).isTrue();
-        assertThat(reused.path("revision").path("files").get(0).path("id").asText()).isEqualTo(firstFile.toString());
+        JsonNode again = addLine(c, second, code, "Bracket", 20);
+        JsonNode twice = addLine(c, second, code, "Bracket", 5);
+        for (JsonNode line : List.of(again, twice)) {
+            assertThat(line.path("partId").asText()).isNotEqualTo(firstLine.path("partId").asText());
+            assertThat(line.path("revision").path("revNo").asInt()).isEqualTo(1);
+            assertThat(line.path("revision").path("locked").asBoolean()).isFalse();
+            assertThat(line.path("revision").path("files")).isEmpty();
+        }
+        assertThat(again.path("partId").asText()).isNotEqualTo(twice.path("partId").asText());
+        assertThat(jdbc.queryForObject("select count(*) from part_design where customer_org_id = ? and code = ?",
+                Long.class, c.orgId(), code)).isEqualTo(3);
 
-        // 沿用的版本已经带图纸，所以不传也能提交
-        assertThat(rawPost("/customer/orders/" + second + "/submit", null, c.token()).getStatusCode().value())
-                .isEqualTo(200);
-
-        String third = createOrder(c);
-        JsonNode line = addLine(c, third, code, "Bracket", 5);
-        JsonNode replaced = post("/customer/orders/" + third + "/lines/" + line.path("id").asText() + "/new-revision",
-                new CustomerOrderController.NewRevisionRequest("B"), c.token()).path("data");
-        assertThat(replaced.path("revision").path("revNo").asInt()).isEqualTo(2);
-        assertThat(replaced.path("revision").path("customerRev").asText()).isEqualTo("B");
-        assertThat(replaced.path("revision").path("locked").asBoolean()).isFalse();
-        assertThat(replaced.path("revision").path("files")).isEmpty();
-        // 前两张订单仍然锁着第 1 版
-        assertThat(firstRevisionIdOf(first)).isEqualTo(firstLine.path("revision").path("id").asText());
+        // 新零件没有图纸，不传不能提交
+        assertConflict(rawPost("/customer/orders/" + second + "/submit", null, c.token()), "order.line_missing_drawing");
     }
 
     /**
@@ -476,6 +474,55 @@ class CustomerOrderFlowIT {
         String orderId = createOrder(c);
         ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines", lineRequest(uniqueCode(), "A", 0), c.token());
         assertThat(res.getStatusCode().value()).isEqualTo(400);
+    }
+
+    // ---------- 批量添加 ----------
+
+    /** 批量添加：一次建多行，每行各自一个新零件 + 第 1 版；同图号也各算一行。 */
+    @Test
+    void batchAddCreatesEveryLineAsANewPart() throws Exception {
+        Customer c = register("batch");
+        String orderId = createOrder(c);
+        String code = uniqueCode();
+        JsonNode created = post("/customer/orders/" + orderId + "/lines/batch", new CustomerOrderController.AddLinesRequest(List.of(
+                new CustomerOrderController.AddLineRequest(code, "Bracket", 4, "AL6061", "anodize", "A"),
+                new CustomerOrderController.AddLineRequest(code, "Bracket", 2, null, null, null),
+                lineRequest(uniqueCode(), "Plate", 10))), c.token()).path("data");
+
+        assertThat(created).hasSize(3);
+        assertThat(created.get(0).path("surfaceTreatment").asText()).isEqualTo("anodize");
+        assertThat(created.get(0).path("revision").path("customerRev").asText()).isEqualTo("A");
+        assertThat(created.get(1).path("partId").asText()).isNotEqualTo(created.get(0).path("partId").asText());
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).hasSize(3);
+    }
+
+    /** 任何一行不合法，整批都不落库。 */
+    @Test
+    void batchAddRejectsTheWholeBatchWhenOneLineIsInvalid() throws Exception {
+        Customer c = register("batchbad");
+        String orderId = createOrder(c);
+        String base = "/customer/orders/" + orderId + "/lines/batch";
+        ResponseEntity<String> res = rawPost(base, new CustomerOrderController.AddLinesRequest(List.of(
+                lineRequest(uniqueCode(), "Good", 1), lineRequest(uniqueCode(), " ", 1))), c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
+        assertThat(rawPost(base, new CustomerOrderController.AddLinesRequest(List.of()), c.token())
+                .getStatusCode().value()).isEqualTo(400);
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
+    }
+
+    @Test
+    void batchAddOnlyWorksOnYourOwnDraft() throws Exception {
+        Customer owner = register("batchowner");
+        Customer other = register("batchother");
+        String orderId = createOrder(owner);
+        uploadPdf(owner, addLine(owner, orderId, uniqueCode(), "A", 1));
+        CustomerOrderController.AddLinesRequest body =
+                new CustomerOrderController.AddLinesRequest(List.of(lineRequest(uniqueCode(), "B", 1)));
+        String base = "/customer/orders/" + orderId + "/lines/batch";
+
+        assertNotFound(rawPost(base, body, other.token()));
+        post("/customer/orders/" + orderId + "/submit", null, owner.token());
+        assertConflict(rawPost(base, body, owner.token()), "order.not_draft");
     }
 
     // ---------- 租户隔离 ----------
@@ -754,11 +801,6 @@ class CustomerOrderFlowIT {
 
     private String orderStatus(String orderId) {
         return jdbc.queryForObject("select status from customer_order where id = ?", String.class, UUID.fromString(orderId));
-    }
-
-    private String firstRevisionIdOf(String orderId) {
-        return jdbc.queryForObject("select part_revision_id::text from customer_order_part where customer_order_id = ?",
-                String.class, UUID.fromString(orderId));
     }
 
     private static String uniqueCode() {

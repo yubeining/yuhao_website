@@ -62,7 +62,7 @@ export interface Strings {
             empty: string; emptySub: string
         }
         orderDetail: {
-            notFound: string; backToOrders: string; addPart: string; addFirstPart: string
+            notFound: string; backToOrders: string; addPart: string; addFirstPart: string; batchAdd: string
             missingDrawingBanner: (n: number) => string; submittedBanner: string
             quotedBanner: string; cancelledBanner: string
             statusSubmitted: string; statusQuoted: (amount: string, commitDate: string) => string
@@ -84,10 +84,8 @@ export interface Strings {
             uploadFailed: string; errRequired: string; notFound: string
             titleNew: string; titleEdit: string; titlePart: string
             lockedBanner: string
-            reuseExisting: (name: string, files: number) => string
-            reuseNewVersionQueued: string; reuseNewVersion: (name: string) => string
             infoTitle: string
-            fldCode: string; codeHint: string
+            fldCode: string
             fldMaterial: string; fldSurface: string
             drawingTitle: string; drawingMissing: string
             drawingUploadedCount: (n: number) => string; drawingQueuedCount: (n: number) => string
@@ -96,6 +94,18 @@ export interface Strings {
             download: string; removeTitle: string; confirmRemoveFile: (name: string) => string; preview: string; previewUnsupported: string
             cancel: string; backToOrder: string; discardConfirm: string
             addToOrder: string; addHint: string; saveEdit: string
+        }
+        batchParts: {
+            title: string; importFiles: string; importFolder: string; addRow: string; dropHint: string
+            partsTitle: (n: number) => string; emptyParts: string; emptyPartsSub: string
+            filesCount: (n: number) => string; editTitle: string
+            save: string; cancel: string; discardConfirm: string; backToOrder: string
+            rowsIncomplete: (rows: number[]) => string
+            tooLarge: (names: string[]) => string; unreadable: (names: string[]) => string
+            listTitle: (name: string) => string; listSheet: string; listHeaderRow: string; listNotFound: string
+            listNone: string; listUse: string; listAsFile: string; listRows: (n: number) => string
+            uploading: (done: number, total: number) => string
+            uploadFailed: (n: number) => string
         }
         quotes: {
             title: string
@@ -517,7 +527,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: '订单不存在', backToOrders: '← 我的订单',
-            addPart: '＋ 添加零件', addFirstPart: '＋ 添加零件',
+            addPart: '＋ 添加零件', addFirstPart: '＋ 添加零件', batchAdd: '批量添加',
             missingDrawingBanner: (n) => `${n} 个零件还没传图纸，传齐后才能提交。`,
             submittedBanner: '订单已提交，各零件的图纸版本已锁定，不能再修改。',
             quotedBanner: '平台已报价，等你确认。', cancelledBanner: '订单已取消。',
@@ -551,12 +561,8 @@ export const STRINGS: Record<Lang, Strings> = {
             notFound: '零件不存在',
             titleNew: '添加零件', titleEdit: '编辑零件', titlePart: '零件',
             lockedBanner: '订单已提交或已取消，不能再添加零件。',
-            reuseExisting: (name, files) => `已有零件「${name}」：加进订单后沿用上次提交的图纸（${files} 个文件）。`,
-            reuseNewVersionQueued: '你选了新文件，会为这张订单开一个新版本。',
-            reuseNewVersion: (name) => `已有零件「${name}」，会为这张订单开一个新的图纸版本。`,
             infoTitle: '零件信息',
             fldCode: '图号',
-            codeHint: '零件的唯一标识；重复使用会复用已有零件',
             fldMaterial: '材料', fldSurface: '表面处理',
             drawingTitle: '图纸',
             drawingMissing: '未上传 · 订单提交前需上传',
@@ -570,6 +576,20 @@ export const STRINGS: Record<Lang, Strings> = {
             discardConfirm: '放弃未保存的修改？',
             addToOrder: '添加到订单',
             addHint: '添加后进入零件详情', saveEdit: '保存修改',
+        },
+        batchParts: {
+            title: '批量添加零件', importFiles: '导入文件', importFolder: '导入文件夹', addRow: '＋ 添加一行',
+            dropHint: '也可以把文件、文件夹、压缩包或 Excel / CSV 清单拖到这里',
+            partsTitle: (n) => `零件 ${n} 个`, emptyParts: '还没有零件', emptyPartsSub: '导入文件，或者手动添加一行',
+            filesCount: (n) => `${n} 个文件`, editTitle: '编辑零件',
+            save: '保存到订单', cancel: '取消', discardConfirm: '离开后这里的内容不会保存，确定离开？', backToOrder: '回到订单',
+            rowsIncomplete: (rows) => `第 ${rows.join('、')} 行图号、名称、数量未填全`,
+            tooLarge: (names) => `超过 20MB，没有加入：${names.join('、')}`, unreadable: (names) => `读不出来，已跳过：${names.join('、')}`,
+            listTitle: (name) => `清单「${name}」`, listSheet: '工作表', listHeaderRow: '表头在第几行',
+            listNotFound: '没认出表头，请自己选择各列', listNone: '（不读）',
+            listUse: '按清单添加', listAsFile: '当作普通文件', listRows: (n) => `读到 ${n} 行`,
+            uploading: (done, total) => `正在上传图纸 ${done} / ${total}`,
+            uploadFailed: (n) => `零件已加入订单，但有 ${n} 个文件没传上去，对应零件显示「缺图纸」，可以进零件里补传。`,
         },
             quotes: {
                 title: '我的报价',
@@ -1017,7 +1037,6 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_send_failed': '验证码发送失败，请稍后再试',
             'auth.otp_channel_unavailable': '该登录方式暂未开放',
             'organization.name_required': '请先补全公司名称',
-            'part.code_taken': '这个图号已经有零件了',
             'part.not_found': '零件不存在',
             'part.revision_conflict': '有人同时在改这个零件的版本，请刷新后重试',
             'part.revision_not_found': '图纸版本不存在',
@@ -1149,7 +1168,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: 'Order not found', backToOrders: '← My orders',
-            addPart: '+ Add part', addFirstPart: '+ Add part',
+            addPart: '+ Add part', addFirstPart: '+ Add part', batchAdd: 'Bulk add',
             missingDrawingBanner: (n) => `${n} part${n === 1 ? '' : 's'} without drawings — all parts need drawings before submitting.`,
             submittedBanner: 'Order submitted. Drawing revisions are locked and can no longer be changed.',
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', cancelledBanner: 'Order cancelled.',
@@ -1183,12 +1202,8 @@ export const STRINGS: Record<Lang, Strings> = {
             notFound: 'Part not found',
             titleNew: 'Add part', titleEdit: 'Edit part', titlePart: 'Part',
             lockedBanner: 'The order has been submitted or cancelled; parts can no longer be added.',
-            reuseExisting: (name, files) => `Part "${name}" already exists. Adding it to this order reuses the drawings submitted last time (${files} file${files === 1 ? '' : 's'}).`,
-            reuseNewVersionQueued: 'You selected new files, so a new revision will be created for this order.',
-            reuseNewVersion: (name) => `Part "${name}" already exists; a new drawing revision will be created for this order.`,
             infoTitle: 'Part details',
             fldCode: 'Drawing no.',
-            codeHint: 'Identifies the part; reusing it links to the existing part',
             fldMaterial: 'Material', fldSurface: 'Surface finishing',
             drawingTitle: 'Drawings',
             drawingMissing: 'Not uploaded yet — required before submitting the order',
@@ -1202,6 +1217,20 @@ export const STRINGS: Record<Lang, Strings> = {
             discardConfirm: 'Discard unsaved changes?',
             addToOrder: 'Add to order',
             addHint: 'Opens the part after adding', saveEdit: 'Save changes',
+        },
+        batchParts: {
+            title: 'Bulk add parts', importFiles: 'Import files', importFolder: 'Import folder', addRow: '+ Add row',
+            dropHint: 'You can also drop files, folders, zip archives or an Excel / CSV parts list here',
+            partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, emptyParts: 'No parts yet', emptyPartsSub: 'Import files or add a row by hand',
+            filesCount: (n) => `${n} file${n === 1 ? '' : 's'}`, editTitle: 'Edit part',
+            save: 'Save to order', cancel: 'Cancel', discardConfirm: 'Nothing here has been saved. Leave anyway?', backToOrder: 'Back to order',
+            rowsIncomplete: (rows) => `Row${rows.length > 1 ? 's' : ''} ${rows.join(', ')}: drawing number, name or quantity missing`,
+            tooLarge: (names) => `Over 20 MB, not added: ${names.join(', ')}`, unreadable: (names) => `Could not read, skipped: ${names.join(', ')}`,
+            listTitle: (name) => `Parts list "${name}"`, listSheet: 'Sheet', listHeaderRow: 'Header row',
+            listNotFound: 'No header found. Pick the columns yourself.', listNone: '(skip)',
+            listUse: 'Add from list', listAsFile: 'Use as a plain file', listRows: (n) => `${n} row${n === 1 ? '' : 's'} read`,
+            uploading: (done, total) => `Uploading drawings ${done} / ${total}`,
+            uploadFailed: (n) => `Parts were added, but ${n} file${n === 1 ? '' : 's'} failed to upload. Those parts show "Missing drawing"; open them to upload again.`,
         },
             quotes: {
                 title: 'My quotes',
@@ -1654,7 +1683,6 @@ export const STRINGS: Record<Lang, Strings> = {
             'auth.otp_send_failed': 'Could not send the code. Please try again.',
             'auth.otp_channel_unavailable': 'This sign-in method is not available yet.',
             'organization.name_required': 'Please complete your company name first',
-            'part.code_taken': 'A part with this drawing number already exists',
             'part.not_found': 'Part not found',
             'part.revision_conflict': 'This part was changed at the same time. Refresh and try again',
             'part.revision_not_found': 'Drawing revision not found',

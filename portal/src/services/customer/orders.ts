@@ -147,9 +147,14 @@ export function deleteOrder(orderId: string): Promise<void> {
     return http.delete<void>(`/customer/orders/${orderId}`)
 }
 
-/** 图号命中本客户已有零件时，挂上次锁定的图纸版本；否则新建零件和第 1 版。 */
+/** 每次都新建零件和第 1 版：图号不唯一，不沿用已有零件（2026-11-26）。 */
 export function addLine(orderId: string, input: LineInput): Promise<OrderLineView> {
     return http.post<OrderLineView>(`/customer/orders/${orderId}/lines`, input)
+}
+
+/** 批量添加：整批一个事务，任何一行不合法整批都不落库。返回的行和传入顺序一致。 */
+export function addLines(orderId: string, lines: LineInput[]): Promise<OrderLineView[]> {
+    return http.post<OrderLineView[]>(`/customer/orders/${orderId}/lines/batch`, { lines })
 }
 
 export function updateLine(orderId: string, lineId: string, input: Omit<LineInput, 'code' | 'customerRev'>): Promise<OrderLineView> {

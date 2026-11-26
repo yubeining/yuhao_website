@@ -12,6 +12,7 @@ import { QuoteDetailPage } from './pages/customer/QuoteDetailPage'
 import { OrderListPage } from './pages/customer/OrderListPage'
 import { OrderDetailPage } from './pages/customer/OrderDetailPage'
 import { PartFormPage } from './pages/customer/PartFormPage'
+import { BatchPartsPage } from './pages/customer/BatchPartsPage'
 
 import { HallPage } from './pages/supplier/HallPage'
 import { HallDetailPage } from './pages/supplier/HallDetailPage'
@@ -81,8 +82,9 @@ export const router = createBrowserRouter([
             { path: 'quotes/:id', element: <QuoteDetailPage /> },
             { path: 'orders', element: <OrderListPage /> },
             { path: 'orders/:id', element: <OrderDetailPage /> },
-            // ★ new 必须排在 :partId 前面，否则 /parts/new 会被当成 id 为 "new" 的零件
+            // ★ new / batch 必须排在 :partId 前面，否则会被当成 id 为 "new" / "batch" 的零件
             { path: 'orders/:id/parts/new', element: <PartFormPage /> },
+            { path: 'orders/:id/parts/batch', element: <BatchPartsPage /> },
             { path: 'orders/:id/parts/:partId', element: <PartFormPage /> },
             // 个人资料与设置已合并（2026-11-15）：旧链接重定向，不留 404
             { path: 'profile', element: <Navigate to="/customer/settings" replace /> },

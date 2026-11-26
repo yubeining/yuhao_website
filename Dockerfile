@@ -16,6 +16,8 @@ WORKDIR /src/portal
 # ★ 先只拷 lock 文件再 npm ci，然后才拷源码。
 #   顺序反过来的话，改一行 tsx 就会让依赖层缓存失效，每次构建重装 300 个包。
 COPY portal/package.json portal/package-lock.json ./
+# 读 Excel 的 SheetJS 只在官方 CDN 发修复版，按官方建议把安装包放进仓库（package.json 里是 file: 引用）
+COPY portal/vendor ./vendor
 RUN npm ci
 
 COPY portal/ ./

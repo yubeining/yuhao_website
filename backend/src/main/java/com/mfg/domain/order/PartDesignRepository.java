@@ -12,14 +12,8 @@ interface PartDesignRepository extends JpaRepository<PartDesign, UUID> {
 
     Optional<PartDesign> findByIdAndCustomerOrgId(UUID id, UUID customerOrgId);
 
-    /** 按图号取（D16）。图号精确匹配，只由调用方去掉首尾空格。 */
-    Optional<PartDesign> findByCustomerOrgIdAndCode(UUID customerOrgId, String code);
-
     List<PartDesign> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
 
     /** 派单用（运营 / 供应商端，跨客户）：id 来自生产订单的行，不来自请求。 */
     List<PartDesign> findByIdIn(Collection<UUID> ids);
-
-    /** 同一客户同一图号 = 同一个零件(D16)。 */
-    boolean existsByCustomerOrgIdAndCode(UUID customerOrgId, String code);
 }

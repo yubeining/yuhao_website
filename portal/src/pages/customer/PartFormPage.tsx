@@ -3,8 +3,7 @@
  *
  * ★ 数据全部来自后端（2026-09-14）。
  *
- * ★ 同一图号 = 同一个零件（D16）。填完图号会查一下这个客户是不是已经有这个零件：
- *   有的话，加进订单时**沿用它上次提交时锁定的那一版图纸**（2026-09-14 拍板），不用重传。
+ * ★ 图号不唯一（2026-11-26 拍板，取代 D16）：每加一行都是新零件 + 第 1 版，不查、不沿用已有零件。
  *
  * ★ 图纸版本在订单提交时锁定。锁定的版本不能再增删文件 ——
  *   要换图纸就「开新版本」，这一行改挂到新版本，之前的订单仍然锁着旧版本。
@@ -27,8 +26,8 @@ import { useI18n } from '../../i18n/I18nProvider'
 import { humanSize, parseDrawingName } from '../../lib/drawing'
 import { X } from '../../lib/format'
 import {
-    addLine, ApiError, filePreviewUrl, findPartByCode, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
-    uploadDrawing, type FileView, type OrderLineView, type OrderView, type PartView,
+    addLine, ApiError, filePreviewUrl, getOrder, lineFileViewUrl, removeFile, startNewRevision, updateLine,
+    uploadDrawing, type FileView, type OrderLineView, type OrderView,
 } from '../../services'
 import { useConfirm } from '../../components/ConfirmDialog'
 
@@ -79,7 +78,6 @@ export function PartFormPage() {
     const [missing, setMissing] = useState(false)
     const [loadErr, setLoadErr] = useState<string | null>(null)
     const [f, setF] = useState<Form>(EMPTY)
-    const [existing, setExisting] = useState<PartView | null>(null)
     const [queued, setQueued] = useState<File[]>([])
     const [uploads, setUploads] = useState<Upload[]>([])
     const [busy, setBusy] = useState(false)
@@ -109,16 +107,6 @@ export function PartFormPage() {
     }, [id, partId, t])
 
     useEffect(() => { void load(true) }, [load])
-
-    const lookup = async (code: string) => {
-        setExisting(null)
-        if (!isNew || !code.trim()) return
-        try {
-            setExisting(await findPartByCode(code.trim()))
-        } catch (e) {
-            if (!(e instanceof ApiError && e.code === 404)) setErr(errorText(t, e))
-        }
-    }
 
     const set = (k: keyof Form) => (v: string) => {
         setF((prev) => ({ ...prev, [k]: v }))
@@ -161,7 +149,6 @@ export function PartFormPage() {
         setF(next)
         if (isNew) {
             setQueued((prev) => [...prev, ...chosen.filter((x) => !prev.some((p) => p.name === x.name))])
-            if (next.code !== f.code) void lookup(next.code)
         } else if (line) {
             void uploadTo(line, chosen, next.customerRev)
         }
@@ -264,7 +251,6 @@ export function PartFormPage() {
 
     const draft = order.status === 'DRAFT'
     const locked = line?.revision.locked ?? false
-    const reused = existing?.revisions.filter((r) => r.locked).sort((a, b) => b.revNo - a.revNo)[0]
 
     return (
         <Page>
@@ -279,14 +265,6 @@ export function PartFormPage() {
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
             {isNew && !draft && <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.partForm.lockedBanner}</Banner>}
-            {isNew && existing && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>
-                    {reused
-                        ? t.customer.partForm.reuseExisting(existing.name, reused.files.length)
-                            + (queued.length ? t.customer.partForm.reuseNewVersionQueued : '')
-                        : t.customer.partForm.reuseNewVersion(existing.name)}
-                </Banner>
-            )}
 
             <Card>
                 <CardHead title={t.customer.partForm.infoTitle} />
@@ -299,9 +277,7 @@ export function PartFormPage() {
                                 {/* 图号只在新增时可填；已有零件的图号已经在标题下方，不再占一个字段 */}
                                 {isNew && (
                                     <Field label={t.customer.partForm.fldCode} required>
-                                        <Input value={f.code} onChange={set('code')} onBlur={() => void lookup(f.code)} />
-                                        {/* ★ 图号是零件身份：重复使用会复用已有零件，必须写出来 */}
-                                        <div className="fnote" style={{ marginTop: 6 }}>{t.customer.partForm.codeHint}</div>
+                                        <Input value={f.code} onChange={set('code')} />
                                     </Field>
                                 )}
                                 <Field label={t.common.table.name} required><Input value={f.name} onChange={set('name')} /></Field>

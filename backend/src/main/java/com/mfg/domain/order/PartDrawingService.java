@@ -75,18 +75,9 @@ class PartDrawingService {
 
     // ---------- 零件 ----------
 
-    /** 同一客户同一图号 = 同一个零件（D16），第二次建 409。 */
     @Transactional
     public PartView createPart(UUID customerOrgId, String code, String name) {
         return PartView.of(insertPart(customerOrgId, code, name), List.of());
-    }
-
-    /** 按图号查本客户已有的零件（D16：前端在订单里加零件时「按图号命中已有零件」）。 */
-    @Transactional(readOnly = true)
-    public PartView findPartByCode(UUID customerOrgId, String code) {
-        PartDesign part = parts.findByCustomerOrgIdAndCode(customerOrgId, code)
-                .orElseThrow(() -> BusinessException.notFound("part.not_found"));
-        return viewOf(customerOrgId, part);
     }
 
     @Transactional(readOnly = true)
@@ -304,16 +295,9 @@ class PartDrawingService {
 
     // ---------- 给订单域同包复用 ----------
 
+    /** 图号不再唯一（2026-11-26 拍板，取代 D16）：同一图号每次都是新零件。 */
     PartDesign insertPart(UUID customerOrgId, String code, String name) {
-        if (parts.existsByCustomerOrgIdAndCode(customerOrgId, code)) {
-            throw BusinessException.conflict("part.code_taken");
-        }
-        try {
-            // saveAndFlush：唯一索引兜底的并发冲突要在这里就撞出来，否则拖到提交时变成 500
-            return parts.saveAndFlush(new PartDesign(customerOrgId, code, name));
-        } catch (DataIntegrityViolationException e) {
-            throw BusinessException.conflict("part.code_taken");
-        }
+        return parts.save(new PartDesign(customerOrgId, code, name));
     }
 
     PartRevision insertNextRevision(UUID customerOrgId, UUID userId, UUID partId, String customerRev) {

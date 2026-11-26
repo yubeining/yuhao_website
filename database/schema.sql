@@ -943,10 +943,6 @@ CREATE INDEX ops_user_org_idx ON public.ops_user USING btree (org_id);
 
 CREATE INDEX organization_type_idx ON public.organization USING btree (type);
 
--- Name: part_design_customer_code_uk; Type: INDEX; Schema: public; Owner: -
-
-CREATE UNIQUE INDEX part_design_customer_code_uk ON public.part_design USING btree (customer_org_id, code);
-
 -- Name: part_design_customer_idx; Type: INDEX; Schema: public; Owner: -
 
 CREATE INDEX part_design_customer_idx ON public.part_design USING btree (customer_org_id);

@@ -104,7 +104,7 @@ export function groupByPart(
  * 从文件名里取人能读的图号原文（带 LB 和点的那种）。
  * 取不到就返回空 —— 纯数字文件名还原出来的图号是我方推的，不能当成客户写的。
  */
-function readablePartNo(fileName: string): string {
+export function readablePartNo(fileName: string): string {
     const m = fileName.match(/LB\d+(?:\.\d+)+/)
     return m ? m[0] : ''
 }

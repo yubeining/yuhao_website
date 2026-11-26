@@ -36,10 +36,6 @@ interface PartRevisionRepository extends JpaRepository<PartRevision, UUID> {
 
     List<PartRevision> findByIdInAndCustomerOrgId(Collection<UUID> ids, UUID customerOrgId);
 
-    /** 同一图号再次下单时沿用的版本：这个零件最近一次被提交的订单锁定的那一版（2026-09-14 拍板）。 */
-    Optional<PartRevision> findTopByPartDesignIdAndCustomerOrgIdAndLockedAtIsNotNullOrderByRevNoDesc(
-            UUID partDesignId, UUID customerOrgId);
-
     /** 订单提交时锁定各行版本。已经锁过的保持最早的锁定时间。批量更新手动维护 version / updated_at。 */
     @Transactional
     @Modifying(clearAutomatically = true, flushAutomatically = true)

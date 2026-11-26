@@ -262,30 +262,35 @@ class CustomerOrderService {
 
     // ---------- 零件行 ----------
 
+    /** 一行明细的输入。 */
+    record NewLine(String code, String name, int quantity, String material, String surfaceTreatment, String customerRev) {
+    }
+
     /**
-     * 图号命中本客户已有零件（D16）→ 挂它最近一次被锁定的版本（再次下单沿用上次图纸，2026-09-14 拍板）；
-     * 这个零件从没被提交锁定过 → 给这张订单开一个新版本；没有这个零件 → 建零件 + 第 1 版。
+     * 每加一行都建一个新零件 + 第 1 版，不按图号复用已有零件 —— 图号不再唯一（2026-11-26 拍板，取代 D16）。
      */
     @Transactional
-    public OrderLineView addLine(UUID customerOrgId, UUID userId, UUID orderId, String code, String name, int quantity,
-                                 String material, String surfaceTreatment, String customerRev) {
+    public OrderLineView addLine(UUID customerOrgId, UUID userId, UUID orderId, NewLine input) {
         requireDraft(customerOrgId, orderId);
-        String trimmedCode = code.trim();
-        String trimmedName = name.trim();
-        PartDesign part = parts.findByCustomerOrgIdAndCode(customerOrgId, trimmedCode).orElse(null);
-        PartRevision revision;
-        if (part == null) {
-            part = drawings.insertPart(customerOrgId, trimmedCode, trimmedName);
-            revision = drawings.insertNextRevision(customerOrgId, userId, part.getId(), blankToNull(customerRev));
-        } else {
-            UUID partId = part.getId();
-            revision = revisions.findTopByPartDesignIdAndCustomerOrgIdAndLockedAtIsNotNullOrderByRevNoDesc(
-                            partId, customerOrgId)
-                    .orElseGet(() -> drawings.insertNextRevision(customerOrgId, userId, partId, blankToNull(customerRev)));
-        }
+        return insertLine(customerOrgId, userId, orderId, input);
+    }
+
+    /** 批量添加：同一个事务里建全部行，任何一行出错整批都不落库。 */
+    @Transactional
+    public List<OrderLineView> addLines(UUID customerOrgId, UUID userId, UUID orderId, List<NewLine> inputs) {
+        requireDraft(customerOrgId, orderId);
+        return inputs.stream().map(input -> insertLine(customerOrgId, userId, orderId, input)).toList();
+    }
+
+    private OrderLineView insertLine(UUID customerOrgId, UUID userId, UUID orderId, NewLine input) {
+        String name = input.name().trim();
+        PartDesign part = drawings.insertPart(customerOrgId, input.code().trim(), name);
+        PartRevision revision = drawings.insertNextRevision(customerOrgId, userId, part.getId(),
+                blankToNull(input.customerRev()));
         // part_no 的编号规则至今没定：先填一个不重复的占位值，界面上不显示
         CustomerOrderPart line = lines.save(new CustomerOrderPart(orderId, customerOrgId, part.getId(), revision.getId(),
-                UUID.randomUUID().toString(), trimmedName, quantity, blankToNull(material), blankToNull(surfaceTreatment)));
+                UUID.randomUUID().toString(), name, input.quantity(), blankToNull(input.material()),
+                blankToNull(input.surfaceTreatment())));
         return lineView(customerOrgId, line, part, revision);
     }
 

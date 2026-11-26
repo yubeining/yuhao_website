@@ -337,12 +337,18 @@ export function OrderDetailPage() {
                 ) : (
                     <CardBody>
                         <Empty text={t.customer.orderDetail.emptyParts} sub={t.customer.orderDetail.emptyPartsSub}
-                            action={draft ? <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addFirstPart}</Link> : undefined} />
+                            action={draft ? <>
+                                <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addFirstPart}</Link>
+                                {' '}<Link className="btn" to={`/customer/orders/${order.id}/parts/batch`}>{t.customer.orderDetail.batchAdd}</Link>
+                            </> : undefined} />
                     </CardBody>
                 )}
                 {draft && order.lines.length > 0 && (
                     <CardFoot
-                        left={<Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>}
+                        left={<>
+                            <Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>
+                            {' '}<Link className="btn" to={`/customer/orders/${order.id}/parts/batch`}>{t.customer.orderDetail.batchAdd}</Link>
+                        </>}
                     />
                 )}
             </Card>

@@ -92,18 +92,14 @@ class PartDrawingFlowIT {
 
     // ---------- 零件与版本 ----------
 
-    /** D16：同一客户同一图号 = 同一个零件，不能建第二个。 */
+    /** 图号不再唯一（2026-11-26 拍板，取代 D16）：同一客户同一图号可以建多个零件。 */
     @Test
-    void sameCodeTwiceForOneCustomerIsRejected() throws Exception {
+    void sameCodeTwiceForOneCustomerCreatesTwoParts() throws Exception {
         Customer c = register("dup");
         String code = uniqueCode();
-        assertThat(rawPost("/customer/parts", new CustomerPartController.CreatePartRequest(code, "Bracket"), c.token())
-                .getStatusCode().value()).isEqualTo(200);
-
-        ResponseEntity<String> again =
-                rawPost("/customer/parts", new CustomerPartController.CreatePartRequest(code, "Bracket v2"), c.token());
-        assertThat(again.getStatusCode().value()).isEqualTo(409);
-        assertThat(messageOf(again)).isEqualTo("part.code_taken");
+        JsonNode first = post("/customer/parts", new CustomerPartController.CreatePartRequest(code, "Bracket"), c.token());
+        JsonNode second = post("/customer/parts", new CustomerPartController.CreatePartRequest(code, "Bracket v2"), c.token());
+        assertThat(second.path("data").path("id").asText()).isNotEqualTo(first.path("data").path("id").asText());
     }
 
     /** 版本号我方编，每个零件从 1 开始（2026-09-10 拍板）。 */
@@ -229,24 +225,6 @@ class PartDrawingFlowIT {
     }
 
     // ---------- 第 2 步返修（2026-09-14） ----------
-
-    /** A1：前端按图号命中已有零件（D16）。别的客户的同一图号查不到。 */
-    @Test
-    void partCanBeFoundByCodeWithinTheCustomerOnly() throws Exception {
-        Customer owner = register("lookup");
-        Customer other = register("lookupother");
-        String code = uniqueCode();
-        UUID partId = UUID.fromString(post("/customer/parts",
-                new CustomerPartController.CreatePartRequest(code, "Bracket"), owner.token())
-                .path("data").path("id").asText());
-
-        JsonNode found = get("/customer/parts?code=" + code, owner.token());
-        assertThat(found.path("data").path("id").asText()).isEqualTo(partId.toString());
-
-        ResponseEntity<String> notMine = rawGet("/customer/parts?code=" + code, other.token());
-        assertThat(notMine.getStatusCode().value()).isEqualTo(404);
-        assertThat(messageOf(notMine)).isEqualTo("part.not_found");
-    }
 
     /** A6：没传完 / 被拒 / 被删的文件不对外返回，免得界面把它们当图纸显示。 */
     @Test

@@ -6,6 +6,7 @@ import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
@@ -22,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.time.LocalDate;
+import java.util.List;
 import java.util.UUID;
 
 /**
@@ -46,6 +48,12 @@ class CustomerOrderController {
                                  @Size(max = 200) String material,
                                  @Size(max = 200) String surfaceTreatment,
                                  @Size(max = 50) String customerRev) {
+        CustomerOrderService.NewLine toNewLine() {
+            return new CustomerOrderService.NewLine(code, name, quantity, material, surfaceTreatment, customerRev);
+        }
+    }
+
+    public record AddLinesRequest(@NotEmpty List<@NotNull @Valid AddLineRequest> lines) {
     }
 
     public record UpdateLineRequest(@NotBlank @Size(max = 200) String name,
@@ -112,8 +120,15 @@ class CustomerOrderController {
     @PostMapping("/customer/orders/{orderId}/lines")
     OrderLineView addLine(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                           @Valid @RequestBody AddLineRequest request) {
-        return service.addLine(user.partyId(), user.id(), orderId, request.code(), request.name(), request.quantity(),
-                request.material(), request.surfaceTreatment(), request.customerRev());
+        return service.addLine(user.partyId(), user.id(), orderId, request.toNewLine());
+    }
+
+    /** 批量添加：整批在一个事务里落库，任何一行不合法整批都不收。 */
+    @PostMapping("/customer/orders/{orderId}/lines/batch")
+    List<OrderLineView> addLines(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
+                                 @Valid @RequestBody AddLinesRequest request) {
+        return service.addLines(user.partyId(), user.id(), orderId,
+                request.lines().stream().map(AddLineRequest::toNewLine).toList());
     }
 
     /** ★ 整体替换：没带的材料 / 表面处理会被清空。 */

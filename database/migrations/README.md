@@ -116,6 +116,7 @@ CLAUDE.md §2 的模块化单体有一条 **每张表归属唯一的域**，域�
 | `2026-11-23_01_customer-order-ship-to.sql` | 客户订单加收货地址 9 列（不加表） |
 | `2026-11-23_02_delete-corrupted-price-estimates.sql` | 删掉 jsonb 映射器用错（Jackson 2）期间写坏的 AI 估价记录（只删数据） |
 | `2026-11-24_01_shipping.sql` | 发货：客户订单加发货 5 列和 `SHIPPED` / `COMPLETED` 两个状态；供应商发货批次、随货文件、随货文件下载审计（3 张）；供应商零件行加发货批次 id |
+| `2026-11-26_02_part-code-not-unique.sql` | 图号不再唯一：删 `part_design (customer_org_id, code)` 唯一索引（不加表） |
 
 当前库里共 30 张业务表（另有迁移账本 `schema_migrations`）。
 
