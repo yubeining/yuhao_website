@@ -54,13 +54,24 @@
   估价一直显式传模型，所以没暴露。
 - **修法**：`SealosAiProvider` 没指定模型时显式带上配置的默认模型；兜底默认模型从 `deepseek-chat`（不在网关模型列表里）
   改成 `deepseek-v4.1-flash`；智能粘贴单独配模型 `app.address.parse-model`（环境变量 `AI_ADDRESS_PARSE_MODEL`），
-  默认 `qwen3.8-max`（需求方定，不考虑费用）。
+  默认先定 `qwen3.8-max`，线上实测后改为 `qwen3.8-flash`（见下）。
 - **日志**：智能粘贴失败时记模型名和完整原因链（`AiException.describe`，从 `EstimateService` 挪过来共用），不记地址原文。
+
+### 智能粘贴模型选型（2026-11-26，线上实测）
+
+同一批 6 个示例地址（德 / 英 / 荷 / 法 / 中文 / 美），每个模型各跑一次：
+
+| | qwen3.8-max | qwen3.8-flash | deepseek-v4.1-flash |
+|---|---|---|---|
+| 结果 | 6/6 全对 | 6/6 全对（中文国家留空） | 5/6，中文返回空内容 |
+| 耗时 | 6.6 秒 ~ 超过 60 秒 | 3.6 ~ 15.9 秒 | 1.6 ~ 3.8 秒 |
+
+需求方定 `qwen3.8-flash`。每条只跑了一次，耗时有波动，只是粗比较。
 
 ## 部署清单
 
 - 迁移随开机自动执行，只新建表，无需扩展-收缩。
-- 智能粘贴用现有的 `SEALOS_AI_*` 配置；模型可用 `AI_ADDRESS_PARSE_MODEL` 覆盖（不配就是 `qwen3.8-max`）。
+- 智能粘贴用现有的 `SEALOS_AI_*` 配置；模型可用 `AI_ADDRESS_PARSE_MODEL` 覆盖（不配就是 `qwen3.8-flash`）。
 - ★ 检查 Sealos 环境变量 `SEALOS_AI_MODEL`：如果线上设成了 `deepseek-chat`，要改成网关上存在的模型（建议 `deepseek-v4.1-flash`）。
 - 部署那一刻还开着的旧页面，在订单上保存地址会 400（请求体变了），刷新即可。
 
