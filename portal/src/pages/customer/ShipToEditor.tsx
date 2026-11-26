@@ -9,7 +9,7 @@
 
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { addressOneLine } from '../../components/addressFormat'
+import { addressOneLine, type AddressLike } from '../../components/addressFormat'
 import { Modal } from '../../components/Modal'
 import { ShipToCard } from '../../components/ShipToCard'
 import { Banner, Pill } from '../../components/ui'
@@ -22,6 +22,13 @@ import {
 import { AddressFormModal } from './AddressFormModal'
 
 const EDITABLE: OrderStatus[] = ['DRAFT', 'SUBMITTED', 'QUOTED', 'CONFIRMED']
+
+const FIELDS: (keyof AddressLike)[] = ['country', 'company', 'contact', 'phone', 'line1', 'line2', 'city', 'region', 'postalCode']
+
+/** 订单上的地址快照和地址簿里的一条是否完全相同（选填项没填时两边可能是 null 或缺字段，一律当空串比）。 */
+function sameAddress(a: AddressLike, b: AddressLike): boolean {
+    return FIELDS.every((k) => (a[k] ?? '') === (b[k] ?? ''))
+}
 
 export function ShipToEditor({ order, onSaved }: { order: OrderView; onSaved: (o: OrderView) => void }) {
     const { t, lang } = useI18n()
@@ -46,7 +53,13 @@ export function ShipToEditor({ order, onSaved }: { order: OrderView; onSaved: (o
         try {
             const list = await listShippingAddresses()
             setBook(list)
-            setPicked(list.find((a) => a.isDefault)?.id ?? list[0]?.id ?? null)
+            // 订单已有地址：选中地址簿里和它一模一样的那条，找不到就不选 —— 默认选中「默认地址」的话，
+            // 换过非默认地址的订单点开直接按「使用」会被悄悄换回默认（2026-11-26 审查发现）。
+            // 订单还没地址：才预选默认地址。
+            const current = order.shipTo
+            setPicked(current
+                ? list.find((a) => sameAddress(a, current))?.id ?? null
+                : list.find((a) => a.isDefault)?.id ?? list[0]?.id ?? null)
         } catch (e) {
             setOk(null)
             setErr(errorText(t, e))

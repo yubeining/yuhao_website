@@ -23,8 +23,8 @@ import java.util.UUID;
  *   <li>每人最多 {@value #MAX_PER_USER} 条（Q9，需求方授权按经验定：B2B 收货点通常就几个）。</li>
  * </ul>
  *
- * <p><b>并发</b>：改地址簿前先锁住这个用户的全部地址（{@link ShippingAddressRepository#lockAllByExternalUserId}），
- * 同一个人的写操作排队执行。换默认时先清掉旧默认、flush，再设新默认 —— 库里有「每人最多一个默认」的部分唯一索引，
+ * <p><b>并发</b>：改地址簿前先按用户加锁（{@link ShippingAddressRepository#lockBookOf}），
+ * 同一个人的写操作排队执行 —— 地址簿为空时也一样。换默认时先清掉旧默认、flush，再设新默认 —— 库里有「每人最多一个默认」的部分唯一索引，
  * 两步放在同一次 flush 里，Hibernate 可能先写新默认，当场撞索引。
  */
 @Service
@@ -54,7 +54,7 @@ class ShippingAddressService implements AddressBook {
 
     @Transactional
     public ShippingAddressView create(UUID externalUserId, AddressInfo info, boolean makeDefault) {
-        List<ShippingAddress> existing = addresses.lockAllByExternalUserId(externalUserId);
+        List<ShippingAddress> existing = lockBook(externalUserId);
         if (existing.size() >= MAX_PER_USER) {
             throw BusinessException.conflict("address.limit_reached");
         }
@@ -68,7 +68,7 @@ class ShippingAddressService implements AddressBook {
     /** 整体替换：没带的选填项会被清空。{@code makeDefault} 为 false 时不动默认标记（默认不能直接取消）。 */
     @Transactional
     public ShippingAddressView update(UUID externalUserId, UUID addressId, AddressInfo info, boolean makeDefault) {
-        List<ShippingAddress> all = addresses.lockAllByExternalUserId(externalUserId);
+        List<ShippingAddress> all = lockBook(externalUserId);
         ShippingAddress target = find(all, addressId);
         target.replace(normalize(info));
         addresses.saveAndFlush(target);
@@ -80,7 +80,7 @@ class ShippingAddressService implements AddressBook {
 
     @Transactional
     public void delete(UUID externalUserId, UUID addressId) {
-        List<ShippingAddress> all = addresses.lockAllByExternalUserId(externalUserId);
+        List<ShippingAddress> all = lockBook(externalUserId);
         ShippingAddress target = find(all, addressId);
         addresses.delete(target);
         addresses.flush();
@@ -95,7 +95,7 @@ class ShippingAddressService implements AddressBook {
 
     @Transactional
     public ShippingAddressView makeDefault(UUID externalUserId, UUID addressId) {
-        List<ShippingAddress> all = addresses.lockAllByExternalUserId(externalUserId);
+        List<ShippingAddress> all = lockBook(externalUserId);
         ShippingAddress target = find(all, addressId);
         moveDefault(all, target);
         return ShippingAddressView.of(target);
@@ -118,6 +118,12 @@ class ShippingAddressService implements AddressBook {
     }
 
     // ---------- 内部 ----------
+
+    /** 先拿这个用户的锁，再读他的全部地址（按创建时间升序）。 */
+    private List<ShippingAddress> lockBook(UUID externalUserId) {
+        addresses.lockBookOf(externalUserId.toString());
+        return addresses.findByExternalUserIdOrderByCreatedAtAsc(externalUserId);
+    }
 
     private static ShippingAddress find(List<ShippingAddress> all, UUID addressId) {
         return all.stream().filter(a -> a.getId().equals(addressId)).findFirst()

@@ -30,6 +30,10 @@ import tools.jackson.databind.ObjectMapper;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CyclicBarrier;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -212,6 +216,52 @@ class ShippingAddressFlowIT {
         assertThat(status).isIn(401, 403);
     }
 
+    /** 按个人归属：同一家公司的同事也看不到、改不了（2026-11-26 Q2）。 */
+    @Test
+    void colleaguesInTheSameCompanyCannotSeeOrTouchEachOthersAddresses() throws Exception {
+        Customer owner = register("colleague-a");
+        Customer colleague = colleagueOf(owner, "colleague-b");
+        String id = create(owner, address("Berlin"), false).path("id").asText();
+
+        assertThat(list(colleague)).isEmpty();
+        assertNotFound(rawPut(BASE + "/" + id, address("Hacked"), colleague.token()));
+        assertNotFound(rawDelete(BASE + "/" + id, colleague.token()));
+        assertNotFound(rawPost(BASE + "/" + id + "/default", null, colleague.token()));
+        assertThat(list(owner)).extracting(n -> n.path("city").asText()).containsExactly("Berlin");
+    }
+
+    /**
+     * 同一个人同时新增第一条地址（比如两个标签页）：地址簿为空时锁不到行，两边都想当默认，
+     * 库里的「每人最多一个默认」索引拦下其中一个。拦下的那个要回 409 让前端提示重试，不能是 500；
+     * 而且最后只有一个默认。
+     */
+    @Test
+    void concurrentFirstAddressesNeverFailWithAServerErrorAndLeaveOneDefault() throws Exception {
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 5; round++) {
+                Customer c = register("race-" + round);
+                CyclicBarrier go = new CyclicBarrier(2);
+                List<Future<ResponseEntity<String>>> calls = new ArrayList<>();
+                for (String city : List.of("Berlin", "Munich")) {
+                    calls.add(pool.submit(() -> {
+                        go.await();
+                        return rawPost(BASE, address(city), c.token());
+                    }));
+                }
+                for (Future<ResponseEntity<String>> f : calls) {
+                    ResponseEntity<String> res = f.get();
+                    assertThat(res.getStatusCode().value()).as("round %d %s", round, res.getBody()).isIn(200, 409);
+                }
+                List<JsonNode> items = list(c);
+                assertThat(items).isNotEmpty();
+                assertThat(items).filteredOn(n -> n.path("isDefault").asBoolean()).hasSize(1);
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
     /** 智能粘贴的输入校验在调 AI 之前（测试环境不连真 AI，这里只测挡在外面的那部分）。 */
     @Test
     void parseRejectsBlankOrOverlongTextBeforeCallingTheAi() throws Exception {
@@ -234,6 +284,22 @@ class ShippingAddressFlowIT {
         String token = post("/auth/login", new ExternalAuthController.ExternalLoginRequest(email, "password123"), null)
                 .path("data").path("accessToken").asText();
         return new Customer(token, UUID.fromString(reg.path("data").path("id").asText()));
+    }
+
+    /** 运营在同一家公司下再建一个用户（现在只有运营能往已有公司里加人）。 */
+    private Customer colleagueOf(Customer owner, String tag) throws Exception {
+        String orgId = json.readTree(rawGet("/customer/organization", owner.token()).getBody())
+                .path("data").path("id").asText();
+        String email = "addr-" + tag + "-" + UUID.randomUUID() + "@example.com";
+        ResponseEntity<String> created = rawPost("/ops/users", new CreateUserBody(UUID.fromString(orgId), email,
+                "Colleague", "password123", null), opsToken());
+        assertThat(created.getStatusCode().value()).as(created.getBody()).isEqualTo(200);
+        String token = post("/auth/login", new ExternalAuthController.ExternalLoginRequest(email, "password123"), null)
+                .path("data").path("accessToken").asText();
+        return new Customer(token, UUID.fromString(json.readTree(created.getBody()).path("data").path("id").asText()));
+    }
+
+    private record CreateUserBody(UUID orgId, String email, String displayName, String password, String locale) {
     }
 
     private String opsToken() throws Exception {

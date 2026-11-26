@@ -1,8 +1,6 @@
 package com.mfg.domain.address;
 
-import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -20,10 +18,14 @@ interface ShippingAddressRepository extends JpaRepository<ShippingAddress, UUID>
     Optional<ShippingAddress> findByExternalUserIdAndIsDefaultTrue(UUID externalUserId);
 
     /**
-     * 改地址簿前先锁住这个用户的全部地址：同一个人的两个并发请求（比如同时设默认、同时删）排队执行，
-     * 「最多一个默认」「最多 20 条」才算得准。地址簿为空时锁不到行，第一条的并发新增由库里的部分唯一索引兜底。
+     * 改地址簿前先按用户加一把事务级 advisory 锁：同一个人的写请求排队执行，「最多一个默认」「最多 20 条」才算得准。
+     *
+     * <p>★ 不能只锁地址行（SELECT ... FOR UPDATE）：地址簿为空时锁不到任何行，两个并发的「新增第一条」
+     * 会同时以为自己是第一条、都设成默认（2026-11-26 审查发现，并发测试复现）。advisory 锁不依赖行是否存在。
+     * 第一个参数是本表的命名空间，避免和别处的 advisory 锁撞号；不同用户哈希撞上只会多排一次队，不影响正确性。
+     * 事务结束自动释放。
      */
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("select a from ShippingAddress a where a.externalUserId = :userId order by a.createdAt asc")
-    List<ShippingAddress> lockAllByExternalUserId(@Param("userId") UUID externalUserId);
+    @Query(value = "select 1 from (select pg_advisory_xact_lock(hashtext('shipping_address'), hashtext(:userId))) l",
+            nativeQuery = true)
+    Integer lockBookOf(@Param("userId") String externalUserId);
 }
