@@ -7,6 +7,7 @@ import com.mfg.platform.ai.AiResult;
 import com.mfg.platform.ai.AiService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import tools.jackson.core.JacksonException;
@@ -25,7 +26,7 @@ import java.util.Set;
  * <p>只拆不存：结果预填进新增弹框，用户检查、修改后自己点保存，保存时照常走必填和长度校验。
  * 所以这里不追求「拆出来一定对」，只保证拆出来的东西形状合法：国家必须是 ISO 代码、超过表单上限的值丢掉。
  *
- * <p>模型用 provider 的默认模型（{@code spring.ai.openai.chat.options.model}），不另配。
+ * <p>模型由 {@code app.address.parse-model} 配（2026-11-26 需求方定 qwen3.8-max）。
  *
  * <p>★ 地址是个人信息：原文和模型输出都不写进日志，日志只记长度（CLAUDE.md §6）。
  */
@@ -46,18 +47,22 @@ class AddressParser {
 
     private final AiService ai;
     private final ObjectMapper json;
+    private final String model;
 
-    AddressParser(AiService ai, ObjectMapper json) {
+    AddressParser(AiService ai, ObjectMapper json, @Value("${app.address.parse-model}") String model) {
         this.ai = ai;
         this.json = json;
+        this.model = model;
     }
 
     ParsedAddressView parse(String text) {
         AiResult result;
         try {
-            result = ai.chat(new AiRequest(null, SYSTEM_PROMPT, text, null, 0.0, 600));
+            result = ai.chat(new AiRequest(null, SYSTEM_PROMPT, text, model, 0.0, 600));
         } catch (AiException e) {
-            log.warn("Address parse AI call failed: inputLength={} reason={}", text.length(), e.getClass().getSimpleName());
+            // 原因链里是网关的错误信息（HTTP 状态 + 错误体），不含地址原文
+            log.warn("Address parse AI call failed: model={} inputLength={} reason={}", model, text.length(),
+                    AiException.describe(e));
             throw new BusinessException(502, "address.parse_failed");
         }
         JsonNode n;

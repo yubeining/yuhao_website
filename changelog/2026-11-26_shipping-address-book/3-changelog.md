@@ -47,10 +47,21 @@
 - **补测试**：同一公司同事互相看不到、改不了（`ShippingAddressFlowIT`）；智能粘贴每人每小时 30 次、
   第 31 次 429、不影响别人（`AddressParseRateLimitIT`，只 mock 外部 AI，Redis 是真的）。
 
+### 智能粘贴线上首测失败的修复（2026-11-26）
+
+- **原因**：智能粘贴没指定模型，本意用默认模型；但 `SealosAiProvider` 每次新建 `OpenAiChatOptions`，没写模型时
+  Spring AI 填的是它内置的 `gpt-5-mini`（本地用假网关抓请求确认），网关上没有这个模型 → 502 `address.parse_failed`。
+  估价一直显式传模型，所以没暴露。
+- **修法**：`SealosAiProvider` 没指定模型时显式带上配置的默认模型；兜底默认模型从 `deepseek-chat`（不在网关模型列表里）
+  改成 `deepseek-v4.1-flash`；智能粘贴单独配模型 `app.address.parse-model`（环境变量 `AI_ADDRESS_PARSE_MODEL`），
+  默认 `qwen3.8-max`（需求方定，不考虑费用）。
+- **日志**：智能粘贴失败时记模型名和完整原因链（`AiException.describe`，从 `EstimateService` 挪过来共用），不记地址原文。
+
 ## 部署清单
 
 - 迁移随开机自动执行，只新建表，无需扩展-收缩。
-- 智能粘贴用现有的 `SEALOS_AI_*` 配置，不用新配置。
+- 智能粘贴用现有的 `SEALOS_AI_*` 配置；模型可用 `AI_ADDRESS_PARSE_MODEL` 覆盖（不配就是 `qwen3.8-max`）。
+- ★ 检查 Sealos 环境变量 `SEALOS_AI_MODEL`：如果线上设成了 `deepseek-chat`，要改成网关上存在的模型（建议 `deepseek-v4.1-flash`）。
 - 部署那一刻还开着的旧页面，在订单上保存地址会 400（请求体变了），刷新即可。
 
 ## 遗留 / 后续

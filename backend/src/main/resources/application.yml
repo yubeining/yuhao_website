@@ -114,7 +114,9 @@ spring:
       max-retries: 0
       chat:
         options:
-          model: ${SEALOS_AI_MODEL:deepseek-chat}
+          # 兜底模型：调用方没指定模型时用它。2026-11-26 需求方定 deepseek-v4.1-flash
+          # （原来的 deepseek-chat 不在网关的模型列表里）。线上以 Sealos 环境变量 SEALOS_AI_MODEL 为准。
+          model: ${SEALOS_AI_MODEL:deepseek-v4.1-flash}
           temperature: 0.2
     retry:
       max-attempts: 1
@@ -245,6 +247,10 @@ app:
     request-timeout-seconds: 20
     sync-initial-delay: PT1M     # 开机后多久拉第一次
     sync-interval: PT3H          # 之后每隔多久拉一次（同一天重复拉只会跳过）
+
+  address:
+    # 智能粘贴拆地址用的模型（Sealos aiproxy 上的模型名）。2026-11-26 需求方定 qwen3.8-max（不考虑费用）。
+    parse-model: ${AI_ADDRESS_PARSE_MODEL:qwen3.8-max}
 
   estimate:
     # AI 成本估算用的看图模型（Sealos aiproxy 上的模型名）。需求方 2026-11-17 指定 qwen3.8-flash。

@@ -30,15 +30,23 @@ public class SealosAiProvider implements AiProvider {
 
     private final ChatModel chatModel;
     private final Duration timeout;
+    private final String defaultModel;
 
     /**
      * ★ 超时要在每次调用的 options 里显式带上：Spring AI 2.x 的 OpenAiChatOptions 自带一个 60 秒的默认超时，
      *   每次 new 一个 options，这 60 秒就盖掉了 {@code spring.ai.openai.timeout} —— 配多少都还是 60 秒
      *   （2026-11-18 线上把超时调到 180 秒仍在 60 秒断开，本地对着不回应的端口实测确认）。
      */
-    public SealosAiProvider(ChatModel chatModel, @Value("${spring.ai.openai.timeout:180s}") Duration timeout) {
+    /**
+     * ★ 默认模型也要在每次调用时显式带上，理由同超时：新建的 options 里没写模型时，Spring AI 填的是它自己内置的
+     *   模型（实测是 gpt-5-mini），{@code spring.ai.openai.chat.options.model} 被盖掉。网关上没有那个模型，
+     *   不指定模型的调用全部失败（2026-11-26 智能粘贴线上首测，本地用假网关抓请求确认）。
+     */
+    public SealosAiProvider(ChatModel chatModel, @Value("${spring.ai.openai.timeout:180s}") Duration timeout,
+                            @Value("${spring.ai.openai.chat.options.model}") String defaultModel) {
         this.chatModel = chatModel;
         this.timeout = timeout;
+        this.defaultModel = defaultModel;
     }
 
     @Override
@@ -57,10 +65,8 @@ public class SealosAiProvider implements AiProvider {
                 .toList();
         messages.add(UserMessage.builder().text(request.user()).media(media).build());
 
-        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder().timeout(timeout);
-        if (request.model() != null && !request.model().isBlank()) {
-            options.model(request.model());
-        }
+        OpenAiChatOptions.Builder options = OpenAiChatOptions.builder().timeout(timeout)
+                .model(request.model() != null && !request.model().isBlank() ? request.model() : defaultModel);
         if (request.temperature() != null) {
             options.temperature(request.temperature());
         }

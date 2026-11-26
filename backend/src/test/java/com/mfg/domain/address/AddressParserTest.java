@@ -23,7 +23,7 @@ class AddressParserTest {
 
     private final AiService ai = mock(AiService.class);
     private final ObjectMapper json = JsonMapper.builder().build();
-    private final AddressParser parser = new AddressParser(ai, json);
+    private final AddressParser parser = new AddressParser(ai, json, "qwen3.8-max");
 
     @Test
     void mapsTheModelOutputOntoTheAddressFields() {
@@ -54,6 +54,8 @@ class AddressParserTest {
         verify(ai).chat(req.capture());
         assertThat(req.getValue().user()).isEqualTo("1 Sample Road, Leeds");
         assertThat(req.getValue().system()).isNotBlank();
+        // 用配置的模型（2026-11-26 需求方定 qwen3.8-max），不能留空让网关 / Spring AI 去猜
+        assertThat(req.getValue().model()).isEqualTo("qwen3.8-max");
     }
 
     @Test

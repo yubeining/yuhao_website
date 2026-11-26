@@ -24,7 +24,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 @TestPropertySource(properties = {
         // base-url 不在这里覆盖：用 application.yml 里的那个，才能测到真实配置（它以前在这里写死了少 /v1 的地址）
         "spring.ai.openai.api-key=${SEALOS_AI_IT_KEY}",
-        "spring.ai.openai.chat.options.model=deepseek-chat"
+        "spring.ai.openai.chat.options.model=deepseek-v4.1-flash"
 })
 class AiServiceIT {
 
