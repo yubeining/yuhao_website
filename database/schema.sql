@@ -494,6 +494,26 @@ CREATE TABLE public.schema_migrations (
     duration_ms bigint
 );
 
+-- Name: shipping_address; Type: TABLE; Schema: public; Owner: -
+
+CREATE TABLE public.shipping_address (
+    id uuid NOT NULL,
+    external_user_id uuid NOT NULL,
+    country text NOT NULL,
+    company text NOT NULL,
+    contact text NOT NULL,
+    phone text NOT NULL,
+    line1 text NOT NULL,
+    line2 text,
+    city text NOT NULL,
+    region text,
+    postal_code text,
+    is_default boolean DEFAULT false NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    version bigint DEFAULT 0 NOT NULL
+);
+
 -- Name: supplier_invite; Type: TABLE; Schema: public; Owner: -
 
 CREATE TABLE public.supplier_invite (
@@ -759,6 +779,11 @@ ALTER TABLE ONLY public.role
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (filename);
 
+-- Name: shipping_address shipping_address_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+
+ALTER TABLE ONLY public.shipping_address
+    ADD CONSTRAINT shipping_address_pkey PRIMARY KEY (id);
+
 -- Name: supplier_invite supplier_invite_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 
 ALTER TABLE ONLY public.supplier_invite
@@ -1001,6 +1026,14 @@ CREATE UNIQUE INDEX quote_order_version_uk ON public.quote USING btree (customer
 -- Name: role_scope_code_uk; Type: INDEX; Schema: public; Owner: -
 
 CREATE UNIQUE INDEX role_scope_code_uk ON public.role USING btree (scope, code);
+
+-- Name: shipping_address_one_default_uk; Type: INDEX; Schema: public; Owner: -
+
+CREATE UNIQUE INDEX shipping_address_one_default_uk ON public.shipping_address USING btree (external_user_id) WHERE is_default;
+
+-- Name: shipping_address_user_idx; Type: INDEX; Schema: public; Owner: -
+
+CREATE INDEX shipping_address_user_idx ON public.shipping_address USING btree (external_user_id, created_at);
 
 -- Name: supplier_invite_email_idx; Type: INDEX; Schema: public; Owner: -
 

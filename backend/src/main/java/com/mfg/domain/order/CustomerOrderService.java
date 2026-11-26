@@ -3,6 +3,8 @@ package com.mfg.domain.order;
 import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
+import com.mfg.domain.address.AddressBook;
+import com.mfg.domain.address.AddressInfo;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.storage.StorageService;
 import org.springframework.data.domain.Page;
@@ -48,8 +50,6 @@ class CustomerOrderService {
     private static final Set<CustomerOrder.Status> SHIP_TO_EDITABLE = Set.of(CustomerOrder.Status.DRAFT,
             CustomerOrder.Status.SUBMITTED, CustomerOrder.Status.QUOTED, CustomerOrder.Status.CONFIRMED);
 
-    private static final Set<String> ISO_COUNTRIES = Set.of(java.util.Locale.getISOCountries());
-
     private final CustomerOrderRepository orders;
     private final CustomerOrderPartRepository lines;
     private final PartDesignRepository parts;
@@ -60,13 +60,14 @@ class CustomerOrderService {
     private final PartFileAccessLogRepository accessLogs;
     private final StorageService storage;
     private final CustomerOrderDocumentRepository documents;
+    private final AddressBook addressBook;
 
     CustomerOrderService(CustomerOrderRepository orders, CustomerOrderPartRepository lines,
                          PartDesignRepository parts, PartRevisionRepository revisions,
                          PartFileRepository files, PartDrawingService drawings,
                          OrganizationRepository organizations,
                          PartFileAccessLogRepository accessLogs, StorageService storage,
-                         CustomerOrderDocumentRepository documents) {
+                         CustomerOrderDocumentRepository documents, AddressBook addressBook) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
@@ -77,13 +78,17 @@ class CustomerOrderService {
         this.accessLogs = accessLogs;
         this.storage = storage;
         this.documents = documents;
+        this.addressBook = addressBook;
     }
 
     // ---------- 订单 ----------
 
     @Transactional
     public OrderView create(UUID customerOrgId, UUID userId, String title, LocalDate wantedDate) {
-        CustomerOrder saved = orders.save(new CustomerOrder(customerOrgId, userId, blankToNull(title), wantedDate));
+        CustomerOrder order = new CustomerOrder(customerOrgId, userId, blankToNull(title), wantedDate);
+        // 建草稿时自动带上默认收货地址（2026-11-26 Q3），复制进订单（快照）
+        addressBook.findDefault(userId).ifPresent(a -> order.replaceShipTo(toShipTo(a)));
+        CustomerOrder saved = orders.save(order);
         return view(customerOrgId, saved);
     }
 
@@ -116,24 +121,24 @@ class CustomerOrderService {
     }
 
     /**
-     * 改收货地址（整体替换）。2026-11-23 拍板：提交时必填，订单就绪（READY）之前客户都能改 ——
+     * 换收货地址：从下单人自己的地址簿里选一条，复制进订单（快照，C2）。2026-11-23 拍板订单就绪（READY）之前都能改 ——
      * 所以不走 {@link #requireDraft}，而是允许草稿到已确认；就绪和已取消的拒绝。
-     * 必填项和长度由 controller 校验，国家代码在这里对 ISO 3166-1 列表核一次。
+     * 2026-11-26 起不再在订单上手填（Q5），地址只能从地址簿来；别人的地址和不存在一样，404。
      */
     @Transactional
-    public OrderView updateShipTo(UUID customerOrgId, UUID orderId, ShipTo shipTo) {
+    public OrderView updateShipTo(UUID customerOrgId, UUID userId, UUID orderId, UUID addressId) {
         CustomerOrder order = orders.lockByIdAndCustomerOrgId(orderId, customerOrgId)
                 .orElseThrow(() -> BusinessException.notFound("order.not_found"));
         if (!SHIP_TO_EDITABLE.contains(order.getStatus())) {
             throw BusinessException.conflict("order.ship_to_locked");
         }
-        if (!ISO_COUNTRIES.contains(shipTo.country())) {
-            throw new BusinessException(400, "order.ship_to_country_invalid");
-        }
-        order.replaceShipTo(new ShipTo(shipTo.country(), shipTo.company().trim(), shipTo.contact().trim(),
-                shipTo.phone().trim(), shipTo.line1().trim(), blankToNull(shipTo.line2()), shipTo.city().trim(),
-                blankToNull(shipTo.region()), blankToNull(shipTo.postalCode())));
+        order.replaceShipTo(toShipTo(addressBook.require(userId, addressId)));
         return view(customerOrgId, orders.saveAndFlush(order));
+    }
+
+    private static ShipTo toShipTo(AddressInfo a) {
+        return new ShipTo(a.country(), a.company(), a.contact(), a.phone(), a.line1(), a.line2(), a.city(),
+                a.region(), a.postalCode());
     }
 
     /**

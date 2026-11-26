@@ -114,17 +114,20 @@ export function StatusPill({ status, label }: { status: string; label: string })
 }
 
 /** 每行最右边的「编辑 + 禁用 / 启用」。 */
-export function RowActions({ status, busy, onEdit, onDisable, onEnable }: {
+export function RowActions({ status, busy, onEdit, onDisable, onEnable, extra }: {
     status: string
     busy: boolean
     onEdit: () => void
     onDisable: () => void
     onEnable: () => void
+    /** 排在「编辑」前面的额外按钮（如客户用户的「收货地址」） */
+    extra?: ReactNode
 }) {
     const { t } = useI18n()
     const a = t.ops.accounts
     return (
         <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
+            {extra}
             <button className="btn sm" type="button" onClick={onEdit}>{a.edit}</button>
             {status === 'ACTIVE'
                 ? <button className="btn sm" type="button" disabled={busy} onClick={onDisable}>{a.disable}</button>

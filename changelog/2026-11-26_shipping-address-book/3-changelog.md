@@ -1,0 +1,51 @@
+# 收货地址簿：改动记录
+
+分支 `feat/shipping-address-book`。需求见 `1-requirement.md`，方案见 `2-implementation-plan.md`。
+
+## 改了什么
+
+### 数据库
+
+- 新迁移 `2026-11-26_01_shipping-address.sql`：新表 `shipping_address`（按 `external_user_id` 归属），
+  索引 `(external_user_id, created_at)`，部分唯一索引「每人最多一个默认」。同步 `schema.sql`、迁移 README 的表归属。
+- 不改 `customer_order`：订单上原有的 9 列 `ship_to_*` 继续当快照用。
+
+### 后端（新域 `domain/address`）
+
+- `AddressBook`（public 接口）+ `AddressInfo`（public record）：对订单域的唯一契约。
+- `ShippingAddress` / `ShippingAddressRepository` / `ShippingAddressService`：增删改查、设默认。
+  第一条自动默认，删掉默认后最早一条顶上，默认不能直接取消，每人最多 20 条。写操作先锁这个用户的全部地址。
+- `CustomerShippingAddressController`：`/customer/shipping-addresses`（GET / POST / PUT / DELETE / `{id}/default` / `parse`）。
+- `OpsShippingAddressController`：`GET /ops/users/{userId}/shipping-addresses`，只读。
+- `AddressParser` + `prompts/address-parse.txt`：智能粘贴走现有 AI 服务（provider 默认模型），只拆不存；
+  国家必须是 ISO 代码、超过表单上限的值丢掉；原文和模型输出不进日志。`parse` 接口按用户限流，每人每小时 30 次。
+
+### 订单域
+
+- `CustomerOrderService.create`：建草稿时把下单人的默认地址复制进订单。
+- `PUT /customer/orders/{id}/ship-to` 的请求体从 9 个字段改成 `{ addressId }`。按 `(addressId, 当前用户)` 取，
+  别人的地址 404 `address.not_found`。READY 锁不变。
+- 删掉订单 service 里不再用到的国家码校验（已挪到地址域）。
+
+### 前端
+
+- 设置页（只在客户端）加「收货地址」卡片 `AddressBookCard`：列表、默认标记、设为默认、复制、编辑、删除（确认弹框）、新增。
+- `AddressFormModal`：新增 / 编辑弹框，字段照原来的订单地址弹框，加「设为默认地址」和智能粘贴。
+- `ShipToEditor`：订单页「编辑」改成从地址簿选的弹框，可以在弹框里新增，存完直接选中。
+- 运营「账号 › 用户」：客户用户那一行多「收货地址」按钮，点开只读弹框（`RowActions` 加了可选的 `extra` 插槽）。
+- `components/addressFormat.ts`：列表单行格式和「复制」的多行文本。原样输出，国家显示成界面语言的名字。
+- 文案：新增 `addressBook` 一组、错误码 `address.*`、`common.rate_limited`；删掉不再出现的 `order.ship_to_country_invalid`。
+- `styles.css` 加地址列表 / 选择卡片 / 文本框的样式，只用 token。
+
+## 部署清单
+
+- 迁移随开机自动执行，只新建表，无需扩展-收缩。
+- 智能粘贴用现有的 `SEALOS_AI_*` 配置，不用新配置。
+- 部署那一刻还开着的旧页面，在订单上保存地址会 400（请求体变了），刷新即可。
+
+## 遗留 / 后续
+
+- `CustomerOrderFlowIT.malformedRequestsAreClientErrorsNotServerErrors`（`PUT /customer/orders` 期望 405 实际 404）
+  在 main 上原本就失败，不是这次引入的，没修。
+- 第二遍跑全部迁移时，`2026-08-02_02` 和 `2026-09-07_01` 两个老迁移不幂等（不是这次的文件）。线上靠 `schema_migrations` 不会重跑，没修。
+- 智能粘贴没有拿真实 AI 跑过（测试里 AI 是 mock 的，测试环境不连 AI）。上线前要在有 AI 密钥的环境里手动试几条各国地址。

@@ -7,6 +7,7 @@
 
 import { http } from '../core/http'
 import type { PagedResponse } from '../customer/orders'
+import type { ShippingAddressView } from '../customer/shippingAddresses'
 
 // ---------- 外部用户 ----------
 
@@ -124,4 +125,9 @@ export function updateStaff(
 
 export function disableStaff(id: string): Promise<StaffView> {
     return http.delete<StaffView>(`/ops/staff/${id}`)
+}
+
+/** 某个客户用户的收货地址簿，只读（2026-11-26 需求方定：运营可以看）。 */
+export function listUserShippingAddresses(userId: string): Promise<ShippingAddressView[]> {
+    return http.get<ShippingAddressView[]>(`/ops/users/${userId}/shipping-addresses`)
 }

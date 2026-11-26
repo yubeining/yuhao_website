@@ -1,14 +1,18 @@
 /** 账号管理 · 外部用户（客户 / 供应商联系人）。只能改姓名、禁用 / 启用，不能新建。 */
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { addressOneLine } from '../../../components/addressFormat'
 import { fmtIsoDate } from '../../../lib/format'
 import { useConfirm } from '../../../components/ConfirmDialog'
 import { Modal } from '../../../components/Modal'
 import { Field, Input } from '../../../components/form'
-import { Banner, Card, CardBody, CardHead, TableWrap } from '../../../components/ui'
+import { Banner, Card, CardBody, CardHead, Pill, TableWrap } from '../../../components/ui'
 import { errorText } from '../../../i18n/errorText'
 import { useI18n } from '../../../i18n/I18nProvider'
-import { disableAccount, listAccounts, updateAccount, type AccountView } from '../../../services/ops/accounts'
+import {
+    disableAccount, listAccounts, listUserShippingAddresses, updateAccount, type AccountView,
+} from '../../../services/ops/accounts'
+import type { ShippingAddressView } from '../../../services'
 import {
     FilterField, ListBanners, ListBody, PAGE_SIZE, ReadOnly, RowActions, StatusPill, usePagedList,
 } from './shared'
@@ -21,6 +25,7 @@ export function UsersTab() {
     const a = t.ops.accounts
     const list = usePagedList<AccountView>(fetchUsers)
     const [editing, setEditing] = useState<AccountView | null>(null)
+    const [viewingAddresses, setViewingAddresses] = useState<AccountView | null>(null)
 
     const disable = async (row: AccountView) => {
         if (!(await askConfirm(a.confirmDisableUser(row.email), { danger: true }))) return
@@ -68,6 +73,10 @@ export function UsersTab() {
                                             <td>{r.emailVerifiedAt ? fmtIsoDate(r.emailVerifiedAt) : a.unverified}</td>
                                             <td className="n">{fmtIsoDate(r.createdAt)}</td>
                                             <RowActions status={r.status} busy={list.busy}
+                                                extra={r.orgType === 'CUSTOMER' && (
+                                                    <button className="btn sm" type="button"
+                                                        onClick={() => setViewingAddresses(r)}>{t.addressBook.opsButton}</button>
+                                                )}
                                                 onEdit={() => { list.setOk(null); setEditing(r) }}
                                                 onDisable={() => void disable(r)}
                                                 onEnable={() => void enable(r)} />
@@ -85,8 +94,44 @@ export function UsersTab() {
                     onClose={() => setEditing(null)}
                     onSaved={() => { setEditing(null); void list.load(list.page) }} />
             )}
+            {viewingAddresses && (
+                <AddressBookModal user={viewingAddresses} onClose={() => setViewingAddresses(null)} />
+            )}
             {confirmDialog}
         </>
+    )
+}
+
+/** 客户用户的收货地址簿，只读（2026-11-26 需求方定：运营可以看，不能改）。 */
+function AddressBookModal({ user, onClose }: { user: AccountView; onClose: () => void }) {
+    const { t, lang } = useI18n()
+    const b = t.addressBook
+    const [rows, setRows] = useState<ShippingAddressView[] | null>(null)
+    const [err, setErr] = useState<string | null>(null)
+
+    useEffect(() => {
+        listUserShippingAddresses(user.id).then(setRows, (e) => setErr(errorText(t, e)))
+    }, [user.id, t])
+
+    return (
+        <Modal title={b.opsTitle(user.displayName)} width={480} onClose={onClose}
+            footer={<button className="btn" type="button" onClick={onClose}>{t.common.close}</button>}>
+            {err && <Banner tone="wa">{err}</Banner>}
+            {!rows && !err && <div className="t2" style={{ color: 'var(--muted)' }}>…</div>}
+            {rows && rows.length === 0 && <div className="t2" style={{ color: 'var(--muted)' }}>{b.opsEmpty}</div>}
+            {rows && rows.map((a) => (
+                <div key={a.id} className={`addrpick${a.isDefault ? ' on' : ''}`} style={{ cursor: 'default', gridTemplateColumns: 'minmax(0,1fr)' }}>
+                    <span>
+                        <span className="a1">
+                            {a.company}
+                            {a.isDefault && <Pill tone="in" dot={false}>{b.defaultTag}</Pill>}
+                        </span>
+                        <span className="a2" style={{ display: 'block' }}>{a.contact} · <span className="m">{a.phone}</span></span>
+                        <span className="a3" style={{ display: 'block' }}>{addressOneLine(a, lang)}</span>
+                    </span>
+                </div>
+            ))}
+        </Modal>
     )
 }
 

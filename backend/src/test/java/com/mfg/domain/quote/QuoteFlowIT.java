@@ -802,8 +802,11 @@ class QuoteFlowIT {
     }
 
     /** 请求体用 record 构造、走项目 ObjectMapper 序列化（CLAUDE.md §9）。字段名对齐接口。 */
-    private record ShipToBody(String country, String company, String contact, String phone, String line1, String line2,
-                              String city, String region, String postalCode) {
+    private record ShipToBody(UUID addressId) {
+    }
+
+    private record AddressBody(String country, String company, String contact, String phone, String line1,
+                               String line2, String city, String region, String postalCode) {
     }
 
     private record OrderDraftBody(String title, LocalDate wantedDate) {
@@ -860,9 +863,19 @@ class QuoteFlowIT {
     /** 建草稿并填好收货地址（提交前必填，2026-11-23）。 */
     private String createOrder(Customer c) throws Exception {
         String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("data").path("id").asText();
-        put("/customer/orders/" + orderId + "/ship-to", new ShipToBody("DE", "Acme Receiving GmbH", "Bob Weber",
-                "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token());
+        put("/customer/orders/" + orderId + "/ship-to", new ShipToBody(addressOf(c)), c.token());
         return orderId;
+    }
+
+    /** 收货地址从地址簿选（2026-11-26）：这个客户还没有地址就先加一条。 */
+    private UUID addressOf(Customer c) throws Exception {
+        JsonNode list = json.readTree(rawGet("/customer/shipping-addresses", c.token()).getBody()).path("data");
+        if (!list.isEmpty()) {
+            return UUID.fromString(list.get(0).path("id").asText());
+        }
+        return UUID.fromString(post("/customer/shipping-addresses", new AddressBody("DE", "Acme Receiving GmbH",
+                "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token())
+                .path("data").path("id").asText());
     }
 
     private JsonNode addLine(Customer c, String orderId, String code, int quantity) throws Exception {

@@ -149,7 +149,7 @@ class CustomerOrderFlowIT {
         assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
     }
 
-    // ---------- 收货地址（2026-11-23：提交时必填，订单就绪 READY 之前都能改） ----------
+    // ---------- 收货地址（2026-11-23：提交时必填，READY 之前都能改；2026-11-26：改成从地址簿选） ----------
 
     @Test
     void orderCannotBeSubmittedWithoutAShipToAddress() throws Exception {
@@ -162,7 +162,7 @@ class CustomerOrderFlowIT {
         assertThat(messageOf(rejected)).isEqualTo("order.ship_to_required");
         assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
 
-        JsonNode saved = json.readTree(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Berlin"), c.token())
+        JsonNode saved = json.readTree(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo(c, "Berlin"), c.token())
                 .getBody()).path("data");
         assertThat(saved.path("shipTo").path("country").asText()).isEqualTo("DE");
         assertThat(saved.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
@@ -190,33 +190,63 @@ class CustomerOrderFlowIT {
 
         for (String status : List.of("SUBMITTED", "QUOTED", "CONFIRMED")) {
             jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
-            ResponseEntity<String> res = rawPut(path, shipTo("Munich-" + status), c.token());
+            ResponseEntity<String> res = rawPut(path, shipTo(c, "Munich-" + status), c.token());
             assertThat(res.getStatusCode().value()).as(status + " " + res.getBody()).isEqualTo(200);
             assertThat(json.readTree(res.getBody()).path("data").path("shipTo").path("city").asText())
                     .isEqualTo("Munich-" + status);
         }
         for (String status : List.of("READY", "CANCELLED")) {
             jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
-            assertConflict(rawPut(path, shipTo("Cologne"), c.token()), "order.ship_to_locked");
+            assertConflict(rawPut(path, shipTo(c, "Cologne"), c.token()), "order.ship_to_locked");
         }
         assertThat(jdbc.queryForObject("select ship_to_city from customer_order where id = ?", String.class,
                 UUID.fromString(orderId))).isEqualTo("Munich-CONFIRMED");
     }
 
     @Test
-    void shipToRejectsMissingRequiredFieldsAndUnknownCountries() throws Exception {
+    void shipToRejectsAMissingOrForeignAddress() throws Exception {
         Customer c = register("shiptobad");
+        Customer other = register("shiptoother");
         String path = "/customer/orders/" + createOrderWithoutShipTo(c) + "/ship-to";
 
-        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("DE", " ", "Bob", "+49 1", "Str. 1", null,
-                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
-        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("DE", "Acme", "Bob", "+49 1", "Str. 1", null,
-                null, null, null), c.token()).getStatusCode().value()).isEqualTo(400);
-        // 形如国家代码但不是 ISO 3166 里的国家
-        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("XX", "Acme", "Bob", "+49 1", "Str. 1", null,
-                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
-        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest("de", "Acme", "Bob", "+49 1", "Str. 1", null,
-                "Berlin", null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest(null), c.token())
+                .getStatusCode().value()).isEqualTo(400);
+        // 别人地址簿里的地址：和不存在一样，404
+        ResponseEntity<String> foreign = rawPut(path, shipTo(other, "Hamburg"), c.token());
+        assertNotFound(foreign);
+        assertThat(messageOf(foreign)).isEqualTo("address.not_found");
+        assertThat(get(path.replace("/ship-to", ""), c.token()).path("data").has("shipTo")).isFalse();
+    }
+
+    /** 建草稿时自动带上默认地址（2026-11-26 Q3）。 */
+    @Test
+    void newDraftTakesTheDefaultAddress() throws Exception {
+        Customer c = register("autodefault");
+        addAddress(c, "Berlin");
+        String munich = addAddress(c, "Munich");
+        ok(rawPost("/customer/shipping-addresses/" + munich + "/default", null, c.token()));
+
+        JsonNode created = post("/customer/orders",
+                new CustomerOrderController.OrderDraftRequest(null, LocalDate.now().plusDays(30)), c.token())
+                .path("data");
+        assertThat(created.path("shipTo").path("city").asText()).isEqualTo("Munich");
+        assertThat(created.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
+    }
+
+    /** 订单存的是地址快照（C2，2026-11-26 Q4）：之后改 / 删地址簿，已有订单不变。 */
+    @Test
+    void editingOrDeletingTheAddressBookDoesNotChangeExistingOrders() throws Exception {
+        Customer c = register("snapshot");
+        String berlin = addAddress(c, "Berlin");
+        String orderId = createOrderWithoutShipTo(c);
+
+        ok(rawPut("/customer/shipping-addresses/" + berlin, addressBody("Leipzig"), c.token()));
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("shipTo").path("city").asText())
+                .isEqualTo("Berlin");
+
+        ok(rawDelete("/customer/shipping-addresses/" + berlin, c.token()));
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("shipTo").path("city").asText())
+                .isEqualTo("Berlin");
     }
 
     @Test
@@ -464,7 +494,7 @@ class CustomerOrderFlowIT {
         assertNotFound(rawDelete(base + "/lines/" + line.path("id").asText(), other.token()));
         assertNotFound(rawPost(base + "/submit", null, other.token()));
         assertNotFound(rawPost(base + "/cancel", null, other.token()));
-        assertNotFound(rawPut(base + "/ship-to", shipTo("Hamburg"), other.token()));
+        assertNotFound(rawPut(base + "/ship-to", shipTo(other, "Hamburg"), other.token()));
         assertThat(get("/customer/orders", other.token()).path("data").path("total").asInt()).isZero();
     }
 
@@ -654,10 +684,16 @@ class CustomerOrderFlowIT {
                 UUID.fromString(reg.path("data").path("id").asText()));
     }
 
-    /** 建草稿并填好收货地址（提交前必填，2026-11-23）。只想测「没填地址」时用 {@link #createOrderWithoutShipTo}。 */
+    /**
+     * 建草稿并填好收货地址（提交前必填，2026-11-23）。只想测「没填地址」时用 {@link #createOrderWithoutShipTo}
+     * —— 但要在这个客户还没有地址簿的时候建，否则草稿会自动带上默认地址（2026-11-26）。
+     */
     private String createOrder(Customer c) throws Exception {
         String orderId = createOrderWithoutShipTo(c);
-        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Berlin"), c.token());
+        if (get("/customer/orders/" + orderId, c.token()).path("data").has("shipTo")) {
+            return orderId;  // 地址簿里已有默认地址，草稿自动带上了
+        }
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId + "/ship-to", shipTo(c, "Berlin"), c.token());
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
         return orderId;
     }
@@ -668,9 +704,28 @@ class CustomerOrderFlowIT {
                 .path("data").path("id").asText();
     }
 
-    private static CustomerOrderController.ShipToRequest shipTo(String city) {
-        return new CustomerOrderController.ShipToRequest("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567",
-                "Hauptstr. 1", null, city, null, "10115");
+    /** 在这个客户的地址簿里加一条地址，返回「选它」的请求体。 */
+    private CustomerOrderController.ShipToRequest shipTo(Customer c, String city) throws Exception {
+        return new CustomerOrderController.ShipToRequest(UUID.fromString(addAddress(c, city)));
+    }
+
+    private String addAddress(Customer c, String city) throws Exception {
+        ResponseEntity<String> res = ok(rawPost("/customer/shipping-addresses", addressBody(city), c.token()));
+        return json.readTree(res.getBody()).path("data").path("id").asText();
+    }
+
+    private static AddressBody addressBody(String city) {
+        return new AddressBody("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, city,
+                null, "10115");
+    }
+
+    private record AddressBody(String country, String company, String contact, String phone, String line1,
+                               String line2, String city, String region, String postalCode) {
+    }
+
+    private static ResponseEntity<String> ok(ResponseEntity<String> res) {
+        assertThat(res.getStatusCode().is2xxSuccessful()).as(res.getBody()).isTrue();
+        return res;
     }
 
     private CustomerOrderController.AddLineRequest lineRequest(String code, String name, int quantity) {

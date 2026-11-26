@@ -128,9 +128,12 @@ export function updateOrder(orderId: string, input: OrderDraftInput): Promise<Or
     return http.patch<OrderView>(`/customer/orders/${orderId}`, input)
 }
 
-/** 整体替换收货地址。草稿到已确认都能改；就绪 / 已取消 409 order.ship_to_locked。 */
-export function updateShipTo(orderId: string, input: ShipTo): Promise<OrderView> {
-    return http.put<OrderView>(`/customer/orders/${orderId}/ship-to`, input)
+/**
+ * 换成地址簿里的一条（2026-11-26）：后端把这条地址复制进订单（快照）。
+ * 草稿到已确认都能换；就绪 / 已取消 409 order.ship_to_locked；不是自己的地址 404 address.not_found。
+ */
+export function updateShipTo(orderId: string, addressId: string): Promise<OrderView> {
+    return http.put<OrderView>(`/customer/orders/${orderId}/ship-to`, { addressId })
 }
 
 /** 每行都要有传完的图纸，否则 409 order.line_missing_drawing。提交时锁定各行图纸版本。 */

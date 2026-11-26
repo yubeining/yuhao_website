@@ -721,7 +721,7 @@ class DispatchFlowIT {
             fileIds.add(uploadPdf(c, line));
         }
         ok(exchange("/customer/orders/" + orderId + "/ship-to", HttpMethod.PUT,
-                new CustomerOrderController.ShipToRequest("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token()));
+                new CustomerOrderController.ShipToRequest(addressOf(c)), c.token()));
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         return new SubmittedOrder(orderId, lineIds, fileIds);
     }
@@ -746,6 +746,22 @@ class DispatchFlowIT {
             }
         }
         return null;
+    }
+
+    /** 收货地址从地址簿选（2026-11-26）：这个客户还没有地址就先加一条。 */
+    private UUID addressOf(Customer c) throws Exception {
+        JsonNode list = json.readTree(exchange("/customer/shipping-addresses", HttpMethod.GET, null, c.token())
+                .getBody()).path("data");
+        if (!list.isEmpty()) {
+            return UUID.fromString(list.get(0).path("id").asText());
+        }
+        return UUID.fromString(post("/customer/shipping-addresses", new AddressBody("DE", "Acme Receiving GmbH",
+                "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token())
+                .path("id").asText());
+    }
+
+    private record AddressBody(String country, String company, String contact, String phone, String line1,
+                               String line2, String city, String region, String postalCode) {
     }
 
     private void ok(ResponseEntity<String> res) {

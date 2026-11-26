@@ -427,6 +427,16 @@ export interface Strings {
         line1: string; line2: string; city: string; region: string; postalCode: string
         cancel: string; save: string; requiredMissing: string; lockedNote: string
     }
+    /** 收货地址簿（2026-11-26）：客户在账号设置里维护，下单时选；运营只读。表单字段名复用 shipTo */
+    addressBook: {
+        title: string; add: string; edit: string; del: string; setDefault: string; defaultTag: string
+        copy: string; copied: string; copyFailed: string
+        empty: string; newTitle: string; editTitle: string; makeDefault: string
+        deleteTitle: string; deleteBody: string; deleted: string; madeDefault: string
+        paste: string; pasteHint: string; pasteRun: string; pasteDone: string; pasteNothing: string
+        pickTitle: string; use: string; manage: string; pickEmpty: string
+        opsButton: string; opsTitle: (name: string) => string; opsEmpty: string
+    }
     /** 派单详情（生产订单） */
     prodDetail: {
         back: string; title: string; notFound: string
@@ -934,6 +944,18 @@ export const STRINGS: Record<Lang, Strings> = {
         cancel: '取消', save: '保存', requiredMissing: '请把带 * 的项填完整',
         lockedNote: '订单已就绪，收货地址不能再改。',
     },
+    addressBook: {
+        title: '收货地址', add: '新增地址', edit: '编辑', del: '删除', setDefault: '设为默认', defaultTag: '默认',
+        copy: '复制', copied: '已复制', copyFailed: '复制失败，请手动选中文字复制',
+        empty: '还没有收货地址。下单前先在这里加一个，之后每张订单自动带出默认地址。',
+        newTitle: '新增地址', editTitle: '编辑地址', makeDefault: '设为默认地址',
+        deleteTitle: '删除地址', deleteBody: '删除后不能恢复。已经下过的订单里存的是当时的地址，不受影响。',
+        deleted: '已删除', madeDefault: '已设为默认',
+        paste: '智能粘贴', pasteHint: '把整段地址粘贴到这里，自动拆到下面各栏。拆完请检查一遍再保存。',
+        pasteRun: '识别', pasteDone: '已填入下面各栏，请检查', pasteNothing: '没识别出内容，请手动填写',
+        pickTitle: '选择收货地址', use: '使用这个地址', manage: '管理地址簿', pickEmpty: '还没有收货地址。',
+        opsButton: '收货地址', opsTitle: (name) => `${name} 的收货地址`, opsEmpty: '这个用户还没有收货地址',
+    },
     prodDetail: {
         back: '← 派单管理', title: '生产订单', notFound: '生产订单不存在',
         dueProblem: '请填对供交期（如 2026-10-20）', errNoSupplier: '请勾选要派的供应商',
@@ -1010,6 +1032,11 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.not_draft': '订单已提交或已取消，不能再修改',
             'order.ship_to_required': '请先填写收货地址',
             'order.ship_to_locked': '订单已就绪或已取消，收货地址不能再改',
+            'address.not_found': '地址不存在或已被删除',
+            'address.limit_reached': '最多只能存 20 条收货地址',
+            'address.country_invalid': '请选择国家/地区',
+            'address.parse_failed': '没能识别这段地址，请手动填写',
+            'common.rate_limited': '操作太频繁，请稍后再试',
             'order.not_ready': '订单还没全部完工，或者已经发过货了',
             'order.not_shipped': '订单还没发货，或者已经确认过收货',
             'order.documents_locked': '订单还没完工，或者客户已经确认收货，不能再传随货文件',
@@ -1017,7 +1044,6 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.document_not_found': '文件不存在',
             'order.document_not_pending': '这个文件已经处理过了',
             'order.document_object_missing': '文件没有传上去，请重新上传',
-            'order.ship_to_country_invalid': '请选择国家/地区',
             'order.line_not_found': '零件行不存在',
             'order.no_lines': '订单里还没有零件',
             'order.line_missing_drawing': '有零件还没传图纸，传完才能提交',
@@ -1552,6 +1578,21 @@ export const STRINGS: Record<Lang, Strings> = {
         cancel: 'Cancel', save: 'Save', requiredMissing: 'Please fill in all fields marked *',
         lockedNote: 'The order is ready; the shipping address can no longer be changed.',
     },
+    addressBook: {
+        title: 'Shipping addresses', add: 'Add address', edit: 'Edit', del: 'Delete', setDefault: 'Set as default',
+        defaultTag: 'Default',
+        copy: 'Copy', copied: 'Copied', copyFailed: 'Could not copy. Please select the text and copy it manually.',
+        empty: 'No shipping addresses yet. Add one here and every new order will use your default address.',
+        newTitle: 'Add address', editTitle: 'Edit address', makeDefault: 'Use as my default address',
+        deleteTitle: 'Delete address',
+        deleteBody: 'This cannot be undone. Orders you already placed keep the address they were placed with.',
+        deleted: 'Deleted', madeDefault: 'Default address updated',
+        paste: 'Smart paste', pasteHint: 'Paste a whole address here and it will be split into the fields below. Check them before saving.',
+        pasteRun: 'Fill in', pasteDone: 'Filled in below. Please check.', pasteNothing: 'Nothing recognised. Please fill in the fields manually.',
+        pickTitle: 'Choose a shipping address', use: 'Use this address', manage: 'Manage addresses',
+        pickEmpty: 'No shipping addresses yet.',
+        opsButton: 'Addresses', opsTitle: (name) => `Shipping addresses of ${name}`, opsEmpty: 'This user has no shipping addresses',
+    },
     prodDetail: {
         back: '← Dispatch', title: 'Production order', notFound: 'Production order not found',
         dueProblem: 'Enter the supplier due date (e.g. 2026-10-20)', errNoSupplier: 'Select at least one supplier',
@@ -1628,6 +1669,11 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.not_draft': 'The order was already submitted or cancelled',
             'order.ship_to_required': 'Please add a shipping address',
             'order.ship_to_locked': 'The order is ready or cancelled; the shipping address can no longer be changed',
+            'address.not_found': 'This address does not exist or has been deleted',
+            'address.limit_reached': 'You can keep at most 20 shipping addresses',
+            'address.country_invalid': 'Please select a country/region',
+            'address.parse_failed': 'Could not read this address. Please fill in the fields manually.',
+            'common.rate_limited': 'Too many attempts. Please try again later.',
             'order.not_ready': 'The order is not fully completed yet, or it has already shipped',
             'order.not_shipped': 'The order has not shipped yet, or receipt is already confirmed',
             'order.documents_locked': 'Documents can only be added after completion and before the customer confirms receipt',
@@ -1635,7 +1681,6 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.document_not_found': 'File not found',
             'order.document_not_pending': 'This file has already been processed',
             'order.document_object_missing': 'The file did not upload. Please try again.',
-            'order.ship_to_country_invalid': 'Please select a country/region',
             'order.line_not_found': 'Order line not found',
             'order.no_lines': 'The order has no parts yet',
             'order.line_missing_drawing': 'Some parts have no drawing yet. Upload them before submitting',

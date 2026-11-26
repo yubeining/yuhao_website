@@ -8,6 +8,7 @@
  * ★ 偏好（语言/主题）即时生效，不需要保存按钮。
  * ★ 只有昵称/公司/国家可改：邮箱是登录标识，身份由组织类型推出，注册时间不可变。
  * ★ 保存后写回 session，顶栏昵称立刻变，不用重新登录。
+ * ★ 收货地址簿（2026-11-26）：客户端在资料卡下面多一张「收货地址」卡片，下单时从这里选。
  * ★ 改密码（2026-11-23）：弹框里先发邮件验证码，再输码 + 新密码。成功后所有设备（含当前）
  *   都已被后端退出，这里清登录态跳登录页。卡片上不显示密码状态 —— 验证码注册的账号没有密码，
  *   显示 ****** 就是假内容。
@@ -35,6 +36,7 @@ import {
 } from '../services/auth'
 import { getMyOrganization, renameMyOrganization } from '../services/customer/organization'
 import { errorText } from '../i18n/errorText'
+import { AddressBookCard } from './customer/AddressBookCard'
 
 const PARTY_LABEL = (t: Strings) => ({
     CUSTOMER: t.roles.customer,
@@ -256,6 +258,9 @@ export function AccountSettingsPage() {
                     {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
                 </Modal>
             )}
+
+            {/* 收货地址簿（2026-11-26）：只有客户下单要用 */}
+            {isCustomer && <AddressBookCard />}
 
             <Card style={{ maxWidth: 720, marginTop: 18 }}>
                 <CardHead

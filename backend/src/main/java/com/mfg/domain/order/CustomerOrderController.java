@@ -6,7 +6,7 @@ import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Sort;
@@ -55,15 +55,8 @@ class CustomerOrderController {
     }
 
     /** 收货地址。必填：国家（ISO 两位大写）、公司、收货人、电话、地址行 1、城市；其余选填。 */
-    public record ShipToRequest(@NotBlank @Pattern(regexp = "[A-Z]{2}") String country,
-                                @NotBlank @Size(max = 200) String company,
-                                @NotBlank @Size(max = 200) String contact,
-                                @NotBlank @Size(max = 50) String phone,
-                                @NotBlank @Size(max = 200) String line1,
-                                @Size(max = 200) String line2,
-                                @NotBlank @Size(max = 100) String city,
-                                @Size(max = 100) String region,
-                                @Size(max = 20) String postalCode) {
+    /** 从地址簿里选一条（2026-11-26）：只收地址 id，地址内容由服务端按「这条地址是不是你的」取出来复制进订单。 */
+    public record ShipToRequest(@NotNull UUID addressId) {
     }
 
     public record NewRevisionRequest(@Size(max = 50) String customerRev) {
@@ -92,12 +85,11 @@ class CustomerOrderController {
         return service.updateDraft(user.partyId(), orderId, request.title(), request.wantedDate());
     }
 
-    /** ★ 整体替换：没带的选填项会被清空。订单就绪（READY）之前都能改。 */
+    /** 换成地址簿里的另一条（复制进订单，快照）。订单就绪（READY）之前都能换。 */
     @PutMapping("/customer/orders/{orderId}/ship-to")
     OrderView updateShipTo(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
                            @Valid @RequestBody ShipToRequest r) {
-        return service.updateShipTo(user.partyId(), orderId, new ShipTo(r.country(), r.company(), r.contact(),
-                r.phone(), r.line1(), r.line2(), r.city(), r.region(), r.postalCode()));
+        return service.updateShipTo(user.partyId(), user.id(), orderId, r.addressId());
     }
 
     @PostMapping("/customer/orders/{orderId}/submit")
