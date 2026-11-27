@@ -1,6 +1,8 @@
 package com.mfg.domain.order;
 
 import com.mfg.common.security.PartyType;
+import com.mfg.common.security.UserPrincipal;
+import com.mfg.platform.auth.JwtService;
 import com.mfg.platform.auth.ExternalAuthController;
 import com.mfg.platform.identity.dto.RegisterRequest;
 import com.mfg.platform.storage.StorageService;
@@ -29,6 +31,7 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.CyclicBarrier;
@@ -75,6 +78,9 @@ class CustomerOrderFlowIT {
 
     @Autowired
     private StringRedisTemplate redis;
+
+    @Autowired
+    private JwtService jwtService;
 
     /**
      * 每个用例前清测试专用 Redis db（同 {@code AbstractIntegrationTest}）。
@@ -672,6 +678,209 @@ class CustomerOrderFlowIT {
         assertThat(messageOf(wrongMethod)).isEqualTo("common.method_not_allowed");
     }
 
+    // ---------- 整张保存：补测（docs/test-cases/order-whole-page-edit.md 里标 ❌ 的） ----------
+
+    /** #3 #4：新建时行不能带 id、不能带要删的图纸；出错不留下订单。 */
+    @Test
+    void createRejectsLineIdsAndFileRemovalsAndLeavesNoOrder() throws Exception {
+        Customer c = register("createbad");
+        CustomerOrderController.LineRequest withId = new CustomerOrderController.LineRequest(UUID.randomUUID(),
+                uniqueCode(), "A", 1, null, null, null, null);
+        CustomerOrderController.LineRequest withRemoval = new CustomerOrderController.LineRequest(null,
+                uniqueCode(), "A", 1, null, null, null, List.of(UUID.randomUUID()));
+        ResponseEntity<String> a = rawPost("/customer/orders", new CustomerOrderController.SaveOrderRequest(null, null,
+                shipTo("Berlin"), List.of(newLine(uniqueCode(), "ok", 1), withId)), c.token());
+        assertNotFound(a);
+        assertThat(messageOf(a)).isEqualTo("order.line_not_found");
+        ResponseEntity<String> b = rawPost("/customer/orders", new CustomerOrderController.SaveOrderRequest(null, null,
+                shipTo("Berlin"), List.of(withRemoval)), c.token());
+        assertNotFound(b);
+        assertThat(messageOf(b)).isEqualTo("part.file_not_found");
+        assertThat(orderCount(c)).isZero();
+    }
+
+    /** #5 #6：地址不全、名称超长，新建都拒绝，不留订单。 */
+    @Test
+    void createRejectsAnIncompleteAddressOrTooLongTitle() throws Exception {
+        Customer c = register("createval");
+        CustomerOrderController.ShipToFields noCity = new CustomerOrderController.ShipToFields("DE", "Acme", "Bob",
+                "+49 30 1", "Hauptstr. 1", null, "", null, null);
+        assertThat(rawPost("/customer/orders", new CustomerOrderController.SaveOrderRequest(null, null, noCity, null),
+                c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPost("/customer/orders", new CustomerOrderController.SaveOrderRequest("x".repeat(201), null,
+                null, null), c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(orderCount(c)).isZero();
+    }
+
+    /** #7 #8：没登录 401；别的端（供应商 / 运营）的身份进不了客户端的订单接口。 */
+    @Test
+    void orderEndpointsRejectAnonymousAndOtherPortals() {
+        CustomerOrderController.SaveOrderRequest body = new CustomerOrderController.SaveOrderRequest(null, null, null, null);
+        assertThat(rawPost("/customer/orders", body, null).getStatusCode().value()).isEqualTo(401);
+        for (PartyType other : List.of(PartyType.SUPPLIER, PartyType.OPERATOR)) {
+            String token = jwtService.issueAccessToken(new UserPrincipal(UUID.randomUUID(), UUID.randomUUID(), other,
+                    null, "en", Set.of("MEMBER")));
+            assertThat(rawPost("/customer/orders", body, token).getStatusCode().value()).as(other.name()).isEqualTo(403);
+            assertThat(rawPut("/customer/orders/" + UUID.randomUUID(), body, token).getStatusCode().value())
+                    .as(other.name()).isEqualTo(403);
+        }
+    }
+
+    /** #11：整张保存没带地址 = 清空（草稿可以没地址）。 */
+    @Test
+    void savingWithoutAnAddressClearsIt() throws Exception {
+        Customer c = register("clearaddr");
+        String orderId = createOrder(c);
+        JsonNode saved = save(c, orderId, new CustomerOrderController.SaveOrderRequest(null, null, null, List.of()));
+        assertThat(saved.path("order").has("shipTo")).isFalse();
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").has("shipTo")).isFalse();
+    }
+
+    /** #14：客户版本超过 50 个字符拒绝。 */
+    @Test
+    void customerRevLongerThan50IsRejected() throws Exception {
+        Customer c = register("revlen");
+        String orderId = createOrder(c);
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId, saveRequest(c, orderId, List.of(
+                new CustomerOrderController.LineRequest(null, uniqueCode(), "A", 1, null, null, "r".repeat(51), null))),
+                c.token());
+        assertThat(res.getStatusCode().value()).isEqualTo(400);
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
+    }
+
+    /** #16：同一个行 id 在一次保存里出现两次，拒绝。 */
+    @Test
+    void sameLineIdTwiceIsRejected() throws Exception {
+        Customer c = register("dupid");
+        String orderId = createOrder(c);
+        JsonNode line = addLine(c, orderId, uniqueCode(), "Keep", 1);
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId,
+                saveRequest(c, orderId, List.of(keep(line), keep(line))), c.token());
+        assertNotFound(res);
+        assertThat(messageOf(res)).isEqualTo("order.line_not_found");
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).hasSize(1);
+    }
+
+    /**
+     * #24：保存失败时，这次要删的图纸还在 —— 文件状态跟着回滚，存储里的对象也没删（对象是事务提交后才删的）。
+     * 第二份是别的订单的图纸：第一份已经在事务里改成 REMOVED 之后才失败，正好验证回滚。
+     */
+    @Test
+    void aFailedSaveKeepsTheDrawingItWasAskedToRemove() throws Exception {
+        Customer c = register("rollbackfile");
+        String orderA = createOrder(c);
+        JsonNode line = addLine(c, orderA, uniqueCode(), "A", 1);
+        UUID fileId = uploadPdf(c, line);
+        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+        String orderB = createOrder(c);
+        UUID foreign = uploadPdf(c, addLine(c, orderB, uniqueCode(), "B", 1));
+
+        CustomerOrderController.LineRequest both = new CustomerOrderController.LineRequest(
+                UUID.fromString(line.path("id").asText()), line.path("code").asText(), "A", 1, null, null, null,
+                List.of(fileId, foreign));
+        assertNotFound(rawPut("/customer/orders/" + orderA, saveRequest(c, orderA, List.of(both)), c.token()));
+        assertThat(jdbc.queryForObject("select upload_status from part_file where id = ?", String.class, fileId))
+                .isEqualTo("COMPLETED");
+        assertThat(storage.exists(key)).isTrue();
+    }
+
+    /** #26：已经删掉的图纸再删一次，不报错。 */
+    @Test
+    void removingAnAlreadyRemovedFileAgainIsHarmless() throws Exception {
+        Customer c = register("rmtwice");
+        String orderId = createOrder(c);
+        JsonNode line = addLine(c, orderId, uniqueCode(), "A", 1);
+        UUID fileId = uploadPdf(c, line);
+        ok(rawDelete("/customer/files/" + fileId, c.token()));
+        JsonNode saved = save(c, orderId, saveRequest(c, orderId, List.of(new CustomerOrderController.LineRequest(
+                UUID.fromString(line.path("id").asText()), line.path("code").asText(), "A", 1, null, null, null,
+                List.of(fileId)))));
+        assertThat(saved.path("order").path("lines").get(0).path("revision").path("files")).isEmpty();
+    }
+
+    /**
+     * #27：两个人同时保存同一张草稿 —— 后保存的覆盖（2026-11-27 拍板，不做冲突检测）。
+     * 订单行锁让两次保存排队，结果必须是其中一份完整内容，不会两份混在一起。跑 10 轮。
+     */
+    @Test
+    void concurrentSavesLeaveOneCompleteVersion() throws Exception {
+        Customer c = register("racesave");
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        try {
+            for (int round = 0; round < 10; round++) {
+                String orderId = createOrder(c);
+                addLine(c, orderId, uniqueCode(), "start", 1);
+                List<Future<ResponseEntity<String>>> calls = new ArrayList<>();
+                CyclicBarrier go = new CyclicBarrier(2);
+                for (String who : List.of("alice", "bob")) {
+                    CustomerOrderController.SaveOrderRequest body = new CustomerOrderController.SaveOrderRequest(who,
+                            null, shipTo("Berlin"), List.of(newLine(uniqueCode(), who, 1), newLine(uniqueCode(), who, 2)));
+                    calls.add(pool.submit(() -> {
+                        go.await();
+                        return rawPut("/customer/orders/" + orderId, body, c.token());
+                    }));
+                }
+                for (Future<ResponseEntity<String>> f : calls) {
+                    assertThat(f.get().getStatusCode().value()).as("round %d", round).isEqualTo(200);
+                }
+                JsonNode order = get("/customer/orders/" + orderId, c.token()).path("data");
+                String winner = order.path("title").asText();
+                assertThat(order.path("lines")).as("round %d", round).hasSize(2);
+                order.path("lines").forEach(l -> assertThat(l.path("partName").asText()).isEqualTo(winner));
+            }
+        } finally {
+            pool.shutdownNow();
+        }
+    }
+
+    /** #33：改订单上的地址，地址簿里那一条不变（订单存自己的一份，2026-11-27）。 */
+    @Test
+    void changingTheOrderAddressLeavesTheAddressBookAlone() throws Exception {
+        Customer c = register("bookalone");
+        ok(rawPost("/customer/shipping-addresses", Map.of("country", "DE", "company", "Acme Receiving GmbH",
+                "contact", "Bob Weber", "phone", "+49 30 1234567", "line1", "Hauptstr. 1", "city", "Berlin"), c.token()));
+        String orderId = createOrder(c);
+        ok(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Leipzig"), c.token()));
+        save(c, orderId, new CustomerOrderController.SaveOrderRequest(null, null, shipTo("Dresden"), List.of()));
+        JsonNode book = get("/customer/shipping-addresses", c.token()).path("data");
+        assertThat(book).hasSize(1);
+        assertThat(book.get(0).path("city").asText()).isEqualTo("Berlin");
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("shipTo").path("city").asText())
+                .isEqualTo("Dresden");
+    }
+
+    /** #35：零件没填齐和缺图纸同时存在时，先报没填齐。 */
+    @Test
+    void incompleteLinesAreReportedBeforeMissingDrawings() throws Exception {
+        Customer c = register("checkorder");
+        String orderId = createOrder(c);
+        addLine(c, orderId, uniqueCode(), "no drawing", 1);
+        JsonNode saved = save(c, orderId, saveRequest(c, orderId, List.of(
+                keep(get("/customer/orders/" + orderId, c.token()).path("data").path("lines").get(0)),
+                new CustomerOrderController.LineRequest(null, uniqueCode(), null, 1, null, null, null, null))));
+        uploadPdf(c, lineById(saved.path("order"), saved.path("createdLineIds").get(0).asText()));
+
+        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
+        assertThat(messageOf(res)).isEqualTo("order.line_incomplete");
+    }
+
+    /** #36：只缺数量也不能提交。 */
+    @Test
+    void aLineWithoutQuantityBlocksSubmit() throws Exception {
+        Customer c = register("noqty");
+        String orderId = createOrder(c);
+        JsonNode saved = save(c, orderId, saveRequest(c, orderId, List.of(
+                new CustomerOrderController.LineRequest(null, uniqueCode(), "Bracket", null, null, null, null, null))));
+        uploadPdf(c, saved.path("order").path("lines").get(0));
+        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
+        assertThat(messageOf(res)).isEqualTo("order.line_incomplete");
+    }
+
+    private long orderCount(Customer c) {
+        return jdbc.queryForObject("select count(*) from customer_order where customer_org_id = ?", Long.class, c.orgId());
+    }
     /** 数量 1.5 以前会被静默截成 1 —— 数量要拿去算钱和排产，截断比报错危险得多。 */
     @Test
     void fractionalQuantityIsRejectedInsteadOfTruncated() throws Exception {

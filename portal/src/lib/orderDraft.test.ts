@@ -153,3 +153,44 @@ describe('submit problems', () => {
         expect(submitProblems(blankOrder(SHIP_TO), false).noParts).toBe(true)
     })
 })
+
+// ---------- 补测（docs/test-cases/order-whole-page-edit.md 里标 ❌ 的） ----------
+
+describe('orderDraft gaps', () => {
+    it('#41 sees changes to the order name, delivery date and address', () => {
+        const base = fromOrder(ORDER)
+        expect(isDirty(base, { ...clone(base), title: 'Other' })).toBe(true)
+        expect(isDirty(base, { ...clone(base), wantedDate: '2026-12-24' })).toBe(true)
+        expect(isDirty(base, { ...clone(base), shipTo: { ...SHIP_TO, city: 'Bonn' } })).toBe(true)
+        expect(isDirty(base, { ...clone(base), shipTo: null })).toBe(true)
+    })
+
+    it('#45 sends null when the delivery date is empty', () => {
+        const base = fromOrder(ORDER)
+        expect(toSavePlan(base, { ...clone(base), wantedDate: '' }).input.wantedDate).toBeNull()
+    })
+
+    it('#48 one drawing goes onto every list row with its number', () => {
+        const fromList = mergeImport([], [
+            { code: 'LB8.605.63529', name: 'Bracket', qty: '4' },
+            { code: 'LB8.605.63529', name: 'Bracket', qty: '6' },
+        ], [])
+        const rows = mergeImport(fromList, [], [new File(['x'], 'LB8.605.63529_A.pdf')])
+        expect(rows).toHaveLength(2)
+        expect(rows.map((r) => r.files.length)).toEqual([1, 1])
+    })
+
+    it('#49 an invalid quantity counts as incomplete', () => {
+        const e = fromOrder(ORDER)
+        e.rows = [{ ...e.rows[0], qty: '0' }]
+        expect(submitProblems(e, false).incompleteRows).toBe(1)
+    })
+
+    it('#50 a missing company name alone still blocks submit', () => {
+        const e = fromOrder(ORDER)
+        e.rows.pop()
+        const p = submitProblems(e, true)
+        expect(p).toMatchObject({ noParts: false, incompleteRows: 0, rowsWithoutDrawing: 0, wantedDate: false, shipTo: false })
+        expect(hasProblems(p)).toBe(true)
+    })
+})

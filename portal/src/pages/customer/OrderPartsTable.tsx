@@ -49,13 +49,15 @@ function locate(sheets: Sheet[], sheet: number) {
 
 type TextField = 'code' | 'name' | 'customerRev' | 'material' | 'surface' | 'qty'
 
-export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, failedFiles, lines, inProduction, onPreview, busy }: {
+export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, showQtyErrors, failedFiles, lines, inProduction, onPreview, busy }: {
     rows: EditRow[]
     /** 编辑状态 */
     editing: boolean
     onRowsChange: (next: EditRow[]) => void
     /** 提交时点了「去完善」：把缺的格子标红 */
     showMissing: boolean
+    /** 点了保存但有数量不是正整数：只把这些数量格标红（不连带标别的空格子） */
+    showQtyErrors: boolean
     /** 上次保存没传上去的文件（标红） */
     failedFiles: Set<File>
     /** 已保存的行（只读时显示进度用） */
@@ -195,7 +197,7 @@ export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, fail
             </button>
         )
         const cell = (field: TextField, extra = '') => (
-            <input className={`inp${extra}${(missing as string[]).includes(field) || (field === 'qty' && qtyInvalid(r.qty)) ? ' bad' : ''}`}
+            <input className={`inp${extra}${(missing as string[]).includes(field) || (field === 'qty' && showQtyErrors && qtyInvalid(r.qty)) ? ' bad' : ''}`}
                 value={r[field]} disabled={!canEdit} aria-label={label[field]}
                 onChange={(ev) => setField(r.key, field, ev.target.value)} />
         )

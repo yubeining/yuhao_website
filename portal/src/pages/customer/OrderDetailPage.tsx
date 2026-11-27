@@ -384,7 +384,8 @@ export function OrderDetailPage() {
                 rows={view.rows}
                 editing={!!edit}
                 onRowsChange={(rows) => setEdit((cur) => (cur ? { ...cur, rows } : cur))}
-                showMissing={showMissing || showQtyErr}
+                showMissing={showMissing}
+                showQtyErrors={showQtyErr}
                 failedFiles={failedFiles}
                 lines={order?.lines ?? []}
                 inProduction={inProduction}
