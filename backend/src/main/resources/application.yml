@@ -249,8 +249,10 @@ app:
     sync-interval: PT3H          # 之后每隔多久拉一次（同一天重复拉只会跳过）
 
   address:
-    # 智能粘贴拆地址用的模型（Sealos aiproxy 上的模型名）。2026-11-26 需求方定 qwen3.8-max（不考虑费用）。
-    parse-model: ${AI_ADDRESS_PARSE_MODEL:qwen3.8-max}
+    # 智能粘贴拆地址用的模型（Sealos aiproxy 上的模型名）。2026-11-26 需求方定 qwen3.8-flash：
+    # 线上用同一批 6 个国家的示例地址实测，qwen3.8-max 全对但慢（中文一条超过 60 秒），
+    # deepseek-v4.1-flash 最快但中文地址返回空内容，qwen3.8-flash 全对、4~16 秒。
+    parse-model: ${AI_ADDRESS_PARSE_MODEL:qwen3.8-flash}
 
   estimate:
     # AI 成本估算用的看图模型（Sealos aiproxy 上的模型名）。需求方 2026-11-17 指定 qwen3.8-flash。
