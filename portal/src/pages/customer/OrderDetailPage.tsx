@@ -74,6 +74,13 @@ export function OrderDetailPage() {
     const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
+    /**
+     * 公司名（提交检查要用）：草稿一打开就取好，点「提交订单」时不用再等一次网络（2026-11-27 线上走查：
+     * 每次点击现取，慢的时候将近 1 秒没有任何反应）。undefined = 还没取到；null = 取失败（不拦，后端会兜）。
+     */
+    const [orgName, setOrgName] = useState<string | null | undefined>(undefined)
+    /** 保存时出错（数量不合法 / 图纸没传上）：每次 +1，让下面的 effect 把第一个标红的地方滑进视野 */
+    const [badTick, setBadTick] = useState(0)
     /** 已经载入的订单 id：新建保存后跳到 /orders/:id 时不要再载一遍、冲掉没传完的图纸 */
     const loadedId = useRef<string | null>(null)
     /** 自己发起的跳转（保存后、确认放弃后）不要再被「有改动未保存」拦住：拦截函数拿到的还是旧的 dirty */
@@ -121,6 +128,7 @@ export function OrderDetailPage() {
     }, [order?.status, order?.id])
 
     const dirty = !!(edit && base && isDirty(base, edit))
+    const status0 = order?.status
 
     // 编辑中离开：站内跳转弹自己的确认框；关页 / 刷新只能用浏览器自带的提示
     const blocker = useBlocker(({ currentLocation, nextLocation }) =>
@@ -139,6 +147,27 @@ export function OrderDetailPage() {
         first?.scrollIntoView({ block: 'center' })
         first?.focus()
     }, [showMissing, edit === null])
+
+    // 保存时数量不合法：窄屏上标红的数量格常在表格右边屏幕外，把它横向滑进来（竖向只在看不见时才动，顶部提示尽量留在眼前）。
+    // 传失败的文件由表格自己滑过去 —— 它得先把那一行展开
+    useEffect(() => {
+        if (!badTick) return
+        document.querySelector<HTMLElement>('.page .partsTable .inp.bad')?.scrollIntoView({ block: 'nearest', inline: 'center' })
+    }, [badTick])
+
+    // 数量都改对了：标红和「数量要填正整数」的提示一起消失，不用等退出编辑
+    useEffect(() => {
+        if (!showQtyErr || !edit || edit.rows.some((r) => qtyInvalid(r.qty))) return
+        setShowQtyErr(false)
+        setErr((cur) => (cur === e.qtyInvalid ? null : cur))
+    }, [edit, showQtyErr, e.qtyInvalid])
+
+    useEffect(() => {
+        if (status0 !== 'DRAFT' && !isNew) return
+        let alive = true
+        getMyOrganization().then((o) => { if (alive) setOrgName(o.name ?? '') }).catch(() => { if (alive) setOrgName(null) })
+        return () => { alive = false }
+    }, [status0, isNew])
 
     if (missing) {
         return (
@@ -194,6 +223,7 @@ export function OrderDetailPage() {
         if (edit.rows.some((r) => qtyInvalid(r.qty))) {
             setShowQtyErr(true)
             setErr(e.qtyInvalid)
+            setBadTick((n) => n + 1)
             return
         }
         setBusy(true)
@@ -231,6 +261,7 @@ export function OrderDetailPage() {
                 setEdit(next)
                 setFailedFiles(new Set(failed.map((f) => f.file)))
                 setErr(e.uploadFailed(failed.length))
+                setBadTick((n) => n + 1)
             } else {
                 setEdit(null)
                 setShowMissing(false)
@@ -250,9 +281,16 @@ export function OrderDetailPage() {
     }
 
     const startSubmit = async () => {
-        // 公司名是提交订单的前置条件：只有「查到了、确实是空的」才算缺；没查到不拦，真缺的话后端也会拒绝
-        const org = await getMyOrganization().catch(() => null)
-        const p = submitProblems(base, !!org && !org.name?.trim())
+        // 公司名是提交订单的前置条件：只有「查到了、确实是空的」才算缺；没查到不拦，真缺的话后端也会拒绝。
+        // 打开页面时已经取好；还没取回来（刚打开就点）才现取，取的时候按钮转「…」，不让人以为没点上
+        let name = orgName
+        if (name === undefined) {
+            setBusy(true)
+            name = await getMyOrganization().then((o) => o.name ?? '').catch(() => null)
+            setOrgName(name)
+            setBusy(false)
+        }
+        const p = submitProblems(base, name !== null && !name.trim())
         if (hasProblems(p)) setCheck(p)
         else setConfirmSubmit(true)
     }
@@ -325,7 +363,7 @@ export function OrderDetailPage() {
                     {order && draft && !edit && <>
                         <button className="btn" type="button" disabled={busy} onClick={startEdit}>{e.edit}</button>
                         {/* ★ 按钮名固定「提交订单」：缺什么点了再说，不写在按钮旁边（2026-11-27：草稿不提示） */}
-                        <button className="btn pri" type="button" disabled={busy} onClick={() => void startSubmit()}>{d.submit}</button>
+                        <button className="btn pri" type="button" disabled={busy} onClick={() => void startSubmit()}>{busy ? '…' : d.submit}</button>
                     </>}
                 </>}
             />
@@ -474,6 +512,7 @@ export function OrderDetailPage() {
                     title={isNew ? e.discardNewTitle : e.cancelTitle}
                     message={isNew ? e.discardNewBody : e.cancelBody}
                     confirmLabel={isNew ? e.discardNewCta : e.cancelCta}
+                    cancelLabel={e.keepEditing}
                     danger
                     onCancel={() => setConfirmCancel(false)}
                     onConfirm={() => { setConfirmCancel(false); leaveEdit() }}

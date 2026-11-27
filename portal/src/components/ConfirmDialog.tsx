@@ -13,11 +13,13 @@ import { useCallback, useState, type ReactNode } from 'react'
 import { useI18n } from '../i18n/I18nProvider'
 import { useDialog } from './useDialog'
 
-export function ConfirmDialog({ title, message, confirmLabel, busy, danger, onConfirm, onCancel }: {
+export function ConfirmDialog({ title, message, confirmLabel, cancelLabel, busy, danger, onConfirm, onCancel }: {
     /** 不填时只显示 message —— 文案本身已经是问句的场景 */
     title?: string
     message: string
     confirmLabel: string
+    /** 默认「取消」。弹框本身就是从「取消」按钮弹出来的时候要换掉，免得两个「取消」意思相反 */
+    cancelLabel?: string
     busy?: boolean
     /** 停用、撤销、拒接、删除这类动作：确认按钮用警示色 */
     danger?: boolean
@@ -37,7 +39,7 @@ export function ConfirmDialog({ title, message, confirmLabel, busy, danger, onCo
                 <div className="dlg-b" id={titleId} style={title ? undefined : { paddingTop: 18 }}>{message}</div>
                 <div className="dlg-f">
                     <button className="btn" type="button" disabled={busy} onClick={onCancel}>
-                        {t.common.cancel}
+                        {cancelLabel ?? t.common.cancel}
                     </button>
                     <button className={`btn pri${danger ? ' danger' : ''}`} type="button" disabled={busy} onClick={onConfirm}>
                         {busy ? '…' : confirmLabel}

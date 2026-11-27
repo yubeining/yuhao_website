@@ -90,7 +90,7 @@ export interface Strings {
             filesCount: (n: number) => string; addFile: string; removeFile: string; colSurface: string
             qtyInvalid: string
             cancelTitle: string; cancelBody: string; cancelCta: string
-            discardNewTitle: string; discardNewBody: string; discardNewCta: string
+            discardNewTitle: string; discardNewBody: string; discardNewCta: string; keepEditing: string
             leaveTitle: string; leaveBody: string; leaveCta: string
             tooLarge: (names: string[]) => string; unreadable: (names: string[]) => string
             listTitle: (name: string) => string; listSheet: string; listHeaderRow: string; listNotFound: string
@@ -556,7 +556,7 @@ export const STRINGS: Record<Lang, Strings> = {
             filesCount: (n) => `${n} 个文件`, addFile: '加文件', removeFile: '删除', colSurface: '表面处理',
             qtyInvalid: '数量要填正整数，标红的格子改好再保存',
             cancelTitle: '取消这次编辑？', cancelBody: '这次的改动会全部撤销，订单回到编辑前的样子。', cancelCta: '撤销改动',
-            discardNewTitle: '不建这个订单了？', discardNewBody: '填的内容不会保存，也不会留下空订单。', discardNewCta: '不建了',
+            discardNewTitle: '不建这个订单了？', discardNewBody: '填的内容不会保存，也不会留下空订单。', discardNewCta: '不建了', keepEditing: '继续编辑',
             leaveTitle: '离开这个页面？', leaveBody: '还有改动没保存，离开后会丢掉。', leaveCta: '离开',
             tooLarge: (names) => `超过 20MB，没有加入：${names.join('、')}`, unreadable: (names) => `读不出来，已跳过：${names.join('、')}`,
             listTitle: (name) => `清单「${name}」`, listSheet: '工作表', listHeaderRow: '表头在第几行',
@@ -1186,7 +1186,7 @@ export const STRINGS: Record<Lang, Strings> = {
             qtyInvalid: 'Quantity must be a whole number above 0. Fix the cells in red, then save.',
             cancelTitle: 'Discard this edit?', cancelBody: 'All changes from this edit will be undone.', cancelCta: 'Discard changes',
             discardNewTitle: 'Discard this new order?', discardNewBody: 'Nothing you entered will be saved, and no empty order is left behind.',
-            discardNewCta: 'Discard',
+            discardNewCta: 'Discard', keepEditing: 'Keep editing',
             leaveTitle: 'Leave this page?', leaveBody: 'Your changes have not been saved and will be lost.', leaveCta: 'Leave',
             tooLarge: (names) => `Over 20 MB, not added: ${names.join(', ')}`, unreadable: (names) => `Could not read, skipped: ${names.join(', ')}`,
             listTitle: (name) => `Parts list "${name}"`, listSheet: 'Sheet', listHeaderRow: 'Header row',

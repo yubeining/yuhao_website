@@ -795,6 +795,7 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .partsTable .fchip .x{border:0;background:none;color:var(--faint);cursor:pointer;font-size:14px;line-height:1;padding:0;}
 .partsTable .fchip .x:hover{color:var(--bad);}
 .partsTable .fchip.bad{border-color:var(--bad);color:var(--bad);}
+.partsTable .linkbtn.bad{color:var(--bad);}
 .btn.bad{border-color:var(--bad);color:var(--bad);}
 .cardbad .card{border-color:var(--bad);}
 .bad > .dp .inp{border-color:var(--bad);}

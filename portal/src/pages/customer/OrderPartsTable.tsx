@@ -83,6 +83,25 @@ export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, show
     useEffect(() => { folderPicker.current?.setAttribute('webkitdirectory', '') }, [editing])
     // 退出编辑时收起提示
     useEffect(() => { if (!editing) { setNotes([]); setList(null) } }, [editing])
+    // 有图纸没传上：把那几行的文件展开，标红的文件不能藏在收起的列表里；展开后把第一个滑进视野
+    // （窄屏上文件那一行从表格左边开始，往往在屏幕外）。2026-11-27 线上走查
+    const tableRef = useRef<HTMLDivElement>(null)
+    const scrollToFailed = useRef(false)
+    useEffect(() => {
+        if (!failedFiles.size) return
+        const keys = rows.filter((r) => hasFailed(r)).map((r) => r.key)
+        if (!keys.length) return
+        scrollToFailed.current = true
+        setOpen((prev) => new Set([...prev, ...keys]))
+        // 只在这次保存的失败清单变化时展开一次，之后用户可以自己收起，所以不依赖 rows
+    }, [failedFiles])
+    useEffect(() => {
+        if (!scrollToFailed.current) return
+        scrollToFailed.current = false
+        tableRef.current?.querySelector<HTMLElement>('.fchip.bad')?.scrollIntoView({ block: 'nearest', inline: 'center' })
+    }, [open])
+
+    const hasFailed = (r: EditRow) => r.files.some((f) => !f.saved && failedFiles.has(f.file))
 
     const canEdit = editing && !busy && !reading
 
@@ -192,7 +211,7 @@ export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, show
         const fl = r.files.length
         const expanded = open.has(r.key) && fl > 0
         const toggleBtn = (
-            <button className={`linkbtn${editing ? '' : ' dstat ok'}`} type="button" onClick={() => toggle(r.key)}>
+            <button className={`linkbtn${editing ? '' : ' dstat ok'}${hasFailed(r) ? ' bad' : ''}`} type="button" onClick={() => toggle(r.key)}>
                 {!editing && <i />}{e.filesCount(fl)} {expanded ? '▴' : '▾'}
             </button>
         )
@@ -246,7 +265,7 @@ export function OrderPartsTable({ rows, editing, onRowsChange, showMissing, show
     })
 
     return (
-        <div onDragOver={(ev) => { if (!editing) return; ev.preventDefault(); if (canEdit) setDragOver(true) }}
+        <div ref={tableRef} onDragOver={(ev) => { if (!editing) return; ev.preventDefault(); if (canEdit) setDragOver(true) }}
             onDragLeave={() => setDragOver(false)} onDrop={(ev) => void onDrop(ev)}>
             <input ref={filePicker} type="file" multiple hidden
                 onChange={(ev) => { const f = Array.from(ev.target.files ?? []); ev.target.value = ''; void importFiles(f) }} />
