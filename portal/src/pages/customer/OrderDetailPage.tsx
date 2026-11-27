@@ -442,7 +442,6 @@ export function OrderDetailPage() {
 
             {edit && (
                 <div className="savebar">
-                    <span className="msg">{dirty ? e.unsaved : ''}</span>
                     <button className="btn" type="button" disabled={busy} onClick={cancel}>{e.cancel}</button>
                     <button className="btn pri" type="button" disabled={busy || (!dirty && failedFiles.size === 0)}
                         onClick={() => void save()}>{busy ? '…' : e.save}</button>

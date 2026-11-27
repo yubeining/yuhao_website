@@ -85,7 +85,7 @@ export interface Strings {
         }
         /** 订单页整页编辑（2026-11-27）：零件、订单信息、收货地址一起编辑一起保存 */
         orderEdit: {
-            edit: string; save: string; cancel: string; unsaved: string; newTitle: string
+            edit: string; save: string; cancel: string; newTitle: string
             importFiles: string; importFolder: string; dropHint: string; emptyParts: string; emptyPartsSub: string
             filesCount: (n: number) => string; addFile: string; removeFile: string; colSurface: string
             qtyInvalid: string
@@ -549,7 +549,7 @@ export const STRINGS: Record<Lang, Strings> = {
             discardConfirm: '放弃未保存的修改？',
         },
         orderEdit: {
-            edit: '编辑', save: '保存', cancel: '取消', unsaved: '有改动未保存', newTitle: '新建订单',
+            edit: '编辑', save: '保存', cancel: '取消', newTitle: '新建订单',
             importFiles: '导入文件', importFolder: '导入文件夹',
             dropHint: '也可以把文件、文件夹、压缩包或 Excel / CSV 清单拖到这里',
             emptyParts: '还没有零件', emptyPartsSub: '导入文件，或者手动添加一行',
@@ -1177,7 +1177,7 @@ export const STRINGS: Record<Lang, Strings> = {
             discardConfirm: 'Discard unsaved changes?',
         },
         orderEdit: {
-            edit: 'Edit', save: 'Save', cancel: 'Cancel', unsaved: 'Unsaved changes', newTitle: 'New order',
+            edit: 'Edit', save: 'Save', cancel: 'Cancel', newTitle: 'New order',
             importFiles: 'Import files', importFolder: 'Import folder',
             dropHint: 'You can also drop files, folders, zip archives or an Excel / CSV parts list here',
             emptyParts: 'No parts yet', emptyPartsSub: 'Import files or add a row by hand',

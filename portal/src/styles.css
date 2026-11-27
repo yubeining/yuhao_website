@@ -799,9 +799,8 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .cardbad .card{border-color:var(--bad);}
 .bad > .dp .inp{border-color:var(--bad);}
 .updrop.over{border-color:var(--acc-line);color:var(--acc-ink);}
-.savebar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;justify-content:flex-end;
-  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:10px 16px;margin-top:4px;}
-.savebar .msg{font-size:12.5px;color:var(--muted);margin-right:auto;}
+/* 编辑状态的「取消 / 保存」：跟着页面走，放在最底部靠右，不固定、不加底框（2026-11-27 需求方拍板） */
+.savebar{display:flex;gap:8px;justify-content:flex-end;margin-top:4px;}
 .checkrow{display:flex;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:13px;}
 .checkrow .sp{flex:1;}
 .checkrow .bad-t{color:var(--bad);}
