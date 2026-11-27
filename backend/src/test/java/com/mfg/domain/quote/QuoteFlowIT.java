@@ -523,8 +523,9 @@ class QuoteFlowIT {
         Customer c = register("draft");
         String ops = opsToken();
         setMarkup(ops, c.orgId(), "1.2");
-        String draftId = createOrder(c);
-        JsonNode line = addLine(c, draftId, uniqueCode(), 1);
+        JsonNode draft = draftWithLines(c, 1).path("order");
+        String draftId = draft.path("id").asText();
+        JsonNode line = draft.path("lines").get(0);
 
         assertThat(rawGet("/ops/customer-orders/" + draftId, ops).getStatusCode().value()).isEqualTo(404);
         ResponseEntity<String> res = rawPost("/ops/customer-orders/" + draftId + "/quotes",
@@ -802,14 +803,11 @@ class QuoteFlowIT {
     }
 
     /** 请求体用 record 构造、走项目 ObjectMapper 序列化（CLAUDE.md §9）。字段名对齐接口。 */
-    private record ShipToBody(UUID addressId) {
-    }
-
     private record AddressBody(String country, String company, String contact, String phone, String line1,
                                String line2, String city, String region, String postalCode) {
     }
 
-    private record OrderDraftBody(String title, LocalDate wantedDate) {
+    private record OrderDraftBody(String title, LocalDate wantedDate, AddressBody shipTo, List<AddLineBody> lines) {
     }
 
     private record AddLineBody(String code, String name, int quantity) {
@@ -862,38 +860,36 @@ class QuoteFlowIT {
 
     /** 建草稿并填好收货地址（提交前必填，2026-11-23）。 */
     private String createOrder(Customer c) throws Exception {
-        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("data").path("id").asText();
-        put("/customer/orders/" + orderId + "/ship-to", new ShipToBody(addressOf(c)), c.token());
-        return orderId;
+        return draftWithLines(c).path("order").path("id").asText();
     }
 
-    /** 收货地址从地址簿选（2026-11-26）：这个客户还没有地址就先加一条。 */
-    private UUID addressOf(Customer c) throws Exception {
-        JsonNode list = json.readTree(rawGet("/customer/shipping-addresses", c.token()).getBody()).path("data");
-        if (!list.isEmpty()) {
-            return UUID.fromString(list.get(0).path("id").asText());
+    /** 整张建单（2026-11-27）：收货地址和零件一次带上，每个数量一行。返回 {order, createdLineIds}。 */
+    private JsonNode draftWithLines(Customer c, int... quantities) throws Exception {
+        List<AddLineBody> lines = new ArrayList<>();
+        for (int q : quantities) {
+            String code = uniqueCode();
+            lines.add(new AddLineBody(code, "Part " + code, q));
         }
-        return UUID.fromString(post("/customer/shipping-addresses", new AddressBody("DE", "Acme Receiving GmbH",
-                "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token())
-                .path("data").path("id").asText());
-    }
-
-    private JsonNode addLine(Customer c, String orderId, String code, int quantity) throws Exception {
-        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines",
-                new AddLineBody(code, "Part " + code, quantity), c.token());
+        ResponseEntity<String> res = rawPost("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30),
+                new AddressBody("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null,
+                        "Berlin", null, "10115"), lines), c.token());
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
         return json.readTree(res.getBody()).path("data");
     }
 
     /** 建一张已提交的订单，每个数量一行，每行一份真 PDF。 */
     private Order submittedOrder(Customer c, int... quantities) throws Exception {
-        String orderId = createOrder(c);
+        JsonNode saved = draftWithLines(c, quantities);
+        String orderId = saved.path("order").path("id").asText();
         List<UUID> lineIds = new ArrayList<>();
         List<UUID> fileIds = new ArrayList<>();
-        for (int q : quantities) {
-            JsonNode line = addLine(c, orderId, uniqueCode(), q);
-            lineIds.add(UUID.fromString(line.path("id").asText()));
-            fileIds.add(uploadPdf(c, line));
+        for (JsonNode id : saved.path("createdLineIds")) {
+            for (JsonNode line : saved.path("order").path("lines")) {
+                if (line.path("id").asText().equals(id.asText())) {
+                    lineIds.add(UUID.fromString(id.asText()));
+                    fileIds.add(uploadPdf(c, line));
+                }
+            }
         }
         ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);

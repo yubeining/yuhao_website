@@ -577,8 +577,12 @@ class DispatchFlowIT {
     private record Supplier(String token, String orgId) {
     }
 
-    private record OrderDraftBody(String title, LocalDate wantedDate) {
+    /** 整张建单（2026-11-27）：名称、交期、收货地址、零件一次带上。 */
+    private record OrderDraftBody(String title, LocalDate wantedDate, AddressBody shipTo, List<AddLineBody> lines) {
     }
+
+    private static final AddressBody SHIP_TO = new AddressBody("DE", "Acme Receiving GmbH", "Bob Weber",
+            "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115");
 
     private record AddLineBody(String code, String name, int quantity, String material, String surfaceTreatment) {
     }
@@ -710,18 +714,24 @@ class DispatchFlowIT {
     }
 
     private SubmittedOrder submittedOrder(Customer c, int... quantities) throws Exception {
-        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("id").asText();
-        List<UUID> lineIds = new ArrayList<>();
-        List<UUID> fileIds = new ArrayList<>();
+        List<AddLineBody> bodies = new ArrayList<>();
         for (int q : quantities) {
             String code = "DP-" + UUID.randomUUID().toString().substring(0, 8);
-            JsonNode line = post("/customer/orders/" + orderId + "/lines",
-                    new AddLineBody(code, "Part " + code, q, "AL6061", "Anodized"), c.token());
-            lineIds.add(UUID.fromString(line.path("id").asText()));
-            fileIds.add(uploadPdf(c, line));
+            bodies.add(new AddLineBody(code, "Part " + code, q, "AL6061", "Anodized"));
         }
-        ok(exchange("/customer/orders/" + orderId + "/ship-to", HttpMethod.PUT,
-                new CustomerOrderController.ShipToRequest(addressOf(c)), c.token()));
+        JsonNode saved = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30), SHIP_TO, bodies),
+                c.token());
+        String orderId = saved.path("order").path("id").asText();
+        List<UUID> lineIds = new ArrayList<>();
+        List<UUID> fileIds = new ArrayList<>();
+        for (JsonNode id : saved.path("createdLineIds")) {
+            for (JsonNode line : saved.path("order").path("lines")) {
+                if (line.path("id").asText().equals(id.asText())) {
+                    lineIds.add(UUID.fromString(id.asText()));
+                    fileIds.add(uploadPdf(c, line));
+                }
+            }
+        }
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         return new SubmittedOrder(orderId, lineIds, fileIds);
     }
@@ -746,18 +756,6 @@ class DispatchFlowIT {
             }
         }
         return null;
-    }
-
-    /** 收货地址从地址簿选（2026-11-26）：这个客户还没有地址就先加一条。 */
-    private UUID addressOf(Customer c) throws Exception {
-        JsonNode list = json.readTree(exchange("/customer/shipping-addresses", HttpMethod.GET, null, c.token())
-                .getBody()).path("data");
-        if (!list.isEmpty()) {
-            return UUID.fromString(list.get(0).path("id").asText());
-        }
-        return UUID.fromString(post("/customer/shipping-addresses", new AddressBody("DE", "Acme Receiving GmbH",
-                "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token())
-                .path("id").asText());
     }
 
     private record AddressBody(String country, String company, String contact, String phone, String line1,

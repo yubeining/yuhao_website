@@ -21,11 +21,11 @@ class PartDesign extends BaseEntity {
     @Column(name = "customer_org_id", columnDefinition = "uuid", nullable = false)
     private UUID customerOrgId;
 
-    /** 该客户内唯一的设计编码。 */
-    @Column(name = "code", nullable = false)
+    /** 客户写的图号，不唯一（2026-11-26）。草稿里可以空着（2026-11-27），提交时检查。 */
+    @Column(name = "code")
     private String code;
 
-    @Column(name = "name", nullable = false)
+    @Column(name = "name")
     private String name;
 
     protected PartDesign() {
@@ -50,6 +50,12 @@ class PartDesign extends BaseEntity {
     }
 
     public void setName(String name) {
+        this.name = name;
+    }
+
+    /** 草稿里改图号 / 名称（订单页整页编辑，2026-11-27）。每行一个零件，改它不影响别的订单。 */
+    void rename(String code, String name) {
+        this.code = code;
         this.name = name;
     }
 }

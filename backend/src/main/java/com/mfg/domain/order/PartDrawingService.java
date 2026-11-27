@@ -11,6 +11,8 @@ import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.transaction.support.TransactionTemplate;
 
 import java.io.IOException;
@@ -310,6 +312,32 @@ class PartDrawingService {
             // 两个请求同时算出同一个 next —— (part_design_id, rev_no) 唯一索引拦住了后到的那个
             throw BusinessException.conflict("part.revision_conflict");
         }
+    }
+
+    /**
+     * 整张保存订单时删一份图纸（2026-11-27）：在调用方的事务里把文件改成 REMOVED，对象等事务提交后再删 ——
+     * 保存失败回滚时文件还在。文件必须属于这个版本，否则和不存在一样 404；版本已锁定时拒绝（同 {@link #removeFile}）。
+     */
+    void removeFileOnCommit(UUID customerOrgId, UUID revisionId, UUID fileId) {
+        PartFile file = files.findByIdAndCustomerOrgId(fileId, customerOrgId)
+                .filter(f -> f.getPartRevisionId().equals(revisionId))
+                .orElseThrow(() -> BusinessException.notFound("part.file_not_found"));
+        if (file.getUploadStatus() == PartFile.UploadStatus.REMOVED) {
+            return;
+        }
+        int changed = transitionLockingRevision(customerOrgId, revisionId, fileId,
+                List.of(PartFile.UploadStatus.PENDING, PartFile.UploadStatus.COMPLETED, PartFile.UploadStatus.REJECTED),
+                PartFile.UploadStatus.REMOVED, file.getDetectedType(), file.getSizeBytes(), file.getCompletedAt());
+        if (changed != 1) {
+            throw BusinessException.conflict("part.file_not_pending");
+        }
+        String key = file.getStorageKey();
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                deleteQuietly(key);
+            }
+        });
     }
 
     /** 各版本下传完的文件，按版本分组。 */

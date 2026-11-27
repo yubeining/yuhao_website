@@ -75,6 +75,11 @@ class PartRevision extends BaseEntity {
         return customerRev;
     }
 
+    /** 只有没锁定的版本能改（调用方先查 {@link #isLocked}）。 */
+    void changeCustomerRev(String customerRev) {
+        this.customerRev = customerRev;
+    }
+
     /** 幂等:已经锁过的版本保持最早那次的锁定时间。 */
     void lock(Instant at) {
         if (lockedAt == null) {

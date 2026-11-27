@@ -287,8 +287,12 @@ class ContractFlowIT {
     private record Accepted(Supplier supplier, String opsOrderId, String supplierOrderId) {
     }
 
-    private record OrderDraftBody(String title, LocalDate wantedDate) {
+    /** 整张建单（2026-11-27）：名称、交期、收货地址、零件一次带上。 */
+    private record OrderDraftBody(String title, LocalDate wantedDate, AddressBody shipTo, List<AddLineBody> lines) {
     }
+
+    private static final AddressBody SHIP_TO = new AddressBody("DE", "Acme Receiving GmbH", "Bob Weber",
+            "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115");
 
     private record AddLineBody(String code, String name, int quantity, String material, String surfaceTreatment) {
     }
@@ -323,13 +327,12 @@ class ContractFlowIT {
     /** 客户下单 → 报价 → 确认 → 运营组单挂市场 → 供应商接单。 */
     private Accepted accepted(String tag) throws Exception {
         Customer c = register(tag);
-        String orderId = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30)), c.token()).path("id").asText();
         String code = "CT-" + UUID.randomUUID().toString().substring(0, 8);
-        JsonNode line = post("/customer/orders/" + orderId + "/lines",
-                new AddLineBody(code, "Part " + code, 2, "AL6061", null), c.token());
+        JsonNode order = post("/customer/orders", new OrderDraftBody(null, LocalDate.now().plusDays(30), SHIP_TO,
+                List.of(new AddLineBody(code, "Part " + code, 2, "AL6061", null))), c.token()).path("order");
+        String orderId = order.path("id").asText();
+        JsonNode line = order.path("lines").get(0);
         uploadPdf(c, line);
-        ok(exchange("/customer/orders/" + orderId + "/ship-to", HttpMethod.PUT,
-                new CustomerOrderController.ShipToRequest(addressOf(c)), c.token()));
         ok(rawPost("/customer/orders/" + orderId + "/submit", null, c.token()));
         ok(exchange("/ops/customers/" + c.orgId() + "/markup", HttpMethod.PUT, new MarkupBody(BigDecimal.ONE), ops));
         ok(rawPost("/ops/customer-orders/" + orderId + "/quotes", new SendQuoteBody("EUR", LocalDate.now().plusDays(20).toString(),
@@ -388,18 +391,6 @@ class ContractFlowIT {
     }
 
     // ---------- HTTP helpers（返回 data 节点） ----------
-
-    /** 收货地址从地址簿选（2026-11-26）：这个客户还没有地址就先加一条。 */
-    private UUID addressOf(Customer c) throws Exception {
-        JsonNode list = json.readTree(exchange("/customer/shipping-addresses", HttpMethod.GET, null, c.token())
-                .getBody()).path("data");
-        if (!list.isEmpty()) {
-            return UUID.fromString(list.get(0).path("id").asText());
-        }
-        return UUID.fromString(post("/customer/shipping-addresses", new AddressBody("DE", "Acme Receiving GmbH",
-                "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, "Berlin", null, "10115"), c.token())
-                .path("id").asText());
-    }
 
     private record AddressBody(String country, String company, String contact, String phone, String line1,
                                String line2, String city, String region, String postalCode) {

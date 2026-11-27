@@ -57,3 +57,54 @@
 - 本地测试容器里建了临时库 `mfg_batch_dev`，没删。
 - 全站弹框在手机上偏右：`.modal-mask` 有 20px 内边距，`.modal` 又是 `max-width:94vw`，宽于约 335px 的弹框右边只剩几像素（本页 480 宽的编辑框、账号设置 400 宽的弹框都这样）。改要动全站样式，没动。
 - 先导图纸、后导清单时，清单行不会去认领之前按图纸开的行（会出现同图号的两行，要客户自己删一行）。只做了反方向（先清单后图纸）。
+
+---
+
+# 第二轮（2026-11-27）：订单详情页整页编辑
+
+## 实际改动
+- 迁移 `2026-11-27_01_draft-part-fields-nullable.sql`：零件明细的 `part_no / part_name / quantity`、零件主表的 `code / name` 放开非空；`schema.sql` 同步。
+- 后端（`domain/order`）：
+  - `POST /customer/orders` 收整张订单一次建好；新增 `PUT /customer/orders/{id}` 草稿整张替换（`SaveOrderRequest` / `LineRequest` / `ShipToFields`），
+    返回 `SavedOrderView {order, createdLineIds}`。行 id、文件 id 不属于这张订单一律 404。
+  - 删图纸在保存事务里改状态、事务提交后删对象（`PartDrawingService.removeFileOnCommit`）。
+    ★ 改文件状态的 SQL 会清空持久化上下文，所以放在行 / 零件改动 flush 之后再做 —— 第一版放在前面，行和零件的改动被静默丢掉，集成测试抓到的。
+  - 挂着已锁定版本的草稿行（11-26 之前 D16 沿用的）：改客户版本、删文件 409 `part.revision_locked`，改行上字段照常。
+  - `PUT /ship-to` 改收地址内容；提交检查加 400 `order.line_incomplete`。
+  - 删旧接口：改订单名称交期、逐行加 / 批量加 / 改行 / 删行、开新版本；订单服务不再依赖 `AddressBook`。
+  - 数量改 `Integer`，图号 / 名称可空；`PartDesign.rename`、`PartRevision.changeCustomerRev`、`CustomerOrder.clearShipTo`。
+- 前端：
+  - `lib/orderDraft.ts` + 测试 11 个；`OrderDetailPage` 重写；新 `OrderPartsTable`（导入逻辑和清单列确认弹框从批量页搬过来）；
+    `ShipToEditor` 改受控；`AddressFormModal` 加订单地址模式；路由 `orders/new`；删 `PartFormPage`、`BatchPartsPage`。
+  - 订单列表「新建订单」只跳页不建单；删副标题。
+  - 运营报价页 / 估价卡：行类型的图号、名称、数量变成可空，加了兜底（运营只看得到已提交的单，这几项提交时已检查）。
+  - 文案：`batchParts` 换成 `orderEdit`；删本次变成没人用的文案（零件页、旧订单页提示、地址卡「填写 / 编辑」等）；加 `order.line_incomplete`。
+  - 样式：编辑表格、新行底色、行下文件、底部保存栏、标红，全部走 CSS 变量。
+  - 删前端 `findPartByCode`（调的接口在本分支第一轮已删）。
+- 文档：`CLAUDE.md` C7 加例外；设计文档 12 记录本轮拍板。
+
+## 测试
+- `cd backend && mvn verify`：单元 140 个、集成 210 个（跳过 5 个，原本就跳过），0 失败，BUILD SUCCESS。
+  第一轮遗留的 `malformedRequestsAreClientErrorsNotServerErrors` 这次也通过了。
+- 迁移从零建库：建空库 `mfg_mig_check`，用新代码启动一次，32 个迁移全部应用、应用正常启动（Hibernate 按迁移建出来的表校验通过）。
+  本地开发库 `mfg_batch_dev` 启动时也应用了新迁移，五列都变成可空。
+- 前端：`npm run type-check` 通过；`npm test` 42 个通过；`npm run build` 通过。
+- 提交闸门 8 个检查器对暂存区逐个跑，全部通过。
+- 浏览器实测（中文界面，本地后端）：只读零件表、展开文件；编辑 → 改数量 → 取消（确认框，撤销后恢复）；
+  编辑 → 改数量、删一行、加一行 → 保存 → 刷新后仍在；提交检查弹框（缺图纸 / 交期 / 地址）→ 去完善标红；
+  地址簿为空时「选择地址」直接新增 → 存进地址簿且为默认、同时用在订单；「修改」只改订单地址，地址簿里那条没变；
+  新建订单：默认地址带上、无「有改动未保存」；导入两份 PDF → 保存 → 建单、图纸传上、地址跳到新订单；
+  新建后不改就取消 → 不留订单；新建后加行再离开 → 拦截提示；深色主题；375 宽手机（整页不横向溢出，表格在卡片里横向滑动）。
+- 没测到：上传失败后的重试（本地存储不会失败，只有代码路径）；DatePicker 选日期（只看了标红）；真实的系统文件选择框和拖文件夹。
+- ★ 没按 TDD 顺序：`orderDraft.ts` 是先写实现再补测试；后端是先改集成测试再改实现，但没有先单独跑一次看到红。
+
+## 部署
+- 一次发布（已确认接受回滚风险）：回滚到旧 jar 后，旧代码把数量映射成 `int`，读到数量为空的草稿会报错打不开。
+- 接口有删有改，前端和后端必须同一个包一起发（本来就是一个 jar）。
+
+## 遗留
+- `domain/address/AddressBook` 接口现在没有调用方了（订单服务不再用它），实现类和 `ShippingAddressFlowIT` 还在。没删，等你决定。
+- 前端 `services/customer/parts.ts` 的 `getPart`、订单详情文案里 `needDrawings / missingDrawingPill / customerRev / submittedBanner` 在本分支之前就没人用，没删。
+- 先导图纸、后导清单仍会出现同图号两行（第一轮遗留，没改）。
+- 保存时新文件是按顺序一个个传的，文件多时慢；失败的文件留在编辑状态等重试。
+- 本地测试容器里多了一个空的检查库 `mfg_mig_check`（加上第一轮的 `mfg_batch_dev`），没删 —— 删库要你确认。

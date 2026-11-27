@@ -6,8 +6,8 @@ import com.mfg.common.security.CurrentUser;
 import com.mfg.common.security.UserPrincipal;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotEmpty;
 import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Positive;
 import jakarta.validation.constraints.Size;
 import org.springframework.data.domain.Sort;
@@ -15,7 +15,6 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -39,40 +38,62 @@ class CustomerOrderController {
         this.service = service;
     }
 
-    public record OrderDraftRequest(@Size(max = 200) String title, LocalDate wantedDate) {
-    }
-
-    public record AddLineRequest(@NotBlank @Size(max = 200) String code,
-                                 @NotBlank @Size(max = 200) String name,
-                                 @Positive int quantity,
-                                 @Size(max = 200) String material,
-                                 @Size(max = 200) String surfaceTreatment,
-                                 @Size(max = 50) String customerRev) {
-        CustomerOrderService.NewLine toNewLine() {
-            return new CustomerOrderService.NewLine(code, name, quantity, material, surfaceTreatment, customerRev);
+    /**
+     * 订单上的收货地址（订单自己的一份，2026-11-27：可以直接改，不连地址簿）。
+     * 必填项和地址簿一样：国家（ISO 两位大写）、公司、收货人、电话、地址行 1、城市。
+     */
+    public record ShipToFields(@NotBlank @Pattern(regexp = "[A-Z]{2}") String country,
+                               @NotBlank @Size(max = 200) String company,
+                               @NotBlank @Size(max = 200) String contact,
+                               @NotBlank @Size(max = 50) String phone,
+                               @NotBlank @Size(max = 200) String line1,
+                               @Size(max = 200) String line2,
+                               @NotBlank @Size(max = 100) String city,
+                               @Size(max = 100) String region,
+                               @Size(max = 20) String postalCode) {
+        ShipTo toShipTo() {
+            return new ShipTo(country, company.trim(), contact.trim(), phone.trim(), line1.trim(), blankToNull(line2),
+                    city.trim(), blankToNull(region), blankToNull(postalCode));
         }
     }
 
-    public record AddLinesRequest(@NotEmpty List<@NotNull @Valid AddLineRequest> lines) {
+    /**
+     * 整张保存里的一行。{@code id} 为空 = 新加的行；带 id = 已有的行，按这次的内容整体替换。
+     * 草稿里图号 / 名称 / 数量都可以空着（2026-11-27），提交时才检查；填了的数量必须是正整数。
+     * {@code removeFileIds}：这一行要删的图纸，随这次保存一起删。
+     */
+    public record LineRequest(UUID id,
+                              @Size(max = 200) String code,
+                              @Size(max = 200) String name,
+                              @Positive Integer quantity,
+                              @Size(max = 200) String material,
+                              @Size(max = 200) String surfaceTreatment,
+                              @Size(max = 50) String customerRev,
+                              List<@NotNull UUID> removeFileIds) {
+        CustomerOrderService.DraftLine toDraftLine() {
+            return new CustomerOrderService.DraftLine(id, code, name, quantity, material, surfaceTreatment, customerRev,
+                    removeFileIds == null ? List.of() : removeFileIds);
+        }
     }
 
-    public record UpdateLineRequest(@NotBlank @Size(max = 200) String name,
-                                    @Positive int quantity,
-                                    @Size(max = 200) String material,
-                                    @Size(max = 200) String surfaceTreatment) {
+    /**
+     * 整张订单（2026-11-27：订单页整页编辑，一次保存）。★ 整体替换：没带的字段清空，没带的已有行删掉。
+     * {@code lines} 不传等于空列表。
+     */
+    public record SaveOrderRequest(@Size(max = 200) String title,
+                                   LocalDate wantedDate,
+                                   @Valid ShipToFields shipTo,
+                                   List<@NotNull @Valid LineRequest> lines) {
+        CustomerOrderService.Draft toDraft() {
+            return new CustomerOrderService.Draft(title, wantedDate, shipTo == null ? null : shipTo.toShipTo(),
+                    lines == null ? List.of() : lines.stream().map(LineRequest::toDraftLine).toList());
+        }
     }
 
-    /** 收货地址。必填：国家（ISO 两位大写）、公司、收货人、电话、地址行 1、城市；其余选填。 */
-    /** 从地址簿里选一条（2026-11-26）：只收地址 id，地址内容由服务端按「这条地址是不是你的」取出来复制进订单。 */
-    public record ShipToRequest(@NotNull UUID addressId) {
-    }
-
-    public record NewRevisionRequest(@Size(max = 50) String customerRev) {
-    }
-
+    /** 新建：第一次保存才建单（2026-11-27），名称、交期、地址、零件一起进一个事务。 */
     @PostMapping("/customer/orders")
-    OrderView create(@CurrentUser UserPrincipal user, @Valid @RequestBody OrderDraftRequest request) {
-        return service.create(user.partyId(), user.id(), request.title(), request.wantedDate());
+    SavedOrderView create(@CurrentUser UserPrincipal user, @Valid @RequestBody SaveOrderRequest request) {
+        return service.create(user.partyId(), user.id(), request.toDraft());
     }
 
     /** 新建的排在前面。排序由后端定，不从请求收。 */
@@ -86,18 +107,18 @@ class CustomerOrderController {
         return service.get(user.partyId(), orderId);
     }
 
-    /** ★ 整体替换，不是局部更新：请求里没带的字段（名称 / 期望交期）会被清空。前端每次都两个一起传。 */
-    @PatchMapping("/customer/orders/{orderId}")
-    OrderView update(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
-                     @Valid @RequestBody OrderDraftRequest request) {
-        return service.updateDraft(user.partyId(), orderId, request.title(), request.wantedDate());
+    /** 保存草稿：整张替换，一个事务。只有草稿能存。 */
+    @PutMapping("/customer/orders/{orderId}")
+    SavedOrderView save(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
+                        @Valid @RequestBody SaveOrderRequest request) {
+        return service.save(user.partyId(), user.id(), orderId, request.toDraft());
     }
 
-    /** 换成地址簿里的另一条（复制进订单，快照）。订单就绪（READY）之前都能换。 */
+    /** 提交以后单独改收货地址（订单就绪 READY 之前都能改）。草稿走整张保存。 */
     @PutMapping("/customer/orders/{orderId}/ship-to")
     OrderView updateShipTo(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
-                           @Valid @RequestBody ShipToRequest r) {
-        return service.updateShipTo(user.partyId(), user.id(), orderId, r.addressId());
+                           @Valid @RequestBody ShipToFields r) {
+        return service.updateShipTo(user.partyId(), orderId, r.toShipTo());
     }
 
     @PostMapping("/customer/orders/{orderId}/submit")
@@ -117,43 +138,13 @@ class CustomerOrderController {
         return service.cancel(user.partyId(), orderId);
     }
 
-    @PostMapping("/customer/orders/{orderId}/lines")
-    OrderLineView addLine(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
-                          @Valid @RequestBody AddLineRequest request) {
-        return service.addLine(user.partyId(), user.id(), orderId, request.toNewLine());
-    }
-
-    /** 批量添加：整批在一个事务里落库，任何一行不合法整批都不收。 */
-    @PostMapping("/customer/orders/{orderId}/lines/batch")
-    List<OrderLineView> addLines(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
-                                 @Valid @RequestBody AddLinesRequest request) {
-        return service.addLines(user.partyId(), user.id(), orderId,
-                request.lines().stream().map(AddLineRequest::toNewLine).toList());
-    }
-
-    /** ★ 整体替换：没带的材料 / 表面处理会被清空。 */
-    @PatchMapping("/customer/orders/{orderId}/lines/{lineId}")
-    OrderLineView updateLine(@CurrentUser UserPrincipal user, @PathVariable UUID orderId, @PathVariable UUID lineId,
-                             @Valid @RequestBody UpdateLineRequest request) {
-        return service.updateLine(user.partyId(), orderId, lineId, request.name(), request.quantity(),
-                request.material(), request.surfaceTreatment());
-    }
-
-    /** 返回删除后的订单 —— 空响应体会让前端按 envelope 解析失败。 */
-    @DeleteMapping("/customer/orders/{orderId}/lines/{lineId}")
-    OrderView removeLine(@CurrentUser UserPrincipal user, @PathVariable UUID orderId, @PathVariable UUID lineId) {
-        return service.removeLine(user.partyId(), orderId, lineId);
-    }
-
-    @PostMapping("/customer/orders/{orderId}/lines/{lineId}/new-revision")
-    OrderLineView startNewRevision(@CurrentUser UserPrincipal user, @PathVariable UUID orderId,
-                                   @PathVariable UUID lineId, @Valid @RequestBody NewRevisionRequest request) {
-        return service.startNewRevision(user.partyId(), user.id(), orderId, lineId, request.customerRev());
-    }
-
     @GetMapping("/customer/orders/{orderId}/lines/{lineId}/files/{fileId}/view-url")
     ViewUrl lineFileViewUrl(@CurrentUser UserPrincipal user, @PathVariable UUID orderId, @PathVariable UUID lineId,
                             @PathVariable UUID fileId) {
         return service.lineFileViewUrl(user.partyId(), user.id(), user.partyType(), orderId, lineId, fileId);
+    }
+
+    private static String blankToNull(String s) {
+        return s == null || s.isBlank() ? null : s.trim();
     }
 }

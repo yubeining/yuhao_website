@@ -56,56 +56,52 @@ export interface Strings {
     /** 客户端页面 */
     customer: {
         orders: {
-            title: string; sub: string; count: (n: number) => string
+            title: string; count: (n: number) => string
             newOrder: string; newTitle: string; titlePlaceholder: string
             deleteOrder: string; deleteConfirm: string; confirmQuote: string
             empty: string; emptySub: string
         }
         orderDetail: {
-            notFound: string; backToOrders: string; addPart: string; addFirstPart: string; batchAdd: string
-            missingDrawingBanner: (n: number) => string; submittedBanner: string
+            notFound: string; backToOrders: string; addPart: string
+            submittedBanner: string
             quotedBanner: string; cancelledBanner: string
             statusSubmitted: string; statusQuoted: (amount: string, commitDate: string) => string
             statusConfirmed: string; statusReady: string
             statusViewQuotes: string; statusConfirmQuote: string; statusQuoteDetail: string
-            infoTitle: string; fldName: string; fldLead: string; needWantedDate: string
+            infoTitle: string; fldName: string; fldLead: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
             partsTitle: (n: number) => string; missingDrawingPill: (n: number) => string
             colRevision: string; colMaterial: string; colDrawing: string; colProgress: string
             colCode: string; colQty: string
-            customerRev: (v: string) => string; drawingUploaded: string; drawingMissing: string
-            remove: string; confirmRemoveLine: (code: string) => string; emptyParts: string; emptyPartsSub: string
+            customerRev: (v: string) => string; drawingMissing: string
+            remove: string
             submit: string; submitConfirmTitle: string; submitConfirmBody: string; submitConfirmCta: string
-            needDrawings: (n: number) => string; needCompany: string; fillCompany: string
-            /** 一个零件都没有时的提交按钮文案 */
-            needParts: string
+            needDrawings: (n: number) => string
+            
         }
+        /** 原来零件页的文案；零件页 2026-11-27 取消，只剩别处还在用的这几条 */
         partForm: {
-            uploadFailed: string; errRequired: string; notFound: string
-            titleNew: string; titleEdit: string; titlePart: string
-            lockedBanner: string
-            infoTitle: string
-            fldCode: string
-            fldMaterial: string; fldSurface: string
-            drawingTitle: string; drawingMissing: string
-            drawingUploadedCount: (n: number) => string; drawingQueuedCount: (n: number) => string
-            lockedPill: string
-            chooseDrawing: string; replaceDrawing: string
-            download: string; removeTitle: string; confirmRemoveFile: (name: string) => string; preview: string; previewUnsupported: string
-            cancel: string; backToOrder: string; discardConfirm: string
-            addToOrder: string; addHint: string; saveEdit: string
+            download: string; previewUnsupported: string; discardConfirm: string
         }
-        batchParts: {
-            title: string; importFiles: string; importFolder: string; addRow: string; dropHint: string
-            partsTitle: (n: number) => string; emptyParts: string; emptyPartsSub: string
-            filesCount: (n: number) => string; editTitle: string
-            save: string; cancel: string; discardConfirm: string; backToOrder: string
-            rowsIncomplete: (rows: number[]) => string
+        /** 订单页整页编辑（2026-11-27）：零件、订单信息、收货地址一起编辑一起保存 */
+        orderEdit: {
+            edit: string; save: string; cancel: string; unsaved: string; newTitle: string
+            importFiles: string; importFolder: string; dropHint: string; emptyParts: string; emptyPartsSub: string
+            filesCount: (n: number) => string; addFile: string; removeFile: string; colSurface: string
+            qtyInvalid: string
+            cancelTitle: string; cancelBody: string; cancelCta: string
+            discardNewTitle: string; discardNewBody: string; discardNewCta: string
+            leaveTitle: string; leaveBody: string; leaveCta: string
             tooLarge: (names: string[]) => string; unreadable: (names: string[]) => string
             listTitle: (name: string) => string; listSheet: string; listHeaderRow: string; listNotFound: string
             listNone: string; listUse: string; listAsFile: string; listRows: (n: number) => string
             uploading: (done: number, total: number) => string
             uploadFailed: (n: number) => string
+            shipToEdit: string; shipToChange: string; shipToPick: string
+            checkTitle: string; checkBody: string; checkFix: string; checkParts: string; checkPartsNone: string
+            checkPartsInfo: string; checkIncomplete: (n: number) => string
+            checkDrawings: string; checkNoDrawing: (n: number) => string
+            checkNotFilled: string; checkNotPicked: string; checkCompany: string; checkGoSettings: string
         }
         quotes: {
             title: string
@@ -432,7 +428,7 @@ export interface Strings {
         }
     /** 订单收货地址（2026-11-23）：客户订单详情可编辑，运营订单详情只读 */
     shipTo: {
-        title: string; fill: string; edit: string; empty: string; need: string
+        title: string; empty: string
         country: string; company: string; contact: string; phone: string; phoneHint: string
         line1: string; line2: string; city: string; region: string; postalCode: string
         cancel: string; save: string; requiredMissing: string; lockedNote: string
@@ -444,7 +440,7 @@ export interface Strings {
         empty: string; newTitle: string; editTitle: string; makeDefault: string
         deleteTitle: string; deleteBody: string; deleted: string; madeDefault: string
         paste: string; pasteHint: string; pasteRun: string; pasteDone: string; pasteNothing: string
-        pickTitle: string; use: string; manage: string; pickEmpty: string
+        pickTitle: string; use: string; manage: string
         opsButton: string; opsTitle: (name: string) => string; opsEmpty: string
     }
     /** 派单详情（生产订单） */
@@ -516,7 +512,6 @@ export const STRINGS: Record<Lang, Strings> = {
         customer: {
             orders: {
                 title: '我的订单',
-                sub: '录入零件、传好图纸后提交',
                 count: (n) => `共 ${n} 单`,
                 newOrder: '＋ 新建订单', newTitle: '新建订单',
                 titlePlaceholder: '订单名称（可选）',
@@ -527,8 +522,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: '订单不存在', backToOrders: '← 我的订单',
-            addPart: '＋ 添加零件', addFirstPart: '＋ 添加零件', batchAdd: '批量添加',
-            missingDrawingBanner: (n) => `${n} 个零件还没传图纸，传齐后才能提交。`,
+            addPart: '＋ 添加零件',
             submittedBanner: '订单已提交，各零件的图纸版本已锁定，不能再修改。',
             quotedBanner: '平台已报价，等你确认。', cancelledBanner: '订单已取消。',
             statusSubmitted: '运营正在核价，报价出来后可在「我的报价」确认。',
@@ -537,59 +531,46 @@ export const STRINGS: Record<Lang, Strings> = {
             statusReady: '全部零件已完工。',
             statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
-            fldName: '名称', fldLead: '期望交货日期', needWantedDate: '请先填期望交货日期',
+            fldName: '名称', fldLead: '期望交货日期',
             fldParts: '零件数', fldTotalQty: '总件数', fldCreated: '建单日期', fldSubmitted: '提交时间',
             partsTitle: (n) => `零件 ${n} 个`, missingDrawingPill: (n) => `${n} 缺图纸`,
             colRevision: '版本', colMaterial: '材料', colDrawing: '图纸', colProgress: '进度',
             colCode: '图号', colQty: '数量',
             customerRev: (v) => `客户标记 ${v}`,
-            drawingUploaded: '图纸已传', drawingMissing: '缺图纸', remove: '删除',
-            confirmRemoveLine: (code) => `删除零件「${code}」？这一行的图纸会一起移除。`,
-            emptyParts: '暂无零件', emptyPartsSub: '录入零件并传好图纸后提交',
+            drawingMissing: '缺图纸', remove: '删除',
             submit: '提交订单',
             submitConfirmTitle: '确认提交订单？',
             submitConfirmBody: '提交后各零件的图纸版本会被锁定，不能再修改或更换图纸。',
             submitConfirmCta: '确认提交',
             needDrawings: (n) => `还有 ${n} 个零件缺图纸`,
-            needParts: '先添加至少一个零件',
-            needCompany: '提交前还需补全公司名称，它会显示在报价单与合同上。',
-            fillCompany: '填写公司名称',
+            
         },
         partForm: {
-            uploadFailed: '上传失败',
-            errRequired: '图号、名称、数量为必填项，数量至少为 1',
-            notFound: '零件不存在',
-            titleNew: '添加零件', titleEdit: '编辑零件', titlePart: '零件',
-            lockedBanner: '订单已提交或已取消，不能再添加零件。',
-            infoTitle: '零件信息',
-            fldCode: '图号',
-            fldMaterial: '材料', fldSurface: '表面处理',
-            drawingTitle: '图纸',
-            drawingMissing: '未上传 · 订单提交前需上传',
-            drawingUploadedCount: (n) => `已上传 ${n} 个文件`,
-            drawingQueuedCount: (n) => `待上传 ${n} 个文件`,
-            lockedPill: '已锁定',
-            chooseDrawing: '＋ 选择图纸', replaceDrawing: '换图纸（开新版本）',
-            download: '下载', removeTitle: '移除', confirmRemoveFile: (name) => `移除图纸「${name}」？`,
-            preview: '预览', previewUnsupported: '该格式无法在线预览，请下载后用 CAD 软件打开',
-            cancel: '取消', backToOrder: '返回订单',
+            download: '下载', previewUnsupported: '该格式无法在线预览，请下载后用 CAD 软件打开',
             discardConfirm: '放弃未保存的修改？',
-            addToOrder: '添加到订单',
-            addHint: '添加后进入零件详情', saveEdit: '保存修改',
         },
-        batchParts: {
-            title: '批量添加零件', importFiles: '导入文件', importFolder: '导入文件夹', addRow: '＋ 添加一行',
+        orderEdit: {
+            edit: '编辑', save: '保存', cancel: '取消', unsaved: '有改动未保存', newTitle: '新建订单',
+            importFiles: '导入文件', importFolder: '导入文件夹',
             dropHint: '也可以把文件、文件夹、压缩包或 Excel / CSV 清单拖到这里',
-            partsTitle: (n) => `零件 ${n} 个`, emptyParts: '还没有零件', emptyPartsSub: '导入文件，或者手动添加一行',
-            filesCount: (n) => `${n} 个文件`, editTitle: '编辑零件',
-            save: '保存到订单', cancel: '取消', discardConfirm: '离开后这里的内容不会保存，确定离开？', backToOrder: '回到订单',
-            rowsIncomplete: (rows) => `第 ${rows.join('、')} 行图号、名称、数量未填全`,
+            emptyParts: '还没有零件', emptyPartsSub: '导入文件，或者手动添加一行',
+            filesCount: (n) => `${n} 个文件`, addFile: '加文件', removeFile: '删除', colSurface: '表面处理',
+            qtyInvalid: '数量要填正整数，标红的格子改好再保存',
+            cancelTitle: '取消这次编辑？', cancelBody: '这次的改动会全部撤销，订单回到编辑前的样子。', cancelCta: '撤销改动',
+            discardNewTitle: '不建这个订单了？', discardNewBody: '填的内容不会保存，也不会留下空订单。', discardNewCta: '不建了',
+            leaveTitle: '离开这个页面？', leaveBody: '还有改动没保存，离开后会丢掉。', leaveCta: '离开',
             tooLarge: (names) => `超过 20MB，没有加入：${names.join('、')}`, unreadable: (names) => `读不出来，已跳过：${names.join('、')}`,
             listTitle: (name) => `清单「${name}」`, listSheet: '工作表', listHeaderRow: '表头在第几行',
             listNotFound: '没认出表头，请自己选择各列', listNone: '（不读）',
             listUse: '按清单添加', listAsFile: '当作普通文件', listRows: (n) => `读到 ${n} 行`,
             uploading: (done, total) => `正在上传图纸 ${done} / ${total}`,
-            uploadFailed: (n) => `零件已加入订单，但有 ${n} 个文件没传上去，对应零件显示「缺图纸」，可以进零件里补传。`,
+            uploadFailed: (n) => `零件已保存，但有 ${n} 个文件没传上去，已标红。可以再点保存重传，或者删掉。`,
+            shipToEdit: '修改', shipToChange: '更换', shipToPick: '选择地址',
+            checkTitle: '订单信息不完整', checkBody: '请补全以下信息后再提交。', checkFix: '去完善',
+            checkParts: '零件', checkPartsNone: '未添加',
+            checkPartsInfo: '零件信息', checkIncomplete: (n) => `${n} 个零件未填完整`,
+            checkDrawings: '零件图纸', checkNoDrawing: (n) => `${n} 个零件未上传`,
+            checkNotFilled: '未填写', checkNotPicked: '未选择', checkCompany: '公司名称', checkGoSettings: '去设置',
         },
             quotes: {
                 title: '我的报价',
@@ -957,7 +938,7 @@ export const STRINGS: Record<Lang, Strings> = {
             empty: '还没有费率',
         },
     shipTo: {
-        title: '收货地址', fill: '填写', edit: '编辑', empty: '还没填收货地址', need: '请先填写收货地址',
+        title: '收货地址', empty: '还没填收货地址',
         country: '国家/地区', company: '收货公司', contact: '收货人', phone: '电话',
         phoneHint: '快递派送和清关时联系收货人用',
         line1: '地址', line2: '楼层、单元等（选填）', city: '城市', region: '州/省', postalCode: '邮编',
@@ -973,7 +954,7 @@ export const STRINGS: Record<Lang, Strings> = {
         deleted: '已删除', madeDefault: '已设为默认',
         paste: '智能粘贴', pasteHint: '把整段地址粘贴到这里，自动拆到下面各栏。拆完请检查一遍再保存。',
         pasteRun: '识别', pasteDone: '已填入下面各栏，请检查', pasteNothing: '没识别出内容，请手动填写',
-        pickTitle: '选择收货地址', use: '使用这个地址', manage: '管理地址簿', pickEmpty: '还没有收货地址。',
+        pickTitle: '选择收货地址', use: '使用这个地址', manage: '管理地址簿',
         opsButton: '收货地址', opsTitle: (name) => `${name} 的收货地址`, opsEmpty: '这个用户还没有收货地址',
     },
     prodDetail: {
@@ -1066,6 +1047,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.line_not_found': '零件行不存在',
             'order.no_lines': '订单里还没有零件',
             'order.line_missing_drawing': '有零件还没传图纸，传完才能提交',
+            'order.line_incomplete': '有零件的图号、名称或数量还没填，填完才能提交',
             'order.not_quotable': '这张订单现在不能报价（已确认或已取消）',
             'order.not_quoted': '这张订单现在没有待确认的报价',
             'estimate.no_readable_drawing': '这一行没有 AI 能读的图纸（只支持 PDF / PNG / JPG）',
@@ -1157,7 +1139,6 @@ export const STRINGS: Record<Lang, Strings> = {
         customer: {
             orders: {
                 title: 'My orders',
-                sub: 'Add parts and drawings, then submit',
                 count: (n) => `${n} order${n === 1 ? '' : 's'}`,
                 newOrder: '+ New order', newTitle: 'New order',
                 titlePlaceholder: 'Order name (optional)',
@@ -1168,8 +1149,7 @@ export const STRINGS: Record<Lang, Strings> = {
             },
         orderDetail: {
             notFound: 'Order not found', backToOrders: '← My orders',
-            addPart: '+ Add part', addFirstPart: '+ Add part', batchAdd: 'Bulk add',
-            missingDrawingBanner: (n) => `${n} part${n === 1 ? '' : 's'} without drawings — all parts need drawings before submitting.`,
+            addPart: '+ Add part',
             submittedBanner: 'Order submitted. Drawing revisions are locked and can no longer be changed.',
             quotedBanner: 'We have sent a quote; it is waiting for your confirmation.', cancelledBanner: 'Order cancelled.',
             statusSubmitted: 'We are pricing your order. The quote will appear in "My quotes" for you to confirm.',
@@ -1178,59 +1158,48 @@ export const STRINGS: Record<Lang, Strings> = {
             statusReady: 'All parts are finished.',
             statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
-            fldName: 'Name', fldLead: 'Requested delivery date', needWantedDate: 'Please fill in the requested delivery date',
+            fldName: 'Name', fldLead: 'Requested delivery date',
             fldParts: 'Parts', fldTotalQty: 'Total quantity', fldCreated: 'Created', fldSubmitted: 'Submitted',
             partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, missingDrawingPill: (n) => `${n} missing drawing`,
             colRevision: 'Rev', colMaterial: 'Material', colDrawing: 'Drawing', colProgress: 'Progress',
             colCode: 'Drawing no.', colQty: 'Qty',
             customerRev: (v) => `Customer mark ${v}`,
-            drawingUploaded: 'Drawing attached', drawingMissing: 'No drawing', remove: 'Remove',
-            confirmRemoveLine: (code) => `Remove part "${code}"? Its drawings are removed with it.`,
-            emptyParts: 'No parts yet', emptyPartsSub: 'Add parts and drawings, then submit',
+            drawingMissing: 'No drawing', remove: 'Remove',
             submit: 'Submit order',
             submitConfirmTitle: 'Submit this order?',
             submitConfirmBody: 'Drawing revisions of every part will be locked and can no longer be changed.',
             submitConfirmCta: 'Submit',
             needDrawings: (n) => `${n} part${n === 1 ? '' : 's'} still need drawings`,
-            needParts: 'Add a part first',
-            needCompany: 'Your company name is required before submitting; it appears on quotes and contracts.',
-            fillCompany: 'Add company name',
+            
         },
         partForm: {
-            uploadFailed: 'Upload failed',
-            errRequired: 'Drawing no., name and quantity are required; quantity must be at least 1',
-            notFound: 'Part not found',
-            titleNew: 'Add part', titleEdit: 'Edit part', titlePart: 'Part',
-            lockedBanner: 'The order has been submitted or cancelled; parts can no longer be added.',
-            infoTitle: 'Part details',
-            fldCode: 'Drawing no.',
-            fldMaterial: 'Material', fldSurface: 'Surface finishing',
-            drawingTitle: 'Drawings',
-            drawingMissing: 'Not uploaded yet — required before submitting the order',
-            drawingUploadedCount: (n) => `${n} file${n === 1 ? '' : 's'} uploaded`,
-            drawingQueuedCount: (n) => `${n} file${n === 1 ? '' : 's'} queued`,
-            lockedPill: 'Locked',
-            chooseDrawing: '+ Choose drawings', replaceDrawing: 'Change drawings (new revision)',
-            download: 'Download', removeTitle: 'Remove', confirmRemoveFile: (name) => `Remove the drawing "${name}"?`,
-            preview: 'Preview', previewUnsupported: 'This format cannot be previewed; download it and open it in CAD',
-            cancel: 'Cancel', backToOrder: 'Back to order',
+            download: 'Download', previewUnsupported: 'This format cannot be previewed; download it and open it in CAD',
             discardConfirm: 'Discard unsaved changes?',
-            addToOrder: 'Add to order',
-            addHint: 'Opens the part after adding', saveEdit: 'Save changes',
         },
-        batchParts: {
-            title: 'Bulk add parts', importFiles: 'Import files', importFolder: 'Import folder', addRow: '+ Add row',
+        orderEdit: {
+            edit: 'Edit', save: 'Save', cancel: 'Cancel', unsaved: 'Unsaved changes', newTitle: 'New order',
+            importFiles: 'Import files', importFolder: 'Import folder',
             dropHint: 'You can also drop files, folders, zip archives or an Excel / CSV parts list here',
-            partsTitle: (n) => `${n} part${n === 1 ? '' : 's'}`, emptyParts: 'No parts yet', emptyPartsSub: 'Import files or add a row by hand',
-            filesCount: (n) => `${n} file${n === 1 ? '' : 's'}`, editTitle: 'Edit part',
-            save: 'Save to order', cancel: 'Cancel', discardConfirm: 'Nothing here has been saved. Leave anyway?', backToOrder: 'Back to order',
-            rowsIncomplete: (rows) => `Row${rows.length > 1 ? 's' : ''} ${rows.join(', ')}: drawing number, name or quantity missing`,
+            emptyParts: 'No parts yet', emptyPartsSub: 'Import files or add a row by hand',
+            filesCount: (n) => `${n} file${n === 1 ? '' : 's'}`, addFile: 'Add files', removeFile: 'Remove',
+            colSurface: 'Surface finish',
+            qtyInvalid: 'Quantity must be a whole number above 0. Fix the cells in red, then save.',
+            cancelTitle: 'Discard this edit?', cancelBody: 'All changes from this edit will be undone.', cancelCta: 'Discard changes',
+            discardNewTitle: 'Discard this new order?', discardNewBody: 'Nothing you entered will be saved, and no empty order is left behind.',
+            discardNewCta: 'Discard',
+            leaveTitle: 'Leave this page?', leaveBody: 'Your changes have not been saved and will be lost.', leaveCta: 'Leave',
             tooLarge: (names) => `Over 20 MB, not added: ${names.join(', ')}`, unreadable: (names) => `Could not read, skipped: ${names.join(', ')}`,
             listTitle: (name) => `Parts list "${name}"`, listSheet: 'Sheet', listHeaderRow: 'Header row',
             listNotFound: 'No header found. Pick the columns yourself.', listNone: '(skip)',
             listUse: 'Add from list', listAsFile: 'Use as a plain file', listRows: (n) => `${n} row${n === 1 ? '' : 's'} read`,
             uploading: (done, total) => `Uploading drawings ${done} / ${total}`,
-            uploadFailed: (n) => `Parts were added, but ${n} file${n === 1 ? '' : 's'} failed to upload. Those parts show "Missing drawing"; open them to upload again.`,
+            uploadFailed: (n) => `Parts were saved, but ${n} file${n === 1 ? '' : 's'} failed to upload (in red). Save again to retry, or remove them.`,
+            shipToEdit: 'Edit', shipToChange: 'Change', shipToPick: 'Choose address',
+            checkTitle: 'Order is incomplete', checkBody: 'Fill in the following before submitting.', checkFix: 'Fix now',
+            checkParts: 'Parts', checkPartsNone: 'None added',
+            checkPartsInfo: 'Part details', checkIncomplete: (n) => `${n} part${n === 1 ? '' : 's'} incomplete`,
+            checkDrawings: 'Drawings', checkNoDrawing: (n) => `${n} part${n === 1 ? '' : 's'} without a drawing`,
+            checkNotFilled: 'Not filled in', checkNotPicked: 'Not chosen', checkCompany: 'Company name', checkGoSettings: 'Go to settings',
         },
             quotes: {
                 title: 'My quotes',
@@ -1600,7 +1569,7 @@ export const STRINGS: Record<Lang, Strings> = {
             empty: 'No rates yet',
         },
     shipTo: {
-        title: 'Shipping address', fill: 'Add', edit: 'Edit', empty: 'No shipping address yet', need: 'Please add a shipping address',
+        title: 'Shipping address', empty: 'No shipping address yet',
         country: 'Country/region', company: 'Company', contact: 'Recipient', phone: 'Phone',
         phoneHint: 'Used by the carrier to contact the recipient for delivery and customs',
         line1: 'Address', line2: 'Floor, unit, etc. (optional)', city: 'City', region: 'State/province', postalCode: 'Postal code',
@@ -1619,7 +1588,6 @@ export const STRINGS: Record<Lang, Strings> = {
         paste: 'Smart paste', pasteHint: 'Paste a whole address here and it will be split into the fields below. Check them before saving.',
         pasteRun: 'Fill in', pasteDone: 'Filled in below. Please check.', pasteNothing: 'Nothing recognised. Please fill in the fields manually.',
         pickTitle: 'Choose a shipping address', use: 'Use this address', manage: 'Manage addresses',
-        pickEmpty: 'No shipping addresses yet.',
         opsButton: 'Addresses', opsTitle: (name) => `Shipping addresses of ${name}`, opsEmpty: 'This user has no shipping addresses',
     },
     prodDetail: {
@@ -1712,6 +1680,7 @@ export const STRINGS: Record<Lang, Strings> = {
             'order.line_not_found': 'Order line not found',
             'order.no_lines': 'The order has no parts yet',
             'order.line_missing_drawing': 'Some parts have no drawing yet. Upload them before submitting',
+            'order.line_incomplete': 'Some parts are missing a drawing number, name or quantity. Fill them in before submitting',
             'order.not_quotable': 'This order cannot be quoted now',
             'order.not_quoted': 'This order has no quote waiting for confirmation',
             'estimate.no_readable_drawing': 'This line has no drawing the AI can read (PDF / PNG / JPG only)',

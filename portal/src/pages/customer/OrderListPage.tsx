@@ -14,7 +14,7 @@ import { errorText } from '../../i18n/errorText'
 import { useI18n } from '../../i18n/I18nProvider'
 import { fmtDate } from '../../lib/format'
 import { Pagination } from '../../components/Pagination'
-import { createOrder, deleteOrder, listOrders, type OrderSummaryView } from '../../services'
+import { deleteOrder, listOrders, type OrderSummaryView } from '../../services'
 import { orderSt } from './status'
 import { useConfirm } from '../../components/ConfirmDialog'
 
@@ -26,7 +26,6 @@ export function OrderListPage() {
     const [total, setTotal] = useState(0)
     const [page, setPage] = usePageParam()
     const location = useLocation()
-    const [creating, setCreating] = useState(false)
     const [err, setErr] = useState<string | null>(null)
 
     const load = useCallback(async (pageNo: number) => {
@@ -42,18 +41,8 @@ export function OrderListPage() {
 
     useEffect(() => { void load(page) }, [load, page])
 
-    const createDraft = async () => {
-        if (creating) return
-        setCreating(true)
-        try {
-            const o = await createOrder({ title: null, wantedDate: null })
-            navigate(`/customer/orders/${o.id}`)
-        } catch (e) {
-            setErr(errorText(t, e))
-        } finally {
-            setCreating(false)
-        }
-    }
+    // 新建订单：先进编辑页，第一次保存才建单（2026-11-27）—— 点了又不填就走，不会留下空订单
+    const createDraft = () => navigate('/customer/orders/new')
 
     const remove = async (id: string) => {
         try {
@@ -68,14 +57,13 @@ export function OrderListPage() {
         <Page>
             <Hello
                 title={t.customer.orders.title}
-                sub={t.customer.orders.sub}
                 right={
                     <>
                         {orders && <Pill tone="ne" dot={false}>{t.customer.orders.count(total)}</Pill>}
                         {/* ★ 空态时隐藏：中央那个按钮已经能建单，两个入口指向同一个动作 */}
                         {orders && orders.length > 0 && (
-                            <button className="btn pri" type="button" disabled={creating} onClick={() => void createDraft()}>
-                                {creating ? '…' : t.customer.orders.newOrder}
+                            <button className="btn pri" type="button" onClick={createDraft}>
+                                {t.customer.orders.newOrder}
                             </button>
                         )}
                     </>
@@ -134,8 +122,8 @@ export function OrderListPage() {
                         <Empty
                             text={t.customer.orders.empty}
                             sub={t.customer.orders.emptySub}
-                            action={<button className="btn pri" type="button" disabled={creating} onClick={() => void createDraft()}>
-                                {creating ? '…' : t.customer.orders.newOrder}
+                            action={<button className="btn pri" type="button" onClick={createDraft}>
+                                {t.customer.orders.newOrder}
                             </button>}
                         />
                     </CardBody>

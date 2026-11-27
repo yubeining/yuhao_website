@@ -139,6 +139,11 @@ class CustomerOrder extends BaseEntity {
         this.shipToPostalCode = a.postalCode();
     }
 
+    /** 整张保存时没带地址 = 清空（草稿可以没地址，提交时检查）。 */
+    void clearShipTo() {
+        replaceShipTo(new ShipTo(null, null, null, null, null, null, null, null, null));
+    }
+
     /** 没填过地址返回 null。 */
     ShipTo getShipTo() {
         if (shipToCountry == null) {

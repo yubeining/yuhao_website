@@ -96,15 +96,15 @@ class CustomerOrderFlowIT {
     @Test
     void draftCanBeCreatedAndEdited() throws Exception {
         Customer c = register("draft");
-        JsonNode created = post("/customer/orders",
-                new CustomerOrderController.OrderDraftRequest("Batch 1", LocalDate.of(2026, 12, 1)), c.token()).path("data");
+        JsonNode created = post("/customer/orders", new CustomerOrderController.SaveOrderRequest("Batch 1",
+                LocalDate.of(2026, 12, 1), null, null), c.token()).path("data").path("order");
         assertThat(created.path("status").asText()).isEqualTo("DRAFT");
         assertThat(created.path("title").asText()).isEqualTo("Batch 1");
         assertThat(created.path("wantedDate").asText()).isEqualTo("2026-12-01");
 
         String id = created.path("id").asText();
-        JsonNode edited = patch("/customer/orders/" + id,
-                new CustomerOrderController.OrderDraftRequest("Batch 1b", null), c.token()).path("data");
+        JsonNode edited = save(c, id,
+                new CustomerOrderController.SaveOrderRequest("Batch 1b", null, null, List.of())).path("order");
         assertThat(edited.path("title").asText()).isEqualTo("Batch 1b");
         // 接口不输出值为 null 的字段（spring.jackson.default-property-inclusion: non_null），清空后字段直接不出现
         assertThat(edited.has("wantedDate")).isFalse();
@@ -162,7 +162,7 @@ class CustomerOrderFlowIT {
         assertThat(messageOf(rejected)).isEqualTo("order.ship_to_required");
         assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
 
-        JsonNode saved = json.readTree(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo(c, "Berlin"), c.token())
+        JsonNode saved = json.readTree(rawPut("/customer/orders/" + orderId + "/ship-to", shipTo("Berlin"), c.token())
                 .getBody()).path("data");
         assertThat(saved.path("shipTo").path("country").asText()).isEqualTo("DE");
         assertThat(saved.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
@@ -190,63 +190,35 @@ class CustomerOrderFlowIT {
 
         for (String status : List.of("SUBMITTED", "QUOTED", "CONFIRMED")) {
             jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
-            ResponseEntity<String> res = rawPut(path, shipTo(c, "Munich-" + status), c.token());
+            ResponseEntity<String> res = rawPut(path, shipTo("Munich-" + status), c.token());
             assertThat(res.getStatusCode().value()).as(status + " " + res.getBody()).isEqualTo(200);
             assertThat(json.readTree(res.getBody()).path("data").path("shipTo").path("city").asText())
                     .isEqualTo("Munich-" + status);
         }
         for (String status : List.of("READY", "CANCELLED")) {
             jdbc.update("update customer_order set status = ? where id = ?", status, UUID.fromString(orderId));
-            assertConflict(rawPut(path, shipTo(c, "Cologne"), c.token()), "order.ship_to_locked");
+            assertConflict(rawPut(path, shipTo("Cologne"), c.token()), "order.ship_to_locked");
         }
         assertThat(jdbc.queryForObject("select ship_to_city from customer_order where id = ?", String.class,
                 UUID.fromString(orderId))).isEqualTo("Munich-CONFIRMED");
     }
 
+    /** 订单上的地址是订单自己的一份（2026-11-27：可以直接改，不连地址簿）；必填项照地址簿的规则校验。 */
     @Test
-    void shipToRejectsAMissingOrForeignAddress() throws Exception {
+    void shipToRejectsAnIncompleteAddress() throws Exception {
         Customer c = register("shiptobad");
-        Customer other = register("shiptoother");
-        String path = "/customer/orders/" + createOrderWithoutShipTo(c) + "/ship-to";
-
-        assertThat(rawPut(path, new CustomerOrderController.ShipToRequest(null), c.token())
-                .getStatusCode().value()).isEqualTo(400);
-        // 别人地址簿里的地址：和不存在一样，404
-        ResponseEntity<String> foreign = rawPut(path, shipTo(other, "Hamburg"), c.token());
-        assertNotFound(foreign);
-        assertThat(messageOf(foreign)).isEqualTo("address.not_found");
-        assertThat(get(path.replace("/ship-to", ""), c.token()).path("data").has("shipTo")).isFalse();
-    }
-
-    /** 建草稿时自动带上默认地址（2026-11-26 Q3）。 */
-    @Test
-    void newDraftTakesTheDefaultAddress() throws Exception {
-        Customer c = register("autodefault");
-        addAddress(c, "Berlin");
-        String munich = addAddress(c, "Munich");
-        ok(rawPost("/customer/shipping-addresses/" + munich + "/default", null, c.token()));
-
-        JsonNode created = post("/customer/orders",
-                new CustomerOrderController.OrderDraftRequest(null, LocalDate.now().plusDays(30)), c.token())
-                .path("data");
-        assertThat(created.path("shipTo").path("city").asText()).isEqualTo("Munich");
-        assertThat(created.path("shipTo").path("company").asText()).isEqualTo("Acme Receiving GmbH");
-    }
-
-    /** 订单存的是地址快照（C2，2026-11-26 Q4）：之后改 / 删地址簿，已有订单不变。 */
-    @Test
-    void editingOrDeletingTheAddressBookDoesNotChangeExistingOrders() throws Exception {
-        Customer c = register("snapshot");
-        String berlin = addAddress(c, "Berlin");
         String orderId = createOrderWithoutShipTo(c);
+        String path = "/customer/orders/" + orderId + "/ship-to";
 
-        ok(rawPut("/customer/shipping-addresses/" + berlin, addressBody("Leipzig"), c.token()));
-        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("shipTo").path("city").asText())
-                .isEqualTo("Berlin");
-
-        ok(rawDelete("/customer/shipping-addresses/" + berlin, c.token()));
-        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("shipTo").path("city").asText())
-                .isEqualTo("Berlin");
+        CustomerOrderController.ShipToFields noCity = new CustomerOrderController.ShipToFields("DE", "Acme", "Bob",
+                "+49 30 1", "Hauptstr. 1", null, " ", null, null);
+        CustomerOrderController.ShipToFields badCountry = new CustomerOrderController.ShipToFields("Germany", "Acme",
+                "Bob", "+49 30 1", "Hauptstr. 1", null, "Berlin", null, null);
+        assertThat(rawPut(path, noCity, c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPut(path, badCountry, c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(rawPut("/customer/orders/" + orderId, new CustomerOrderController.SaveOrderRequest(null, null,
+                noCity, List.of()), c.token()).getStatusCode().value()).isEqualTo(400);
+        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").has("shipTo")).isFalse();
     }
 
     @Test
@@ -294,7 +266,6 @@ class CustomerOrderFlowIT {
         UUID fileId = uploadPdf(c, line);
         String revId = line.path("revision").path("id").asText();
         String partId = line.path("partId").asText();
-        String lineId = line.path("id").asText();
 
         JsonNode submitted = post("/customer/orders/" + orderId + "/submit", null, c.token()).path("data");
         assertThat(submitted.path("status").asText()).isEqualTo("SUBMITTED");
@@ -307,13 +278,11 @@ class CustomerOrderFlowIT {
                 "part.revision_locked");
         assertConflict(rawDelete("/customer/files/" + fileId, c.token()), "part.revision_locked");
 
-        // 订单已提交：不能改、加、删、取消
+        // 订单已提交：不能再整张保存（改、加、删行都走这里）、不能取消
         String base = "/customer/orders/" + orderId;
-        assertConflict(rawPatch(base, new CustomerOrderController.OrderDraftRequest("x", null), c.token()), "order.not_draft");
-        assertConflict(rawPost(base + "/lines", lineRequest(uniqueCode(), "C", 1), c.token()), "order.not_draft");
-        assertConflict(rawPatch(base + "/lines/" + lineId,
-                new CustomerOrderController.UpdateLineRequest("Bracket", 6, null, null), c.token()), "order.not_draft");
-        assertConflict(rawDelete(base + "/lines/" + lineId, c.token()), "order.not_draft");
+        assertConflict(rawPut(base, saveRequest(c, orderId, List.of(keep(submitted.path("lines").get(0)),
+                newLine(uniqueCode(), "C", 1))), c.token()), "order.not_draft");
+        assertConflict(rawPut(base, saveRequest(c, orderId, List.of()), c.token()), "order.not_draft");
         assertConflict(rawPost(base + "/cancel", null, c.token()), "order.not_draft");
         assertConflict(rawPost(base + "/submit", null, c.token()), "order.not_draft");
     }
@@ -436,95 +405,185 @@ class CustomerOrderFlowIT {
         }
     }
 
+    // ---------- 整张保存（2026-11-27：订单页整页编辑，一次保存） ----------
+
+    /** 新建时整张一起建：每行各自一个新零件 + 第 1 版，同图号也各算一行；返回新行的 id，顺序和请求一致。 */
     @Test
-    void newRevisionIsOnlyForALockedRevision() throws Exception {
-        Customer c = register("newrev");
-        String orderId = createOrder(c);
-        JsonNode line = addLine(c, orderId, uniqueCode(), "Bracket", 1);
-        assertConflict(rawPost("/customer/orders/" + orderId + "/lines/" + line.path("id").asText() + "/new-revision",
-                new CustomerOrderController.NewRevisionRequest(null), c.token()), "part.revision_not_locked");
+    void creatingWithLinesBuildsTheWholeOrderAtOnce() throws Exception {
+        Customer c = register("create");
+        String code = uniqueCode();
+        JsonNode saved = post("/customer/orders", new CustomerOrderController.SaveOrderRequest("Batch",
+                LocalDate.now().plusDays(30), shipTo("Berlin"), List.of(
+                new CustomerOrderController.LineRequest(null, code, "Bracket", 4, "AL6061", "anodize", "A", null),
+                newLine(code, "Bracket", 2),
+                newLine(uniqueCode(), "Plate", 10))), c.token()).path("data");
+
+        JsonNode order = saved.path("order");
+        assertThat(order.path("lines")).hasSize(3);
+        assertThat(saved.path("createdLineIds")).hasSize(3);
+        JsonNode first = lineById(order, saved.path("createdLineIds").get(0).asText());
+        assertThat(first.path("quantity").asInt()).isEqualTo(4);
+        assertThat(first.path("surfaceTreatment").asText()).isEqualTo("anodize");
+        assertThat(first.path("revision").path("customerRev").asText()).isEqualTo("A");
+        assertThat(lineById(order, saved.path("createdLineIds").get(1).asText()).path("partId").asText())
+                .isNotEqualTo(first.path("partId").asText());
+        assertThat(order.path("shipTo").path("city").asText()).isEqualTo("Berlin");
     }
 
-    // ---------- 草稿操作 ----------
-
+    /** 一次保存里同时改、加、删行，删文件；没带的行被删掉。 */
     @Test
-    void draftLinesCanBeEditedAndRemovedAndDraftsCancelled() throws Exception {
+    void savingReplacesTheDraftInOneGo() throws Exception {
         Customer c = register("edit");
         String orderId = createOrder(c);
-        JsonNode line = addLine(c, orderId, uniqueCode(), "Bracket", 1);
-        String lineId = line.path("id").asText();
+        JsonNode kept = addLine(c, orderId, uniqueCode(), "Bracket", 1);
+        UUID fileId = uploadPdf(c, kept);
+        UUID secondFile = uploadPdf(c, kept);
+        addLine(c, orderId, uniqueCode(), "Doomed", 1);
+        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+        String code = uniqueCode();
 
-        JsonNode edited = patch("/customer/orders/" + orderId + "/lines/" + lineId,
-                new CustomerOrderController.UpdateLineRequest("Bracket v2", 7, "SS304", "anodized"), c.token()).path("data");
+        JsonNode saved = save(c, orderId, new CustomerOrderController.SaveOrderRequest("Renamed", null, shipTo("Bonn"),
+                List.of(new CustomerOrderController.LineRequest(UUID.fromString(kept.path("id").asText()), code,
+                                "Bracket v2", 7, "SS304", "anodized", "B", List.of(fileId)),
+                        newLine(uniqueCode(), "Plate", 3))));
+
+        JsonNode order = saved.path("order");
+        assertThat(order.path("title").asText()).isEqualTo("Renamed");
+        assertThat(order.path("shipTo").path("city").asText()).isEqualTo("Bonn");
+        assertThat(order.path("lines")).hasSize(2);
+        JsonNode edited = lineById(order, kept.path("id").asText());
+        assertThat(edited.path("code").asText()).isEqualTo(code);
         assertThat(edited.path("partName").asText()).isEqualTo("Bracket v2");
         assertThat(edited.path("quantity").asInt()).isEqualTo(7);
+        assertThat(edited.path("material").asText()).isEqualTo("SS304");
         assertThat(edited.path("surfaceTreatment").asText()).isEqualTo("anodized");
-
-        assertThat(rawDelete("/customer/orders/" + orderId + "/lines/" + lineId, c.token()).getStatusCode().value())
-                .isEqualTo(200);
-        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
+        assertThat(edited.path("revision").path("customerRev").asText()).isEqualTo("B");
+        assertThat(edited.path("revision").path("files")).hasSize(1);
+        assertThat(edited.path("revision").path("files").get(0).path("id").asText()).isEqualTo(secondFile.toString());
+        assertThat(saved.path("createdLineIds")).hasSize(1);
+        // 文件行留着（可能有审计指向它），状态改成 REMOVED；对象在事务提交后删掉
+        assertThat(jdbc.queryForObject("select upload_status from part_file where id = ?", String.class, fileId))
+                .isEqualTo("REMOVED");
+        assertThat(storage.exists(key)).isFalse();
 
         JsonNode cancelled = post("/customer/orders/" + orderId + "/cancel", null, c.token()).path("data");
         assertThat(cancelled.path("status").asText()).isEqualTo("CANCELLED");
+    }
+
+    /** 草稿可以存没填齐的行（2026-11-27）：图号 / 名称 / 数量都可以空着，提交时才拦。 */
+    @Test
+    void draftCanHoldIncompleteLinesButCannotSubmitThem() throws Exception {
+        Customer c = register("incomplete");
+        String orderId = createOrder(c);
+        JsonNode complete = addLine(c, orderId, uniqueCode(), "Bracket", 1);
+        uploadPdf(c, complete);
+        JsonNode saved = save(c, orderId, saveRequest(c, orderId, List.of(keep(complete),
+                new CustomerOrderController.LineRequest(null, null, null, null, null, null, null, null))));
+        JsonNode blank = lineById(saved.path("order"), saved.path("createdLineIds").get(0).asText());
+        assertThat(blank.has("code")).isFalse();
+        assertThat(blank.has("partName")).isFalse();
+        assertThat(blank.has("quantity")).isFalse();
+        uploadPdf(c, blank);
+
+        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/submit", null, c.token());
+        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
+        assertThat(messageOf(res)).isEqualTo("order.line_incomplete");
+        assertThat(json.readTree(res.getBody()).path("data").toString()).contains(blank.path("id").asText())
+                .doesNotContain(complete.path("id").asText());
+        assertThat(orderStatus(orderId)).isEqualTo("DRAFT");
     }
 
     @Test
     void quantityMustBePositive() throws Exception {
         Customer c = register("qty");
         String orderId = createOrder(c);
-        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines", lineRequest(uniqueCode(), "A", 0), c.token());
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId,
+                saveRequest(c, orderId, List.of(newLine(uniqueCode(), "A", 0))), c.token());
         assertThat(res.getStatusCode().value()).isEqualTo(400);
     }
 
-    // ---------- 批量添加 ----------
-
-    /** 批量添加：一次建多行，每行各自一个新零件 + 第 1 版；同图号也各算一行。 */
+    /** 任何一行出错，整张都不落库。 */
     @Test
-    void batchAddCreatesEveryLineAsANewPart() throws Exception {
-        Customer c = register("batch");
+    void saveRejectsTheWholeRequestWhenOneLineIsInvalid() throws Exception {
+        Customer c = register("savebad");
         String orderId = createOrder(c);
-        String code = uniqueCode();
-        JsonNode created = post("/customer/orders/" + orderId + "/lines/batch", new CustomerOrderController.AddLinesRequest(List.of(
-                new CustomerOrderController.AddLineRequest(code, "Bracket", 4, "AL6061", "anodize", "A"),
-                new CustomerOrderController.AddLineRequest(code, "Bracket", 2, null, null, null),
-                lineRequest(uniqueCode(), "Plate", 10))), c.token()).path("data");
-
-        assertThat(created).hasSize(3);
-        assertThat(created.get(0).path("surfaceTreatment").asText()).isEqualTo("anodize");
-        assertThat(created.get(0).path("revision").path("customerRev").asText()).isEqualTo("A");
-        assertThat(created.get(1).path("partId").asText()).isNotEqualTo(created.get(0).path("partId").asText());
-        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).hasSize(3);
+        JsonNode existing = addLine(c, orderId, uniqueCode(), "Keep", 1);
+        CustomerOrderController.LineRequest renamed = new CustomerOrderController.LineRequest(
+                UUID.fromString(existing.path("id").asText()), existing.path("code").asText(), "Renamed", 1,
+                null, null, null, null);
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId, saveRequest(c, orderId, List.of(renamed,
+                new CustomerOrderController.LineRequest(UUID.randomUUID(), "X", "Ghost", 1, null, null, null, null))),
+                c.token());
+        assertNotFound(res);
+        JsonNode lines = get("/customer/orders/" + orderId, c.token()).path("data").path("lines");
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0).path("partName").asText()).isEqualTo("Keep");
     }
 
-    /** 任何一行不合法，整批都不落库。 */
+    /** 请求体里的行 id、文件 id 必须是这张订单自己的（§3 铁律 2/3）。 */
     @Test
-    void batchAddRejectsTheWholeBatchWhenOneLineIsInvalid() throws Exception {
-        Customer c = register("batchbad");
-        String orderId = createOrder(c);
-        String base = "/customer/orders/" + orderId + "/lines/batch";
-        ResponseEntity<String> res = rawPost(base, new CustomerOrderController.AddLinesRequest(List.of(
-                lineRequest(uniqueCode(), "Good", 1), lineRequest(uniqueCode(), " ", 1))), c.token());
-        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
-        assertThat(rawPost(base, new CustomerOrderController.AddLinesRequest(List.of()), c.token())
-                .getStatusCode().value()).isEqualTo(400);
-        assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
+    void saveRejectsLinesAndFilesFromAnotherOrder() throws Exception {
+        Customer c = register("foreignids");
+        String orderA = createOrder(c);
+        JsonNode lineA = addLine(c, orderA, uniqueCode(), "A", 1);
+        String orderB = createOrder(c);
+        JsonNode lineB = addLine(c, orderB, uniqueCode(), "B", 1);
+        UUID fileOfB = uploadPdf(c, lineB);
+
+        CustomerOrderController.LineRequest stolenLine = keep(lineB);
+        assertNotFound(rawPut("/customer/orders/" + orderA, saveRequest(c, orderA, List.of(keep(lineA), stolenLine)),
+                c.token()));
+        CustomerOrderController.LineRequest stolenFile = new CustomerOrderController.LineRequest(
+                UUID.fromString(lineA.path("id").asText()), lineA.path("code").asText(), "A", 1, null, null, null,
+                List.of(fileOfB));
+        assertNotFound(rawPut("/customer/orders/" + orderA, saveRequest(c, orderA, List.of(stolenFile)), c.token()));
+        assertThat(jdbc.queryForObject("select upload_status from part_file where id = ?", String.class, fileOfB))
+                .isEqualTo("COMPLETED");
     }
 
     @Test
-    void batchAddOnlyWorksOnYourOwnDraft() throws Exception {
-        Customer owner = register("batchowner");
-        Customer other = register("batchother");
+    void saveOnlyWorksOnYourOwnDraft() throws Exception {
+        Customer owner = register("saveowner");
+        Customer other = register("saveother");
         String orderId = createOrder(owner);
         uploadPdf(owner, addLine(owner, orderId, uniqueCode(), "A", 1));
-        CustomerOrderController.AddLinesRequest body =
-                new CustomerOrderController.AddLinesRequest(List.of(lineRequest(uniqueCode(), "B", 1)));
-        String base = "/customer/orders/" + orderId + "/lines/batch";
+        CustomerOrderController.SaveOrderRequest body = saveRequest(owner, orderId, List.of());
 
-        assertNotFound(rawPost(base, body, other.token()));
+        assertNotFound(rawPut("/customer/orders/" + orderId, body, other.token()));
         post("/customer/orders/" + orderId + "/submit", null, owner.token());
-        assertConflict(rawPost(base, body, owner.token()), "order.not_draft");
+        assertConflict(rawPut("/customer/orders/" + orderId, body, owner.token()), "order.not_draft");
     }
 
+    /**
+     * 11-26 之前的草稿行可能挂着别的订单锁定过的版本（D16 沿用）。锁定的版本不能再改：
+     * 换客户版本、删文件都拒绝；只改行上的字段（名称、数量…）照常。
+     */
+    @Test
+    void aLineOnALockedRevisionKeepsItsDrawingsAndRevision() throws Exception {
+        Customer c = register("lockedrev");
+        String first = createOrder(c);
+        JsonNode submittedLine = addLine(c, first, uniqueCode(), "Bracket", 1);
+        UUID fileId = uploadPdf(c, submittedLine);
+        post("/customer/orders/" + first + "/submit", null, c.token());
+
+        String draft = createOrder(c);
+        JsonNode line = addLine(c, draft, uniqueCode(), "Bracket", 1);
+        jdbc.update("update customer_order_part set part_revision_id = ?::uuid where id = ?::uuid",
+                submittedLine.path("revision").path("id").asText(), line.path("id").asText());
+        JsonNode reloaded = get("/customer/orders/" + draft, c.token()).path("data").path("lines").get(0);
+        UUID lineId = UUID.fromString(reloaded.path("id").asText());
+        String code = reloaded.path("code").asText();
+
+        assertConflict(rawPut("/customer/orders/" + draft, saveRequest(c, draft, List.of(
+                new CustomerOrderController.LineRequest(lineId, code, "Bracket", 1, null, null, "Z", null))), c.token()),
+                "part.revision_locked");
+        assertConflict(rawPut("/customer/orders/" + draft, saveRequest(c, draft, List.of(
+                new CustomerOrderController.LineRequest(lineId, code, "Bracket", 1, null, null, null, List.of(fileId)))),
+                c.token()), "part.revision_locked");
+        JsonNode ok = save(c, draft, saveRequest(c, draft, List.of(
+                new CustomerOrderController.LineRequest(lineId, code, "Bracket", 9, null, null, null, null))));
+        assertThat(ok.path("order").path("lines").get(0).path("quantity").asInt()).isEqualTo(9);
+    }
     // ---------- 租户隔离 ----------
 
     @Test
@@ -536,12 +595,13 @@ class CustomerOrderFlowIT {
         String base = "/customer/orders/" + orderId;
 
         assertNotFound(rawGet(base, other.token()));
-        assertNotFound(rawPatch(base, new CustomerOrderController.OrderDraftRequest("x", null), other.token()));
-        assertNotFound(rawPost(base + "/lines", lineRequest(uniqueCode(), "A", 1), other.token()));
-        assertNotFound(rawDelete(base + "/lines/" + line.path("id").asText(), other.token()));
+        assertNotFound(rawPut(base, saveRequest(owner, orderId, List.of(keep(line), newLine(uniqueCode(), "A", 1))),
+                other.token()));
+        assertNotFound(rawPut(base, saveRequest(owner, orderId, List.of()), other.token()));
         assertNotFound(rawPost(base + "/submit", null, other.token()));
         assertNotFound(rawPost(base + "/cancel", null, other.token()));
-        assertNotFound(rawPut(base + "/ship-to", shipTo(other, "Hamburg"), other.token()));
+        assertNotFound(rawPut(base + "/ship-to", shipTo("Hamburg"), other.token()));
+        assertThat(get(base, owner.token()).path("data").path("lines")).hasSize(1);
         assertThat(get("/customer/orders", other.token()).path("data").path("total").asInt()).isZero();
     }
 
@@ -607,7 +667,7 @@ class CustomerOrderFlowIT {
         assertThat(messageOf(wrongType)).isEqualTo("common.unsupported_media_type");
 
         ResponseEntity<String> wrongMethod = exchange("/customer/orders", HttpMethod.PUT,
-                new CustomerOrderController.OrderDraftRequest(null, null), c.token());
+                new CustomerOrderController.SaveOrderRequest(null, null, null, null), c.token());
         assertThat(wrongMethod.getStatusCode().value()).as(wrongMethod.getBody()).isEqualTo(405);
         assertThat(messageOf(wrongMethod)).isEqualTo("common.method_not_allowed");
     }
@@ -618,8 +678,8 @@ class CustomerOrderFlowIT {
         Customer c = register("fraction");
         String orderId = createOrder(c);
 
-        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines",
-                Map.of("code", uniqueCode(), "name", "half", "quantity", 1.5), c.token());
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId,
+                Map.of("lines", List.of(Map.of("code", uniqueCode(), "name", "half", "quantity", 1.5))), c.token());
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(400);
         assertThat(get("/customer/orders/" + orderId, c.token()).path("data").path("lines")).isEmpty();
     }
@@ -638,8 +698,11 @@ class CustomerOrderFlowIT {
         try {
             for (int round = 0; round < 30; round++) {
                 String orderId = createOrder(c);
-                uploadPdf(c, addLine(c, orderId, uniqueCode(), "ready", 1));
+                JsonNode ready = addLine(c, orderId, uniqueCode(), "ready", 1);
+                uploadPdf(c, ready);
                 String base = "/customer/orders/" + orderId;
+                CustomerOrderController.SaveOrderRequest withLateLine =
+                        saveRequest(c, orderId, List.of(keep(ready), newLine(uniqueCode(), "late", 1)));
                 CyclicBarrier go = new CyclicBarrier(2);
                 Future<ResponseEntity<String>> submit = pool.submit(() -> {
                     go.await();
@@ -647,7 +710,7 @@ class CustomerOrderFlowIT {
                 });
                 Future<ResponseEntity<String>> add = pool.submit(() -> {
                     go.await();
-                    return rawPost(base + "/lines", lineRequest(uniqueCode(), "late", 1), c.token());
+                    return rawPut(base, withLateLine, c.token());
                 });
                 int s = submit.get().getStatusCode().value();
                 int a = add.get().getStatusCode().value();
@@ -731,43 +794,25 @@ class CustomerOrderFlowIT {
                 UUID.fromString(reg.path("data").path("id").asText()));
     }
 
-    /**
-     * 建草稿并填好收货地址（提交前必填，2026-11-23）。只想测「没填地址」时用 {@link #createOrderWithoutShipTo}
-     * —— 但要在这个客户还没有地址簿的时候建，否则草稿会自动带上默认地址（2026-11-26）。
-     */
+    /** 建草稿并填好收货地址（提交前必填，2026-11-23）。只想测「没填地址」时用 {@link #createOrderWithoutShipTo}。 */
     private String createOrder(Customer c) throws Exception {
-        String orderId = createOrderWithoutShipTo(c);
-        if (get("/customer/orders/" + orderId, c.token()).path("data").has("shipTo")) {
-            return orderId;  // 地址簿里已有默认地址，草稿自动带上了
-        }
-        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId + "/ship-to", shipTo(c, "Berlin"), c.token());
-        assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
-        return orderId;
+        return createDraft(c, shipTo("Berlin"));
     }
 
     private String createOrderWithoutShipTo(Customer c) throws Exception {
-        return post("/customer/orders",
-                new CustomerOrderController.OrderDraftRequest(null, LocalDate.now().plusDays(30)), c.token())
-                .path("data").path("id").asText();
+        return createDraft(c, null);
     }
 
-    /** 在这个客户的地址簿里加一条地址，返回「选它」的请求体。 */
-    private CustomerOrderController.ShipToRequest shipTo(Customer c, String city) throws Exception {
-        return new CustomerOrderController.ShipToRequest(UUID.fromString(addAddress(c, city)));
+    private String createDraft(Customer c, CustomerOrderController.ShipToFields shipTo) throws Exception {
+        ResponseEntity<String> res = ok(rawPost("/customer/orders",
+                new CustomerOrderController.SaveOrderRequest(null, LocalDate.now().plusDays(30), shipTo, List.of()),
+                c.token()));
+        return json.readTree(res.getBody()).path("data").path("order").path("id").asText();
     }
 
-    private String addAddress(Customer c, String city) throws Exception {
-        ResponseEntity<String> res = ok(rawPost("/customer/shipping-addresses", addressBody(city), c.token()));
-        return json.readTree(res.getBody()).path("data").path("id").asText();
-    }
-
-    private static AddressBody addressBody(String city) {
-        return new AddressBody("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567", "Hauptstr. 1", null, city,
-                null, "10115");
-    }
-
-    private record AddressBody(String country, String company, String contact, String phone, String line1,
-                               String line2, String city, String region, String postalCode) {
+    private static CustomerOrderController.ShipToFields shipTo(String city) {
+        return new CustomerOrderController.ShipToFields("DE", "Acme Receiving GmbH", "Bob Weber", "+49 30 1234567",
+                "Hauptstr. 1", null, city, null, "10115");
     }
 
     private static ResponseEntity<String> ok(ResponseEntity<String> res) {
@@ -775,14 +820,63 @@ class CustomerOrderFlowIT {
         return res;
     }
 
-    private CustomerOrderController.AddLineRequest lineRequest(String code, String name, int quantity) {
-        return new CustomerOrderController.AddLineRequest(code, name, quantity, "AL6061", null, null);
+    /** 新加的一行（没有 id）。 */
+    private static CustomerOrderController.LineRequest newLine(String code, String name, Integer quantity) {
+        return new CustomerOrderController.LineRequest(null, code, name, quantity, "AL6061", null, null, null);
     }
 
+    /** 已有的一行原样带上（整张保存时没带的行会被删掉）。 */
+    private static CustomerOrderController.LineRequest keep(JsonNode line) {
+        return new CustomerOrderController.LineRequest(UUID.fromString(line.path("id").asText()),
+                textOrNull(line, "code"), textOrNull(line, "partName"),
+                line.has("quantity") ? line.path("quantity").asInt() : null,
+                textOrNull(line, "material"), textOrNull(line, "surfaceTreatment"),
+                textOrNull(line.path("revision"), "customerRev"), null);
+    }
+
+    private static String textOrNull(JsonNode node, String field) {
+        return node.has(field) ? node.path(field).asText() : null;
+    }
+
+    /** 当前订单内容 + 指定的行改动，组成一次整张保存的请求体。 */
+    private CustomerOrderController.SaveOrderRequest saveRequest(Customer c, String orderId,
+                                                                 List<CustomerOrderController.LineRequest> lines)
+            throws Exception {
+        JsonNode order = get("/customer/orders/" + orderId, c.token()).path("data");
+        JsonNode s = order.path("shipTo");
+        CustomerOrderController.ShipToFields shipTo = order.has("shipTo")
+                ? new CustomerOrderController.ShipToFields(s.path("country").asText(), s.path("company").asText(),
+                        s.path("contact").asText(), s.path("phone").asText(), s.path("line1").asText(),
+                        textOrNull(s, "line2"), s.path("city").asText(), textOrNull(s, "region"),
+                        textOrNull(s, "postalCode"))
+                : null;
+        return new CustomerOrderController.SaveOrderRequest(textOrNull(order, "title"),
+                order.has("wantedDate") ? LocalDate.parse(order.path("wantedDate").asText()) : null, shipTo, lines);
+    }
+
+    /** 已有的行全部保留，再加一行；返回新加的那一行。 */
     private JsonNode addLine(Customer c, String orderId, String code, String name, int quantity) throws Exception {
-        ResponseEntity<String> res = rawPost("/customer/orders/" + orderId + "/lines", lineRequest(code, name, quantity), c.token());
+        List<CustomerOrderController.LineRequest> lines = new ArrayList<>();
+        get("/customer/orders/" + orderId, c.token()).path("data").path("lines").forEach(l -> lines.add(keep(l)));
+        lines.add(newLine(code, name, quantity));
+        JsonNode saved = save(c, orderId, saveRequest(c, orderId, lines));
+        return lineById(saved.path("order"), saved.path("createdLineIds").get(0).asText());
+    }
+
+    private JsonNode save(Customer c, String orderId, CustomerOrderController.SaveOrderRequest request)
+            throws Exception {
+        ResponseEntity<String> res = rawPut("/customer/orders/" + orderId, request, c.token());
         assertThat(res.getStatusCode().value()).as(res.getBody()).isEqualTo(200);
         return json.readTree(res.getBody()).path("data");
+    }
+
+    private static JsonNode lineById(JsonNode order, String lineId) {
+        for (JsonNode l : order.path("lines")) {
+            if (l.path("id").asText().equals(lineId)) {
+                return l;
+            }
+        }
+        throw new AssertionError("line " + lineId + " not in " + order);
     }
 
     /** 往这一行当前挂的版本传一个真 PDF 并 complete。 */

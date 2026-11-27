@@ -18,7 +18,8 @@ const money = (v: number | null | undefined) => (v == null ? X : v.toFixed(2))
 
 export function EstimateCard({ orderId, lines, editable }: {
     orderId: string
-    lines: { id: string; code: string; partName: string }[]
+    /** 已提交订单的行：图号 / 名称提交时已检查过，类型上仍可能为空（草稿可以空着，2026-11-27） */
+    lines: { id: string; code?: string | null; partName?: string | null }[]
     editable: boolean
 }) {
     const { t } = useI18n()
@@ -93,7 +94,7 @@ export function EstimateCard({ orderId, lines, editable }: {
                                     <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
                                         {v && (
                                             <button className="btn sm" type="button"
-                                                onClick={() => setOpen({ code: l.code, view: v })}>{e.details}</button>
+                                                onClick={() => setOpen({ code: l.code ?? '', view: v })}>{e.details}</button>
                                         )}
                                         {editable && (
                                             <button className="btn sm" type="button" disabled={running !== null}

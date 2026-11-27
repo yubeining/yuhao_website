@@ -121,7 +121,8 @@ export function OpsQuoteWorkPage() {
     }
 
     const editable = order.status === 'SUBMITTED' || order.status === 'QUOTED'
-    const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
+    // 运营只看得到已提交的订单，提交时图号 / 名称 / 数量都已检查过（2026-11-27 起草稿可以空着）
+    const totalQty = order.lines.reduce((a, l) => a + (l.quantity ?? 0), 0)
 
     /** 输入齐了且格式对才返回请求体，否则返回缺什么。 */
     const buildInput = (): SendQuoteInput | string => {
@@ -130,7 +131,7 @@ export function OpsQuoteWorkPage() {
         const lines: SendQuoteInput['lines'] = []
         for (const l of order.lines) {
             const raw = (prices[l.id] ?? '').trim()
-            if (!PRICE_RE.test(raw) || Number(raw) <= 0) return t.quoteWork.errPrice(l.code)
+            if (!PRICE_RE.test(raw) || Number(raw) <= 0) return t.quoteWork.errPrice(l.code ?? '')
             lines.push({ lineId: l.id, unitPriceCny: Number(raw) })
         }
         return { currency, commitDate, lines }

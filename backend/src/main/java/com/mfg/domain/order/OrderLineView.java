@@ -9,7 +9,7 @@ import java.util.UUID;
  * <p>{@code fulfillmentStatus} 是折叠过的四态（待安排 / 进行中 / 已完成 / 已取消，文档 12 §7）——
  * 供应侧的返工、报废、换供应商一律折成「进行中」，客户看不到也不该看到。
  */
-public record OrderLineView(UUID id, UUID partId, String code, String partName, int quantity,
+public record OrderLineView(UUID id, UUID partId, String code, String partName, Integer quantity,
                             String material, String surfaceTreatment, String fulfillmentStatus,
                             RevisionView revision) {
 }

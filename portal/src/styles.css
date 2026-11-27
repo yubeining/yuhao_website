@@ -771,6 +771,41 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .linkbtn{border:0;background:none;color:var(--muted);cursor:pointer;font:inherit;font-size:12.5px;padding:0;}
 .linkbtn:hover{color:var(--acc-ink);text-decoration:underline;}
 
+/* ═══════════════════════════════ 订单页整页编辑（2026-11-27）
+   零件表格子变输入框；新加的行底色略深；图纸在行下展开；底部固定的「取消 / 保存」栏。
+   提交检查后缺的地方标红（.bad）。窄屏表格横向滑动（2026-11-27 拍板，不做卡片布局）。 */
+.partsTable.editing table{min-width:980px;}
+.partsTable.editing td{padding-top:8px;padding-bottom:8px;}
+.partsTable.editing .inp{padding:6px 8px;font-size:13px;min-width:0;}
+.partsTable.editing .inp.m{font-family:var(--mono);}
+.partsTable.editing .inp.n{text-align:right;font-family:var(--mono);}
+.partsTable.editing td:nth-child(2){width:160px;}
+.partsTable.editing td:nth-child(4){width:80px;}
+.partsTable.editing td:nth-child(5), .partsTable.editing td:nth-child(6){width:130px;}
+.partsTable.editing td:nth-child(7){width:90px;}
+.partsTable.editing td:nth-child(8){width:110px;white-space:nowrap;}
+.partsTable.editing td:last-child{width:60px;white-space:nowrap;}
+.partsTable tr.isnew td{background:var(--panel-2);}
+.partsTable tr.ptfiles td{background:var(--panel-2);padding-top:0;padding-bottom:12px;}
+.partsTable tr.ptfiles .btn{vertical-align:top;}
+.partsTable .fchip{display:inline-flex;align-items:center;gap:8px;border:1px solid var(--line);
+  background:var(--panel);border-radius:var(--r2);padding:4px 8px;font-size:12.5px;margin:0 6px 6px 0;max-width:100%;}
+.partsTable .fchip > span, .partsTable .fchip > .linkbtn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.partsTable .fchip > .linkbtn{color:var(--acc-ink);}
+.partsTable .fchip .x{border:0;background:none;color:var(--faint);cursor:pointer;font-size:14px;line-height:1;padding:0;}
+.partsTable .fchip .x:hover{color:var(--bad);}
+.partsTable .fchip.bad{border-color:var(--bad);color:var(--bad);}
+.btn.bad{border-color:var(--bad);color:var(--bad);}
+.cardbad .card{border-color:var(--bad);}
+.bad > .dp .inp{border-color:var(--bad);}
+.updrop.over{border-color:var(--acc-line);color:var(--acc-ink);}
+.savebar{position:sticky;bottom:0;z-index:20;display:flex;align-items:center;gap:8px;justify-content:flex-end;
+  background:var(--panel);border:1px solid var(--line);border-radius:var(--r3);padding:10px 16px;margin-top:4px;}
+.savebar .msg{font-size:12.5px;color:var(--muted);margin-right:auto;}
+.checkrow{display:flex;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:13px;}
+.checkrow .sp{flex:1;}
+.checkrow .bad-t{color:var(--bad);}
+
 /* ═══════════════════════════════ 补公司名弹层 */
 .cnm{width:min(460px,92vw);background:var(--panel);border-radius:var(--r3);overflow:hidden;
   box-shadow:0 24px 60px rgba(0,0,0,.35);}

@@ -3,8 +3,6 @@ package com.mfg.domain.order;
 import com.mfg.common.dto.PagedResponse;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
-import com.mfg.domain.address.AddressBook;
-import com.mfg.domain.address.AddressInfo;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.storage.StorageService;
 import org.springframework.data.domain.Page;
@@ -13,9 +11,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
-import java.util.List;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -31,9 +30,9 @@ import java.util.stream.Collectors;
  *
  * <p>业务规则：
  * <ul>
- *   <li>草稿才能改；客户只能取消草稿。</li>
- *   <li>提交条件：每行至少有一份传完的图纸。提交时锁定各行的图纸版本。</li>
- *   <li>加行时图号命中已有零件（D16）→ 挂它最近一次被锁定的版本；没有锁定过的版本或没有这个零件 → 开新版本 / 新零件。</li>
+ *   <li>草稿才能改，整张一次保存（2026-11-27）；客户只能取消草稿。</li>
+ *   <li>草稿里的行可以没填齐；提交条件：每行有图号、名称、数量和至少一份传完的图纸。提交时锁定各行的图纸版本。</li>
+ *   <li>每加一行都是新零件 + 第 1 版，图号不唯一（2026-11-26，取代 D16）。</li>
  * </ul>
  *
  * <p><b>并发</b>（2026-09-15 修）：改订单的操作都先锁订单行（{@link #requireDraft}）；
@@ -60,14 +59,13 @@ class CustomerOrderService {
     private final PartFileAccessLogRepository accessLogs;
     private final StorageService storage;
     private final CustomerOrderDocumentRepository documents;
-    private final AddressBook addressBook;
 
     CustomerOrderService(CustomerOrderRepository orders, CustomerOrderPartRepository lines,
                          PartDesignRepository parts, PartRevisionRepository revisions,
                          PartFileRepository files, PartDrawingService drawings,
                          OrganizationRepository organizations,
                          PartFileAccessLogRepository accessLogs, StorageService storage,
-                         CustomerOrderDocumentRepository documents, AddressBook addressBook) {
+                         CustomerOrderDocumentRepository documents) {
         this.orders = orders;
         this.lines = lines;
         this.parts = parts;
@@ -78,18 +76,91 @@ class CustomerOrderService {
         this.accessLogs = accessLogs;
         this.storage = storage;
         this.documents = documents;
-        this.addressBook = addressBook;
     }
 
     // ---------- 订单 ----------
 
+    /** 整张订单的输入（2026-11-27：订单页整页编辑，一次保存）。{@code shipTo} 为空 = 没填地址。 */
+    record Draft(String title, LocalDate wantedDate, ShipTo shipTo, List<DraftLine> lines) {
+    }
+
+    /**
+     * 一行的输入。{@code id} 为空 = 新行。草稿里图号 / 名称 / 数量都可以空着，提交时才检查（2026-11-27）。
+     * {@code removeFileIds}：这一行要删的图纸。
+     */
+    record DraftLine(UUID id, String code, String name, Integer quantity, String material, String surfaceTreatment,
+                     String customerRev, List<UUID> removeFileIds) {
+    }
+
+    /**
+     * 第一次保存才建单（2026-11-27）：名称、交期、地址、零件在同一个事务里落库，任何一处出错都不留下订单。
+     * 默认收货地址由前端预先带上，服务端不再自动填。
+     */
     @Transactional
-    public OrderView create(UUID customerOrgId, UUID userId, String title, LocalDate wantedDate) {
-        CustomerOrder order = new CustomerOrder(customerOrgId, userId, blankToNull(title), wantedDate);
-        // 建草稿时自动带上默认收货地址（2026-11-26 Q3），复制进订单（快照）
-        addressBook.findDefault(userId).ifPresent(a -> order.replaceShipTo(toShipTo(a)));
-        CustomerOrder saved = orders.save(order);
-        return view(customerOrgId, saved);
+    public SavedOrderView create(UUID customerOrgId, UUID userId, Draft draft) {
+        CustomerOrder order = new CustomerOrder(customerOrgId, userId, blankToNull(draft.title()), draft.wantedDate());
+        if (draft.shipTo() != null) {
+            order.replaceShipTo(draft.shipTo());
+        }
+        CustomerOrder saved = orders.saveAndFlush(order);
+        List<UUID> created = new ArrayList<>();
+        for (DraftLine input : draft.lines()) {
+            if (input.id() != null) {
+                throw BusinessException.notFound("order.line_not_found");
+            }
+            if (!input.removeFileIds().isEmpty()) {
+                throw BusinessException.notFound("part.file_not_found");
+            }
+            created.add(insertLine(customerOrgId, userId, saved.getId(), input).getId());
+        }
+        return new SavedOrderView(view(customerOrgId, saved), created);
+    }
+
+    /**
+     * 保存草稿：整张替换，一个事务（2026-11-27）。带 id 的行按新内容更新，没 id 的新建，没带到的已有行删掉；
+     * 要删的图纸也在这个事务里删（对象等事务提交后再删）。不做并发冲突检测，后保存的覆盖先保存的（2026-11-27 拍板）。
+     *
+     * <p>请求里的行 id、文件 id 必须属于这张订单：别的订单的一律 404（§3 铁律 2/3）。
+     */
+    @Transactional
+    public SavedOrderView save(UUID customerOrgId, UUID userId, UUID orderId, Draft draft) {
+        CustomerOrder order = requireDraft(customerOrgId, orderId);
+        order.updateDraft(blankToNull(draft.title()), draft.wantedDate());
+        if (draft.shipTo() != null) {
+            order.replaceShipTo(draft.shipTo());
+        } else {
+            order.clearShipTo();
+        }
+        Map<UUID, CustomerOrderPart> existing = new HashMap<>();
+        lines.findByCustomerOrderIdAndCustomerOrgIdOrderByCreatedAtAsc(orderId, customerOrgId)
+                .forEach(l -> existing.put(l.getId(), l));
+        Set<UUID> kept = new HashSet<>();
+        List<UUID> created = new ArrayList<>();
+        Map<UUID, List<UUID>> filesToRemove = new HashMap<>();
+        for (DraftLine input : draft.lines()) {
+            if (input.id() == null) {
+                if (!input.removeFileIds().isEmpty()) {
+                    throw BusinessException.notFound("part.file_not_found");
+                }
+                created.add(insertLine(customerOrgId, userId, orderId, input).getId());
+                continue;
+            }
+            CustomerOrderPart line = existing.get(input.id());
+            if (line == null || !kept.add(input.id())) {
+                throw BusinessException.notFound("order.line_not_found");
+            }
+            updateLine(customerOrgId, line, input);
+            if (!input.removeFileIds().isEmpty()) {
+                filesToRemove.put(line.getPartRevisionId(), input.removeFileIds());
+            }
+        }
+        existing.values().stream().filter(l -> !kept.contains(l.getId())).forEach(lines::delete);
+        orders.saveAndFlush(order);
+        // ★ 删文件放在最后：改文件状态的 SQL 会清空持久化上下文（PartFileRepository 的 clearAutomatically），
+        // 放在前面的话，之后对行 / 零件的改动落在已脱管的实体上，静默丢掉。上面的改动先 flush 进库。
+        filesToRemove.forEach((revisionId, fileIds) ->
+                fileIds.forEach(fileId -> drawings.removeFileOnCommit(customerOrgId, revisionId, fileId)));
+        return new SavedOrderView(view(customerOrgId, order), created);
     }
 
     @Transactional(readOnly = true)
@@ -113,32 +184,20 @@ class CustomerOrderService {
         return view(customerOrgId, requireOrder(customerOrgId, orderId));
     }
 
-    @Transactional
-    public OrderView updateDraft(UUID customerOrgId, UUID orderId, String title, LocalDate wantedDate) {
-        CustomerOrder order = requireDraft(customerOrgId, orderId);
-        order.updateDraft(blankToNull(title), wantedDate);
-        return view(customerOrgId, orders.saveAndFlush(order));
-    }
-
     /**
-     * 换收货地址：从下单人自己的地址簿里选一条，复制进订单（快照，C2）。2026-11-23 拍板订单就绪（READY）之前都能改 ——
+     * 单独改收货地址（订单自己的一份，C2）。2026-11-23 拍板订单就绪（READY）之前都能改 ——
      * 所以不走 {@link #requireDraft}，而是允许草稿到已确认；就绪和已取消的拒绝。
-     * 2026-11-26 起不再在订单上手填（Q5），地址只能从地址簿来；别人的地址和不存在一样，404。
+     * 2026-11-27 起地址内容由客户直接给（可以从地址簿挑一条复制过来，也可以直接改），不再按地址簿 id 取（推翻 11-26 Q5）。
      */
     @Transactional
-    public OrderView updateShipTo(UUID customerOrgId, UUID userId, UUID orderId, UUID addressId) {
+    public OrderView updateShipTo(UUID customerOrgId, UUID orderId, ShipTo shipTo) {
         CustomerOrder order = orders.lockByIdAndCustomerOrgId(orderId, customerOrgId)
                 .orElseThrow(() -> BusinessException.notFound("order.not_found"));
         if (!SHIP_TO_EDITABLE.contains(order.getStatus())) {
             throw BusinessException.conflict("order.ship_to_locked");
         }
-        order.replaceShipTo(toShipTo(addressBook.require(userId, addressId)));
+        order.replaceShipTo(shipTo);
         return view(customerOrgId, orders.saveAndFlush(order));
-    }
-
-    private static ShipTo toShipTo(AddressInfo a) {
-        return new ShipTo(a.country(), a.company(), a.contact(), a.phone(), a.line1(), a.line2(), a.city(),
-                a.region(), a.postalCode());
     }
 
     /**
@@ -167,6 +226,19 @@ class CustomerOrderService {
         // 收货地址提交时必填（2026-11-23 拍板）；保存地址时必填项已一起校验，这里只看填没填过
         if (order.getShipTo() == null) {
             throw new BusinessException(400, "order.ship_to_required");
+        }
+        // 草稿可以存没填齐的行（2026-11-27），提交时每行都要有图号、名称、数量
+        Map<UUID, PartDesign> partById = parts.findByIdInAndCustomerOrgId(
+                        orderLines.stream().map(CustomerOrderPart::getPartDesignId).collect(Collectors.toSet()),
+                        customerOrgId).stream()
+                .collect(Collectors.toMap(PartDesign::getId, Function.identity()));
+        List<UUID> incomplete = orderLines.stream()
+                .filter(l -> l.getQuantity() == null || isBlank(l.getPartName())
+                        || isBlank(partById.get(l.getPartDesignId()).getCode()))
+                .map(CustomerOrderPart::getId)
+                .toList();
+        if (!incomplete.isEmpty()) {
+            throw new BusinessException(400, "order.line_incomplete", incomplete);
         }
         Set<UUID> revisionIds = orderLines.stream().map(CustomerOrderPart::getPartRevisionId).collect(Collectors.toSet());
         revisions.lockAllByIdIn(revisionIds, customerOrgId);
@@ -240,7 +312,7 @@ class CustomerOrderService {
     /**
      * 删草稿时可以一起删掉的图纸版本：<b>未锁定、且没有别的订单在用</b>的那些。
      *
-     * <p>★ 再次下单沿用的是上次<b>已锁定</b>的版本（见 {@link #addLine}），它属于已提交的订单。
+     * <p>★ 11-26 之前再次下单沿用的是上次<b>已锁定</b>的版本（D16），它属于已提交的订单。
      * 2026-11-18 之前这里不分青红皂白全删，「再下一单 → 删掉这张草稿」会把原订单的图纸、文件、审计一起删掉。
      */
     private List<UUID> disposableRevisionIds(UUID customerOrgId, UUID orderId, List<CustomerOrderPart> rows) {
@@ -262,70 +334,42 @@ class CustomerOrderService {
 
     // ---------- 零件行 ----------
 
-    /** 一行明细的输入。 */
-    record NewLine(String code, String name, int quantity, String material, String surfaceTreatment, String customerRev) {
-    }
-
     /**
      * 每加一行都建一个新零件 + 第 1 版，不按图号复用已有零件 —— 图号不再唯一（2026-11-26 拍板，取代 D16）。
+     * 草稿行没有任何下游引用，删行就是物理删除（{@link #save} 里没带到的行）。
      */
-    @Transactional
-    public OrderLineView addLine(UUID customerOrgId, UUID userId, UUID orderId, NewLine input) {
-        requireDraft(customerOrgId, orderId);
-        return insertLine(customerOrgId, userId, orderId, input);
-    }
-
-    /** 批量添加：同一个事务里建全部行，任何一行出错整批都不落库。 */
-    @Transactional
-    public List<OrderLineView> addLines(UUID customerOrgId, UUID userId, UUID orderId, List<NewLine> inputs) {
-        requireDraft(customerOrgId, orderId);
-        return inputs.stream().map(input -> insertLine(customerOrgId, userId, orderId, input)).toList();
-    }
-
-    private OrderLineView insertLine(UUID customerOrgId, UUID userId, UUID orderId, NewLine input) {
-        String name = input.name().trim();
-        PartDesign part = drawings.insertPart(customerOrgId, input.code().trim(), name);
+    private CustomerOrderPart insertLine(UUID customerOrgId, UUID userId, UUID orderId, DraftLine input) {
+        String name = blankToNull(input.name());
+        PartDesign part = drawings.insertPart(customerOrgId, blankToNull(input.code()), name);
         PartRevision revision = drawings.insertNextRevision(customerOrgId, userId, part.getId(),
                 blankToNull(input.customerRev()));
         // part_no 的编号规则至今没定：先填一个不重复的占位值，界面上不显示
-        CustomerOrderPart line = lines.save(new CustomerOrderPart(orderId, customerOrgId, part.getId(), revision.getId(),
+        return lines.save(new CustomerOrderPart(orderId, customerOrgId, part.getId(), revision.getId(),
                 UUID.randomUUID().toString(), name, input.quantity(), blankToNull(input.material()),
                 blankToNull(input.surfaceTreatment())));
-        return lineView(customerOrgId, line, part, revision);
     }
 
-    @Transactional
-    public OrderLineView updateLine(UUID customerOrgId, UUID orderId, UUID lineId, String name, int quantity,
-                                    String material, String surfaceTreatment) {
-        requireDraft(customerOrgId, orderId);
-        CustomerOrderPart line = requireLine(customerOrgId, orderId, lineId);
-        line.updateDraft(name.trim(), quantity, blankToNull(material), blankToNull(surfaceTreatment));
-        return lineView(customerOrgId, lines.saveAndFlush(line));
-    }
-
-    /** 草稿行没有任何下游引用，物理删除。 */
-    @Transactional
-    public OrderView removeLine(UUID customerOrgId, UUID orderId, UUID lineId) {
-        requireDraft(customerOrgId, orderId);
-        lines.delete(requireLine(customerOrgId, orderId, lineId));
-        return get(customerOrgId, orderId);
-    }
-
-    /** 「换图纸」：这一行挂的版本已被锁定时，开一个新版本并改挂过去。没锁定的直接增删文件即可。 */
-    @Transactional
-    public OrderLineView startNewRevision(UUID customerOrgId, UUID userId, UUID orderId, UUID lineId,
-                                          String customerRev) {
-        requireDraft(customerOrgId, orderId);
-        CustomerOrderPart line = requireLine(customerOrgId, orderId, lineId);
-        PartRevision current = revisions.findByIdAndCustomerOrgId(line.getPartRevisionId(), customerOrgId)
+    /**
+     * 已有行按这次的内容整体替换：图号、名称改在零件上，数量 / 材料 / 表面处理改在行上，客户版本改在版本上。
+     *
+     * <p>★ 11-26 之前的草稿行可能挂着别的订单锁定过的版本（D16 沿用）。锁定的版本不许再动：换客户版本、删文件都拒绝。
+     */
+    private void updateLine(UUID customerOrgId, CustomerOrderPart line, DraftLine input) {
+        PartDesign part = parts.findByIdAndCustomerOrgId(line.getPartDesignId(), customerOrgId)
+                .orElseThrow(() -> BusinessException.notFound("part.not_found"));
+        PartRevision revision = revisions.findByIdAndCustomerOrgId(line.getPartRevisionId(), customerOrgId)
                 .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
-        if (!current.isLocked()) {
-            throw BusinessException.conflict("part.revision_not_locked");
+        String customerRev = blankToNull(input.customerRev());
+        boolean revChanged = !java.util.Objects.equals(customerRev, revision.getCustomerRev());
+        if ((revChanged || !input.removeFileIds().isEmpty()) && revision.isLocked()) {
+            throw BusinessException.conflict("part.revision_locked");
         }
-        PartRevision next = drawings.insertNextRevision(customerOrgId, userId, line.getPartDesignId(),
-                blankToNull(customerRev));
-        line.repointRevision(next.getId());
-        return lineView(customerOrgId, lines.saveAndFlush(line));
+        if (revChanged) {
+            revision.changeCustomerRev(customerRev);
+        }
+        String name = blankToNull(input.name());
+        part.rename(blankToNull(input.code()), name);
+        line.updateDraft(name, input.quantity(), blankToNull(input.material()), blankToNull(input.surfaceTreatment()));
     }
 
     // ---------- 在订单里看图（红线 1，带业务上下文） ----------
@@ -382,16 +426,6 @@ class CustomerOrderService {
                 .toList();
     }
 
-    private OrderLineView lineView(UUID customerOrgId, CustomerOrderPart line) {
-        return lineViews(customerOrgId, List.of(line)).getFirst();
-    }
-
-    private OrderLineView lineView(UUID customerOrgId, CustomerOrderPart line, PartDesign part, PartRevision revision) {
-        return toLineView(line, part, revision,
-                drawings.completedFilesByRevision(customerOrgId, List.of(revision.getId()))
-                        .getOrDefault(revision.getId(), List.of()));
-    }
-
     private static OrderLineView toLineView(CustomerOrderPart line, PartDesign part, PartRevision revision,
                                             List<FileView> revisionFiles) {
         return new OrderLineView(line.getId(), line.getPartDesignId(), part.getCode(), line.getPartName(),
@@ -421,5 +455,9 @@ class CustomerOrderService {
 
     private static String blankToNull(String s) {
         return s == null || s.isBlank() ? null : s.trim();
+    }
+
+    private static boolean isBlank(String s) {
+        return s == null || s.isBlank();
     }
 }

@@ -1,82 +1,118 @@
 /**
- * 订单详情 —— 草稿里加零件、每个零件传自己的图纸，传齐后提交。
+ * 订单详情 / 新建订单（2026-11-27 整页编辑）。
  *
- * ★ 提交条件（2026-09-14 拍板）：每个零件行都要有至少一份传完的图纸。
- * ★ 提交时锁定各行的图纸版本，之后这张订单不能再改 —— 收货地址除外：
- *   提交时必填，订单就绪（READY）之前都能改（2026-11-23 拍板，见 ShipToEditor）。
- * ★ 提交之后这里只写「已提交、图纸已锁定」这一个事实 —— 不承诺报价时间：
- *   平台什么时候报价没有约定，写「预计 X 内报价」就是一句没有依据的承诺（CLAUDE.md §10 C5）。
+ * ★ 一个页面一个「编辑」一个「保存」：零件、订单信息、收货地址一起编辑，底部固定栏「取消 / 保存」一次存。
+ *   「取消」撤销这一轮全部改动；删行、删文件、加文件都等保存才生效。
+ *   这是 CLAUDE.md §10 C7 的例外（草稿订单整页编辑，不走弹框），理由写在 C7 里。
+ * ★ 新建订单直接进编辑状态，第一次保存才建单；还没保存就取消，回列表，不留空订单。
+ * ★ 草稿随便存，不提示必填（2026-11-27）。点「提交订单」时才检查：缺的项目在弹框里列出来，
+ *   「去完善」进编辑状态、把缺的地方标红、滚到第一处。
+ * ★ 提交时锁定各行的图纸版本，之后零件不能再改；收货地址就绪（READY）之前都能单独改（2026-11-23）。
+ * ★ 提交之后这里只写「已提交、图纸已锁定」这一个事实 —— 不承诺报价时间（CLAUDE.md §10 C5）。
  *   报价发出后（QUOTED / CONFIRMED）给一个去报价页的入口。
  * ★ 发货（2026-11-24）：运营发货后显示承运商 / 运单号 / 随货文件，客户点「确认收货」订单完成（不能撤回）。
  */
 
-import { useCallback, useEffect, useState } from 'react'
-import { useAutoClear } from '../../components/useAutoClear'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Link, useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { ConfirmDialog } from '../../components/ConfirmDialog'
+import { DatePicker } from '../../components/DatePicker'
+import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import { Field, FieldRow, Input } from '../../components/form'
-import {
-    Banner, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, pill, TableWrap,
-} from '../../components/ui'
+import { Modal } from '../../components/Modal'
+import { Banner, Bar, Card, CardBody, CardHead, Empty, Hello, Page, pill } from '../../components/ui'
 import { errorText } from '../../i18n/errorText'
 import { useI18n } from '../../i18n/I18nProvider'
-import { DatePicker } from '../../components/DatePicker'
-import { ConfirmDialog, useConfirm } from '../../components/ConfirmDialog'
-import { getMyOrganization } from '../../services/customer/organization'
 import { fmtDate, fmtDateTime, fmtMoney, X } from '../../lib/format'
 import {
-    ApiError, confirmReceipt, getOrder, getOrderQuote, removeLine, submitOrder, updateOrder,
-    type CustomerQuoteView, type OrderView,
+    blankOrder, fromOrder, hasProblems, isDirty, newFile, qtyInvalid, submitProblems, toSavePlan,
+    type EditOrder, type SavedFile, type SubmitProblems,
+} from '../../lib/orderDraft'
+import { getMyOrganization } from '../../services/customer/organization'
+import {
+    ApiError, confirmReceipt, createOrder, filePreviewUrl, getOrder, getOrderQuote, lineFileViewUrl,
+    listShippingAddresses, saveOrder, submitOrder, updateShipTo, uploadDrawing,
+    type CustomerQuoteView, type OrderStatus, type OrderView,
 } from '../../services'
-import { ShipToEditor } from './ShipToEditor'
+import { OrderPartsTable } from './OrderPartsTable'
 import { ShipmentCard } from './ShipmentCard'
-import { lineFulfillSt, orderSt } from './status'
+import { ShipToEditor, toShipTo } from './ShipToEditor'
+import { orderSt } from './status'
+
+/** 收货地址能单独改的状态（就绪之前，2026-11-23）。草稿的地址走整页编辑。 */
+const SHIP_TO_LIVE: OrderStatus[] = ['SUBMITTED', 'QUOTED', 'CONFIRMED']
+
+const cloneEdit = (o: EditOrder): EditOrder => ({ ...o, rows: o.rows.map((r) => ({ ...r, files: [...r.files] })) })
 
 export function OrderDetailPage() {
     const { t } = useI18n()
+    const e = t.customer.orderEdit
+    const d = t.customer.orderDetail
     const navigate = useNavigate()
-    const { id = '' } = useParams()
+    const { id } = useParams()
+    const isNew = !id
     // 从列表点进来时带着列表地址（含页码）；直接打开的链接退回列表首页
     const backState = (useLocation().state as { back?: string } | null)?.back
     const backTo = backState?.startsWith('/customer/orders') ? backState : '/customer/orders'
+
     const [order, setOrder] = useState<OrderView | null>(null)
     const [missing, setMissing] = useState(false)
     const [loadErr, setLoadErr] = useState<string | null>(null)
-    const [title, setTitle] = useState('')
-    const [wantedDate, setWantedDate] = useState('')
-    const [saved, setSaved] = useState(false)
-    const [orgName, setOrgName] = useState<string | null>(null)
+    /** 编辑前的样子（取消时回到它，和它比有没有改动） */
+    const [base, setBase] = useState<EditOrder | null>(null)
+    /** 编辑中的副本；null = 只读 */
+    const [edit, setEdit] = useState<EditOrder | null>(null)
+    const [showMissing, setShowMissing] = useState(false)
+    const [showQtyErr, setShowQtyErr] = useState(false)
+    const [failedFiles, setFailedFiles] = useState<Set<File>>(new Set())
+    const [progress, setProgress] = useState<{ done: number; total: number } | null>(null)
     const [quote, setQuote] = useState<CustomerQuoteView | null>(null)
+    const [check, setCheck] = useState<SubmitProblems | null>(null)
     const [confirmSubmit, setConfirmSubmit] = useState(false)
     const [confirmReceive, setConfirmReceive] = useState(false)
-    const [askConfirm, confirmDialog] = useConfirm()
+    const [confirmCancel, setConfirmCancel] = useState(false)
+    const [preview, setPreview] = useState<{ name: string; url: string; kind: PreviewKind; lineId: string; fileId: string } | null>(null)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
+    /** 已经载入的订单 id：新建保存后跳到 /orders/:id 时不要再载一遍、冲掉没传完的图纸 */
+    const loadedId = useRef<string | null>(null)
+    /** 自己发起的跳转（保存后、确认放弃后）不要再被「有改动未保存」拦住：拦截函数拿到的还是旧的 dirty */
+    const allowNav = useRef(false)
 
-    const apply = (o: OrderView) => {
+    const showOrder = (o: OrderView) => {
         setOrder(o)
-        setTitle(o.title ?? '')
-        setWantedDate(o.wantedDate ?? '')
+        setBase(fromOrder(o))
     }
 
     const load = useCallback(async () => {
         try {
-            apply(await getOrder(id))
+            if (!id) {
+                // 新建：带上地址簿里的默认地址（2026-11-27）；取不到地址簿不影响建单
+                const book = await listShippingAddresses().catch(() => [])
+                const def = book.find((a) => a.isDefault)
+                const start = blankOrder(def ? toShipTo(def) : null)
+                setBase(start)
+                setEdit(cloneEdit(start))
+                return
+            }
+            const o = await getOrder(id)
+            loadedId.current = o.id
+            showOrder(o)
             setMissing(false)
             setLoadErr(null)
-        } catch (e) {
+        } catch (ex) {
             // 400 = id 根本不是合法格式（比如旧原型留下的 SO-0001 书签），和 404 一样按「不存在」处理
-            if (e instanceof ApiError && (e.code === 404 || e.code === 400)) setMissing(true)
-            else setLoadErr(errorText(t, e))
+            if (ex instanceof ApiError && (ex.code === 404 || ex.code === 400)) setMissing(true)
+            else setLoadErr(errorText(t, ex))
         }
     }, [id, t])
 
-    useEffect(() => { void load() }, [load])
-
-    // 公司名是提交订单的前置条件：注册时已收，老账号可能还是空的 —— 先查一次再决定按钮是否可用
     useEffect(() => {
-        if (order?.status !== 'DRAFT') return
-        getMyOrganization().then((o) => setOrgName(o.name ?? '')).catch(() => undefined)
-    }, [order?.status, order?.id])
+        // 地址变了说明自己发起的跳转已经完成，之后的离开照常拦
+        allowNav.current = false
+        if (id && id === loadedId.current) return
+        void load()
+    }, [id, load])
 
     // 已报价/已确认：状态条要显示金额和交期，从报价接口取
     useEffect(() => {
@@ -84,19 +120,37 @@ export function OrderDetailPage() {
         getOrderQuote(order.id).then(setQuote).catch(() => setQuote(null))
     }, [order?.status, order?.id])
 
-    useAutoClear(saved, () => setSaved(false))
+    const dirty = !!(edit && base && isDirty(base, edit))
+
+    // 编辑中离开：站内跳转弹自己的确认框；关页 / 刷新只能用浏览器自带的提示
+    const blocker = useBlocker(({ currentLocation, nextLocation }) =>
+        dirty && !allowNav.current && currentLocation.pathname !== nextLocation.pathname)
+    useEffect(() => {
+        if (!dirty) return
+        const warn = (ev: BeforeUnloadEvent) => { ev.preventDefault() }
+        window.addEventListener('beforeunload', warn)
+        return () => window.removeEventListener('beforeunload', warn)
+    }, [dirty])
+
+    // 「去完善」之后滚到第一个标红的地方
+    useEffect(() => {
+        if (!showMissing || !edit) return
+        const first = document.querySelector<HTMLElement>('.page .bad')
+        first?.scrollIntoView({ block: 'center' })
+        first?.focus()
+    }, [showMissing, edit === null])
 
     if (missing) {
         return (
             <Page>
                 <Card><CardBody>
-                    <Empty text={t.customer.orderDetail.notFound} action={<Link className="btn" to="/customer/orders">{t.customer.orderDetail.backToOrders}</Link>} />
+                    <Empty text={d.notFound} action={<Link className="btn" to="/customer/orders">{d.backToOrders}</Link>} />
                 </CardBody></Card>
             </Page>
         )
     }
     // ★ 加载失败要说出来：以前这里只判断「还没拿到订单」，500 / 断网时永远停在「加载中…」
-    if (!order) {
+    if (!base || (!isNew && !order)) {
         return (
             <Page><Card><CardBody>
                 {loadErr
@@ -106,43 +160,123 @@ export function OrderDetailPage() {
         )
     }
 
-    const draft = order.status === 'DRAFT'
+    const view = edit ?? base
+    const status = order?.status
+    const draft = !order || status === 'DRAFT'
     // 确认报价之后才谈得上进度；在那之前这一列是空的，不如不显示（CLAUDE.md §10 C5）
-    const inProduction = order.status === 'CONFIRMED' || order.status === 'READY' || order.status === 'SHIPPED'
-        || order.status === 'COMPLETED'
-    const noDrawing = order.lines.filter((l) => l.revision.files.length === 0).length
-    const totalQty = order.lines.reduce((a, l) => a + l.quantity, 0)
-    // 只有「查到了、确实是空的」才算缺公司名。没查到（请求失败 / 还在路上）不拦按钮 ——
-    // 以前这种情况按钮直接变灰又不说原因；真缺的话提交时后端也会拒绝并给出原因。
-    const missingCompany = orgName !== null && !orgName.trim()
-    // 期望交期必填（2026-11-15）：报价的承诺交期从它起，提交前必须有
-    const missingWantedDate = !order.wantedDate
-    // 收货地址提交时必填（2026-11-23）
-    const missingShipTo = !order.shipTo
-    const canSubmit = draft && order.lines.length > 0 && noDrawing === 0 && !missingCompany && !missingWantedDate
-        && !missingShipTo
+    const inProduction = status === 'CONFIRMED' || status === 'READY' || status === 'SHIPPED' || status === 'COMPLETED'
+    const totalQty = view.rows.reduce((a, r) => a + (Number(r.qty) || 0), 0)
 
-    const saveDraftInfo = async (nextDate?: string) => {
-        const date = (nextDate ?? wantedDate).trim() || null
-        // 后端不输出 null 字段，拿到的是 undefined —— 统一成 null 再比，否则每次失焦都会多发一次保存
-        if ((title.trim() || null) === (order.title ?? null) && date === (order.wantedDate ?? null)) return
-        try {
-            apply(await updateOrder(order.id, { title: title.trim() || null, wantedDate: date }))
-            setErr(null)
-            // ★ 失焦即保存，就必须告诉用户存了 —— 否则改完切走，不知道生效没有
-            setSaved(true)
-        } catch (e) {
-            setErr(errorText(t, e))
+    const startEdit = () => {
+        setEdit(cloneEdit(base))
+        setErr(null)
+    }
+
+    const leaveEdit = () => {
+        setEdit(null)
+        setShowMissing(false)
+        setShowQtyErr(false)
+        setFailedFiles(new Set())
+        setErr(null)
+        if (isNew) {
+            allowNav.current = true
+            navigate(backTo)
         }
     }
 
+    const cancel = () => {
+        if (dirty) setConfirmCancel(true)
+        else leaveEdit()
+    }
+
+    const save = async () => {
+        if (!edit) return
+        if (edit.rows.some((r) => qtyInvalid(r.qty))) {
+            setShowQtyErr(true)
+            setErr(e.qtyInvalid)
+            return
+        }
+        setBusy(true)
+        setErr(null)
+        try {
+            const plan = toSavePlan(base, edit)
+            const saved = isNew || !order ? await createOrder(plan.input) : await saveOrder(order.id, plan.input)
+            const byId = new Map(saved.order.lines.map((l) => [l.id, l]))
+            const jobs = plan.uploads.flatMap((u) => {
+                const lineId = u.lineId ?? saved.createdLineIds[u.newIndex!]
+                return u.files.map((file) => ({ lineId, file }))
+            })
+            const failed: { lineId: string; file: File }[] = []
+            setProgress(jobs.length ? { done: 0, total: jobs.length } : null)
+            for (const [i, job] of jobs.entries()) {
+                const line = byId.get(job.lineId)
+                try {
+                    if (!line) throw new Error('line not found')
+                    await uploadDrawing(line.partId, line.revision.id, job.file)
+                } catch {
+                    failed.push(job)
+                }
+                setProgress({ done: i + 1, total: jobs.length })
+            }
+            const fresh = jobs.length ? await getOrder(saved.order.id) : saved.order
+            loadedId.current = fresh.id
+            showOrder(fresh)
+            if (failed.length) {
+                // 传失败的留在编辑状态里（标红），可以再点保存重传或者删掉（2026-11-27 拍板）
+                const next = fromOrder(fresh)
+                next.rows = next.rows.map((r) => ({
+                    ...r,
+                    files: [...r.files, ...failed.filter((f) => f.lineId === r.lineId).map((f) => newFile(f.file))],
+                }))
+                setEdit(next)
+                setFailedFiles(new Set(failed.map((f) => f.file)))
+                setErr(e.uploadFailed(failed.length))
+            } else {
+                setEdit(null)
+                setShowMissing(false)
+                setShowQtyErr(false)
+                setFailedFiles(new Set())
+            }
+            if (isNew) {
+                allowNav.current = true
+                navigate(`/customer/orders/${fresh.id}`, { replace: true })
+            }
+        } catch (ex) {
+            setErr(errorText(t, ex))
+        } finally {
+            setBusy(false)
+            setProgress(null)
+        }
+    }
+
+    const startSubmit = async () => {
+        // 公司名是提交订单的前置条件：只有「查到了、确实是空的」才算缺；没查到不拦，真缺的话后端也会拒绝
+        const org = await getMyOrganization().catch(() => null)
+        const p = submitProblems(base, !!org && !org.name?.trim())
+        if (hasProblems(p)) setCheck(p)
+        else setConfirmSubmit(true)
+    }
+
+    const fix = () => {
+        if (!check) return
+        const onlyCompany = !check.noParts && !check.incompleteRows && !check.rowsWithoutDrawing && !check.wantedDate && !check.shipTo
+        setCheck(null)
+        if (onlyCompany) {
+            navigate('/customer/settings')
+            return
+        }
+        setEdit(cloneEdit(base))
+        setShowMissing(true)
+    }
+
     const submit = async () => {
+        if (!order) return
         setBusy(true)
         try {
-            apply(await submitOrder(order.id))
+            showOrder(await submitOrder(order.id))
             setErr(null)
-        } catch (e) {
-            setErr(errorText(t, e))
+        } catch (ex) {
+            setErr(errorText(t, ex))
             await load()
         } finally {
             setBusy(false)
@@ -150,80 +284,177 @@ export function OrderDetailPage() {
     }
 
     const receive = async () => {
+        if (!order) return
         setBusy(true)
         try {
-            apply(await confirmReceipt(order.id))
+            showOrder(await confirmReceipt(order.id))
             setErr(null)
-        } catch (e) {
-            setErr(errorText(t, e))
+        } catch (ex) {
+            setErr(errorText(t, ex))
             await load()
         } finally {
             setBusy(false)
         }
     }
 
-    /** 删行前先问：以前点一下就删了，这一行传过的图纸也跟着没了。 */
-    const remove = async (lineId: string, code: string) => {
-        if (!(await askConfirm(t.customer.orderDetail.confirmRemoveLine(code), { danger: true }))) return
+    const openPreview = async (lineId: string, file: SavedFile) => {
+        if (!order) return
         try {
-            await removeLine(order.id, lineId)
-            await load()
-        } catch (e) {
-            setErr(errorText(t, e))
+            const kind = previewKindOf(file.name)
+            if (kind) {
+                const { url } = await filePreviewUrl(file.id)
+                setPreview({ name: file.name, url, kind, lineId, fileId: file.id })
+            } else {
+                // CAD 格式浏览器看不了：直接下载（链接带 attachment，不会离开本页）
+                window.location.assign((await lineFileViewUrl(order.id, lineId, file.id)).url)
+            }
+        } catch (ex) {
+            setErr(errorText(t, ex))
         }
     }
+
+    const shipToLive = !!order && SHIP_TO_LIVE.includes(order.status)
 
     return (
         <Page>
             <Hello
-                back={<Link className="btn sm qui" to={backTo} style={{ margin: '0 0 6px -9px' }}>{t.customer.orderDetail.backToOrders}</Link>}
-                title={order.title || t.common.untitledOrder}
-                right={
-                    <>
-                        {pill(orderSt(t)[order.status])}
-                        {/* ★ 按钮名固定「提交订单」：原因属于说明，不该被写成按钮文案 */}
-                        {draft && (
-                            <>
-                                {!canSubmit && order.lines.length === 0 && (
-                                    <span className="t2" style={{ color: 'var(--muted)' }}>
-                                        {t.customer.orderDetail.needParts}
-                                    </span>
-                                )}
-                                {!canSubmit && missingWantedDate && order.lines.length > 0 && (
-                                    <span className="t2" style={{ color: 'var(--muted)' }}>
-                                        {t.customer.orderDetail.needWantedDate}
-                                    </span>
-                                )}
-                                {missingShipTo && !missingWantedDate && order.lines.length > 0 && (
-                                    <span className="t2" style={{ color: 'var(--muted)' }}>
-                                        {t.shipTo.need}
-                                    </span>
-                                )}
-                                {missingCompany && !missingWantedDate && !missingShipTo && order.lines.length > 0 && (
-                                    <span className="t2" style={{ color: 'var(--muted)' }}>
-                                        {t.customer.orderDetail.needCompany}
-                                        {' '}<Link className="linkbtn" to="/customer/settings">{t.customer.orderDetail.fillCompany}</Link>
-                                    </span>
-                                )}
-                                <button className="btn pri" type="button" onClick={() => setConfirmSubmit(true)} disabled={!canSubmit || busy}>
-                                    {t.customer.orderDetail.submit}
-                                </button>
-                            </>
-                        )}
-                    </>
-                }
+                back={<Link className="btn sm qui" to={backTo} style={{ margin: '0 0 6px -9px' }}>{d.backToOrders}</Link>}
+                title={view.title.trim() || (isNew ? e.newTitle : t.common.untitledOrder)}
+                right={<>
+                    {order && pill(orderSt(t)[order.status])}
+                    {order && draft && !edit && <>
+                        <button className="btn" type="button" disabled={busy} onClick={startEdit}>{e.edit}</button>
+                        {/* ★ 按钮名固定「提交订单」：缺什么点了再说，不写在按钮旁边（2026-11-27：草稿不提示） */}
+                        <button className="btn pri" type="button" disabled={busy} onClick={() => void startSubmit()}>{d.submit}</button>
+                    </>}
+                </>}
             />
 
             {err && <Banner tone="wa" style={{ marginBottom: 14 }}>{err}</Banner>}
-            {draft && noDrawing > 0 && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.missingDrawingBanner(noDrawing)}</Banner>
+
+            {/* 状态条：一句话说明现在在等什么，右侧是这一步唯一需要做的事 */}
+            {status === 'SUBMITTED' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{d.statusSubmitted}</span>
+                        <Link to="/customer/quotes">{d.statusViewQuotes}</Link>
+                    </span>
+                </Banner>
             )}
-            {confirmDialog}
+            {status === 'QUOTED' && order && (
+                <Banner tone="wa" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        {/* 没有总价（取不到汇率）时不编一个 0，退回不带金额的通用文案 */}
+                        <span>{quote && quote.total != null
+                            ? d.statusQuoted(fmtMoney(quote.total, quote.currency), quote.commitDate)
+                            : d.quotedBanner}</span>
+                        <Link className="btn sm" to={`/customer/quotes/${order.id}`}>{d.statusConfirmQuote}</Link>
+                    </span>
+                </Banner>
+            )}
+            {status === 'CONFIRMED' && order && (
+                <Banner tone="ok" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{d.statusConfirmed}</span>
+                        <Link to={`/customer/quotes/${order.id}`}>{d.statusQuoteDetail}</Link>
+                    </span>
+                </Banner>
+            )}
+            {status === 'READY' && <Banner tone="ok" style={{ marginBottom: 14 }}>{d.statusReady}</Banner>}
+            {status === 'SHIPPED' && (
+                <Banner tone="in" style={{ marginBottom: 14 }}>
+                    <span className="bnr-row">
+                        <span>{t.shipping.customerShipped}</span>
+                        <button className="btn pri sm" type="button" disabled={busy}
+                            onClick={() => setConfirmReceive(true)}>{t.shipping.confirmReceipt}</button>
+                    </span>
+                </Banner>
+            )}
+            {status === 'COMPLETED' && order?.shipment?.receivedAt && (
+                <Banner tone="ok" style={{ marginBottom: 14 }}>
+                    {t.shipping.customerCompleted(fmtDateTime(new Date(order.shipment.receivedAt)))}
+                </Banner>
+            )}
+            {status === 'CANCELLED' && <Banner tone="wa" style={{ marginBottom: 14 }}>{d.cancelledBanner}</Banner>}
+
+            {order && <ShipmentCard order={order} />}
+
+            {/* ★ 零件表放最上面（2026-11-24 改版）：零件是订单的主体，订单信息和收货地址是附属，并排放在它下面 */}
+            <OrderPartsTable
+                rows={view.rows}
+                editing={!!edit}
+                onRowsChange={(rows) => setEdit((cur) => (cur ? { ...cur, rows } : cur))}
+                showMissing={showMissing || showQtyErr}
+                failedFiles={failedFiles}
+                lines={order?.lines ?? []}
+                inProduction={inProduction}
+                onPreview={(lineId, f) => void openPreview(lineId, f)}
+                busy={busy}
+            />
+            {progress && progress.total > 0 && (
+                <Card style={{ marginBottom: 16 }}><CardBody>
+                    <div className="fnote" style={{ marginBottom: 6 }}>{e.uploading(progress.done, progress.total)}</div>
+                    <Bar pct={(progress.done / progress.total) * 100} />
+                </CardBody></Card>
+            )}
+
+            <div className="cols">
+                <Card style={{ marginBottom: 16 }}>
+                    <CardHead title={d.infoTitle} />
+                    <CardBody>
+                        {/* ★ 同一张卡只用一套规格：标签 12.5px 常规、值 14px。可编辑与只读靠「输入框 vs 纯文本」区分 */}
+                        <FieldRow>
+                            <Field label={d.fldName}>
+                                {edit
+                                    ? <Input value={edit.title} onChange={(v) => setEdit({ ...edit, title: v })} />
+                                    : <div className="ro">{view.title || X}</div>}
+                            </Field>
+                            <Field label={d.fldLead}>
+                                {edit
+                                    ? <div className={showMissing && !edit.wantedDate ? 'bad' : undefined} tabIndex={-1}>
+                                        <DatePicker value={edit.wantedDate} onChange={(v) => setEdit({ ...edit, wantedDate: v })} />
+                                    </div>
+                                    : <div className="ro">{view.wantedDate || X}</div>}
+                            </Field>
+                        </FieldRow>
+                        <div className="f4row" style={{ marginTop: 14 }}>
+                            <Field label={d.fldParts}><div className="ro">{view.rows.length}</div></Field>
+                            <Field label={d.fldTotalQty}><div className="ro">{totalQty}</div></Field>
+                            {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示（CLAUDE.md §4） */}
+                            <Field label={d.fldCreated}><div className="ro">{order ? fmtDate(new Date(order.createdAt)) : X}</div></Field>
+                            <Field label={d.fldSubmitted}>
+                                <div className="ro">{order?.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X}</div>
+                            </Field>
+                        </div>
+                    </CardBody>
+                </Card>
+
+                <ShipToEditor
+                    shipTo={view.shipTo}
+                    editable={!!edit || shipToLive}
+                    bad={!!edit && showMissing && !edit.shipTo}
+                    note={status === 'READY' ? t.shipTo.lockedNote : undefined}
+                    onChange={edit
+                        ? (s) => setEdit({ ...edit, shipTo: s })
+                        : async (s) => { if (order) showOrder(await updateShipTo(order.id, s)) }}
+                />
+            </div>
+
+            {edit && (
+                <div className="savebar">
+                    <span className="msg">{dirty ? e.unsaved : ''}</span>
+                    <button className="btn" type="button" disabled={busy} onClick={cancel}>{e.cancel}</button>
+                    <button className="btn pri" type="button" disabled={busy || (!dirty && failedFiles.size === 0)}
+                        onClick={() => void save()}>{busy ? '…' : e.save}</button>
+                </div>
+            )}
+
+            {check && <SubmitCheck problems={check} onCancel={() => setCheck(null)} onFix={fix} />}
             {confirmSubmit && (
                 <ConfirmDialog
-                    title={t.customer.orderDetail.submitConfirmTitle}
-                    message={t.customer.orderDetail.submitConfirmBody}
-                    confirmLabel={t.customer.orderDetail.submitConfirmCta}
+                    title={d.submitConfirmTitle}
+                    message={d.submitConfirmBody}
+                    confirmLabel={d.submitConfirmCta}
                     busy={busy}
                     onCancel={() => setConfirmSubmit(false)}
                     onConfirm={() => { void submit().then(() => setConfirmSubmit(false)) }}
@@ -239,155 +470,70 @@ export function OrderDetailPage() {
                     onConfirm={() => { void receive().then(() => setConfirmReceive(false)) }}
                 />
             )}
-
-            {/* 状态条：一句话说明现在在等什么，右侧是这一步唯一需要做的事 */}
-            {order.status === 'SUBMITTED' && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>
-                    <span className="bnr-row">
-                        <span>{t.customer.orderDetail.statusSubmitted}</span>
-                        <Link to="/customer/quotes">{t.customer.orderDetail.statusViewQuotes}</Link>
-                    </span>
-                </Banner>
+            {confirmCancel && (
+                <ConfirmDialog
+                    title={isNew ? e.discardNewTitle : e.cancelTitle}
+                    message={isNew ? e.discardNewBody : e.cancelBody}
+                    confirmLabel={isNew ? e.discardNewCta : e.cancelCta}
+                    danger
+                    onCancel={() => setConfirmCancel(false)}
+                    onConfirm={() => { setConfirmCancel(false); leaveEdit() }}
+                />
             )}
-            {order.status === 'QUOTED' && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>
-                    <span className="bnr-row">
-                        {/* 没有总价（取不到汇率）时不编一个 0，退回不带金额的通用文案 */}
-                        <span>{quote && quote.total != null
-                            ? t.customer.orderDetail.statusQuoted(fmtMoney(quote.total, quote.currency), quote.commitDate)
-                            : t.customer.orderDetail.quotedBanner}</span>
-                        <Link className="btn sm" to={`/customer/quotes/${order.id}`}>
-                            {t.customer.orderDetail.statusConfirmQuote}
-                        </Link>
-                    </span>
-                </Banner>
+            {blocker.state === 'blocked' && (
+                <ConfirmDialog
+                    title={e.leaveTitle}
+                    message={e.leaveBody}
+                    confirmLabel={e.leaveCta}
+                    danger
+                    onCancel={() => blocker.reset()}
+                    onConfirm={() => blocker.proceed()}
+                />
             )}
-            {order.status === 'CONFIRMED' && (
-                <Banner tone="ok" style={{ marginBottom: 14 }}>
-                    <span className="bnr-row">
-                        <span>{t.customer.orderDetail.statusConfirmed}</span>
-                        <Link to={`/customer/quotes/${order.id}`}>{t.customer.orderDetail.statusQuoteDetail}</Link>
-                    </span>
-                </Banner>
+            {preview && (
+                <FilePreviewModal
+                    name={preview.name}
+                    url={preview.url}
+                    kind={preview.kind}
+                    onClose={() => setPreview(null)}
+                    onDownload={() => {
+                        if (!order) return
+                        void lineFileViewUrl(order.id, preview.lineId, preview.fileId)
+                            .then(({ url }) => window.location.assign(url))
+                            .catch((ex) => setErr(errorText(t, ex)))
+                    }}
+                />
             )}
-            {order.status === 'READY' && (
-                <Banner tone="ok" style={{ marginBottom: 14 }}>{t.customer.orderDetail.statusReady}</Banner>
-            )}
-            {order.status === 'SHIPPED' && (
-                <Banner tone="in" style={{ marginBottom: 14 }}>
-                    <span className="bnr-row">
-                        <span>{t.shipping.customerShipped}</span>
-                        <button className="btn pri sm" type="button" disabled={busy}
-                            onClick={() => setConfirmReceive(true)}>{t.shipping.confirmReceipt}</button>
-                    </span>
-                </Banner>
-            )}
-            {order.status === 'COMPLETED' && order.shipment?.receivedAt && (
-                <Banner tone="ok" style={{ marginBottom: 14 }}>
-                    {t.shipping.customerCompleted(fmtDateTime(new Date(order.shipment.receivedAt)))}
-                </Banner>
-            )}
-            {order.status === 'CANCELLED' && (
-                <Banner tone="wa" style={{ marginBottom: 14 }}>{t.customer.orderDetail.cancelledBanner}</Banner>
-            )}
-
-            {/* ★ 零件表放最上面（2026-11-24 改版）：零件是订单的主体，订单信息和收货地址是附属，
-                并排放在它下面 */}
-            <ShipmentCard order={order} />
-
-            <Card style={{ marginBottom: 16 }}>
-                <CardHead title={t.customer.orderDetail.partsTitle(order.lines.length)} />
-                {order.lines.length ? (
-                    <CardBody flush>
-                        <TableWrap className="partsTable">
-                            <thead>
-                                <tr>
-                                    <th className="n">#</th><th>{t.customer.orderDetail.colCode}</th><th>{t.common.table.name}</th><th>{t.customer.orderDetail.colRevision}</th><th>{t.customer.orderDetail.colMaterial}</th>
-                                    <th className="n">{t.customer.orderDetail.colQty}</th><th>{t.customer.orderDetail.colDrawing}</th>
-                                    {inProduction && <th>{t.customer.orderDetail.colProgress}</th>}<th />
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {order.lines.map((l, i) => (
-                                    <tr key={l.id} className="clk" onClick={() => navigate(`/customer/orders/${order.id}/parts/${l.id}`)}>
-                                        <td className="n">{i + 1}</td>
-                                        <td><span className="m">{l.code}</span></td>
-                                        <td className="t1">{l.partName}</td>
-                                        <td>
-                                            {/* 只显示客户自己标的版本；系统内部的第 N 版对客户没有意义（2026-11-18 去掉） */}
-                                            {l.revision.customerRev || X}
-                                        </td>
-                                        <td>{l.material || X}</td>
-                                        <td className="n">{l.quantity}</td>
-                                        <td><span className={`dstat${l.revision.files.length ? ' ok' : ' miss'}`}>
-                                            <i />{l.revision.files.length ? t.customer.orderDetail.drawingUploaded : t.customer.orderDetail.drawingMissing}
-                                        </span></td>
-                                        {inProduction && <td>{pill(lineFulfillSt(t)[l.fulfillmentStatus])}</td>}
-                                        <td style={{ textAlign: 'right' }}>
-                                            {draft
-                                                ? <button className="linkbtn" type="button"
-                                                    onClick={(e) => { e.stopPropagation(); void remove(l.id, l.code) }}>{t.customer.orderDetail.remove}</button>
-                                                : <span style={{ color: 'var(--faint)' }}>›</span>}
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </TableWrap>
-                    </CardBody>
-                ) : (
-                    <CardBody>
-                        <Empty text={t.customer.orderDetail.emptyParts} sub={t.customer.orderDetail.emptyPartsSub}
-                            action={draft ? <>
-                                <Link className="btn pri" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addFirstPart}</Link>
-                                {' '}<Link className="btn" to={`/customer/orders/${order.id}/parts/batch`}>{t.customer.orderDetail.batchAdd}</Link>
-                            </> : undefined} />
-                    </CardBody>
-                )}
-                {draft && order.lines.length > 0 && (
-                    <CardFoot
-                        left={<>
-                            <Link className="btn" to={`/customer/orders/${order.id}/parts/new`}>{t.customer.orderDetail.addPart}</Link>
-                            {' '}<Link className="btn" to={`/customer/orders/${order.id}/parts/batch`}>{t.customer.orderDetail.batchAdd}</Link>
-                        </>}
-                    />
-                )}
-            </Card>
-
-            <div className="cols">
-                <Card style={{ marginBottom: 16 }}>
-                    <CardHead title={t.customer.orderDetail.infoTitle}
-                        right={saved ? <span className="t2" style={{ color: 'var(--muted)' }}>{t.common.saved}</span> : undefined} />
-                    <CardBody>
-                        {/* ★ 同一张卡只用一套规格：标签 12.5px 常规、值 14px。
-                            可编辑与只读靠「输入框 vs 纯文本」区分，不靠字号 —— 之前混了 Fld(10.5 大写/13 等宽)。 */}
-                        <FieldRow>
-                            <Field label={t.customer.orderDetail.fldName}>
-                                {draft
-                                    ? <Input value={title} onChange={setTitle} onBlur={() => void saveDraftInfo()} />
-                                    : <div className="ro">{order.title || X}</div>}
-                            </Field>
-                            {/* 「必填」只对还能改的草稿有意义；提交后是只读文本，再挂必填是噪音 */}
-                            <Field label={t.customer.orderDetail.fldLead} required={!!draft}>
-                                {draft
-                                    ? <DatePicker value={wantedDate} onChange={(v) => { setWantedDate(v); void saveDraftInfo(v) }} />
-                                    : <div className="ro">{order.wantedDate || X}</div>}
-                            </Field>
-                        </FieldRow>
-
-                        <div className="f4row" style={{ marginTop: 14 }}>
-                            <Field label={t.customer.orderDetail.fldParts}><div className="ro">{order.lines.length}</div></Field>
-                            <Field label={t.customer.orderDetail.fldTotalQty}><div className="ro">{totalQty}</div></Field>
-                            {/* ★ 后端给的是 UTC 的 ISO 字符串，必须转成本地时区再显示（CLAUDE.md §4） */}
-                            <Field label={t.customer.orderDetail.fldCreated}><div className="ro">{fmtDate(new Date(order.createdAt))}</div></Field>
-                            <Field label={t.customer.orderDetail.fldSubmitted}>
-                                <div className="ro">{order.submittedAt ? fmtDateTime(new Date(order.submittedAt)) : X}</div>
-                            </Field>
-                        </div>
-                    </CardBody>
-                </Card>
-
-                <ShipToEditor order={order} onSaved={(o) => { apply(o); setErr(null) }} />
-            </div>
         </Page>
+    )
+}
+
+/** 提交前的检查（2026-11-27）：只列缺了哪几项，不在弹框里填；「去完善」回到页面上去填。 */
+function SubmitCheck({ problems: p, onCancel, onFix }: { problems: SubmitProblems; onCancel: () => void; onFix: () => void }) {
+    const { t } = useI18n()
+    const e = t.customer.orderEdit
+    const items: [string, string, boolean?][] = []
+    if (p.noParts) items.push([e.checkParts, e.checkPartsNone])
+    if (p.incompleteRows) items.push([e.checkPartsInfo, e.checkIncomplete(p.incompleteRows)])
+    if (p.rowsWithoutDrawing) items.push([e.checkDrawings, e.checkNoDrawing(p.rowsWithoutDrawing)])
+    if (p.wantedDate) items.push([t.customer.orderDetail.fldLead, e.checkNotFilled])
+    if (p.shipTo) items.push([t.shipTo.title, e.checkNotPicked])
+    if (p.companyName) items.push([e.checkCompany, e.checkNotFilled, true])
+    return (
+        <Modal title={e.checkTitle} width={400} onClose={onCancel}
+            footer={<>
+                <button className="btn" type="button" onClick={onCancel}>{e.cancel}</button>
+                <button className="btn pri" type="button" onClick={onFix}>{e.checkFix}</button>
+            </>}>
+            <div className="t2" style={{ color: 'var(--muted)', marginBottom: 10 }}>{e.checkBody}</div>
+            {items.map(([k, v, settings]) => (
+                <div key={k} className="checkrow">
+                    <span>{k}</span>
+                    <span className="sp" />
+                    {settings && <Link className="linkbtn" to="/customer/settings" style={{ marginRight: 10 }}>{e.checkGoSettings}</Link>}
+                    <span className="bad-t">{v}</span>
+                </div>
+            ))}
+        </Modal>
     )
 }

@@ -17,7 +17,7 @@ import { errorText } from '../../i18n/errorText'
 import { useI18n } from '../../i18n/I18nProvider'
 import {
     createShippingAddress, parseShippingAddress, updateShippingAddress,
-    type ParsedAddress, type ShippingAddressView,
+    type ParsedAddress, type ShippingAddressView, type ShipTo,
 } from '../../services'
 
 type Key = 'country' | 'company' | 'contact' | 'phone' | 'line1' | 'line2' | 'city' | 'region' | 'postalCode'
@@ -26,22 +26,32 @@ type Form = Record<Key, string>
 const KEYS: Key[] = ['country', 'company', 'contact', 'phone', 'line1', 'line2', 'city', 'region', 'postalCode']
 const REQUIRED: Key[] = ['country', 'company', 'contact', 'phone', 'line1', 'city']
 
-const toForm = (a?: ShippingAddressView | null): Form => ({
+const toForm = (a?: Partial<Record<Key, string | null>> | null): Form => ({
     country: a?.country ?? '', company: a?.company ?? '', contact: a?.contact ?? '', phone: a?.phone ?? '',
     line1: a?.line1 ?? '', line2: a?.line2 ?? '', city: a?.city ?? '', region: a?.region ?? '',
     postalCode: a?.postalCode ?? '',
 })
 
-export function AddressFormModal({ initial, onClose, onSaved }: {
+/**
+ * 两种用法：
+ *   - 地址簿（默认）：新增 / 编辑一条，存进地址簿 → onSaved
+ *   - 订单上的地址（传 shipTo + onSaveShipTo，2026-11-27）：只改这个订单的那一份，不碰地址簿，没有「设为默认」
+ */
+export function AddressFormModal({ initial, shipTo, onClose, onSaved, onSaveShipTo }: {
     /** 不传 = 新增 */
     initial?: ShippingAddressView | null
+    /** 订单上现在的地址 */
+    shipTo?: ShipTo | null
     onClose: () => void
-    onSaved: (saved: ShippingAddressView) => void
+    onSaved?: (saved: ShippingAddressView) => void
+    /** 订单模式：抛错时错误显示在本弹框里 */
+    onSaveShipTo?: (next: ShipTo) => void | Promise<void>
 }) {
+    const orderMode = !!onSaveShipTo
     const { t } = useI18n()
     const s = t.shipTo
     const b = t.addressBook
-    const [form, setForm] = useState<Form>(() => toForm(initial))
+    const [form, setForm] = useState<Form>(() => toForm(orderMode ? shipTo : initial))
     const [makeDefault, setMakeDefault] = useState(initial?.isDefault ?? false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
@@ -82,7 +92,15 @@ export function AddressFormModal({ initial, onClose, onSaved }: {
         }
         setBusy(true)
         try {
-            onSaved(initial ? await updateShippingAddress(initial.id, input) : await createShippingAddress(input))
+            if (onSaveShipTo) {
+                await onSaveShipTo({
+                    country: input.country, company: input.company, contact: input.contact, phone: input.phone,
+                    line1: input.line1, line2: input.line2, city: input.city, region: input.region,
+                    postalCode: input.postalCode,
+                })
+            } else {
+                onSaved?.(initial ? await updateShippingAddress(initial.id, input) : await createShippingAddress(input))
+            }
         } catch (e) {
             setErr(errorText(t, e))
         } finally {
@@ -91,7 +109,7 @@ export function AddressFormModal({ initial, onClose, onSaved }: {
     }
 
     return (
-        <Modal title={initial ? b.editTitle : b.newTitle} width={480} busy={busy} onClose={close}
+        <Modal title={orderMode ? s.title : initial ? b.editTitle : b.newTitle} width={480} busy={busy} onClose={close}
             footer={<>
                 <button className="btn" type="button" onClick={close}>{s.cancel}</button>
                 <button className="btn pri" type="button" disabled={busy} onClick={() => void save()}>
@@ -124,11 +142,13 @@ export function AddressFormModal({ initial, onClose, onSaved }: {
                 <Field label={s.region}><Input value={form.region} onChange={set('region')} autoComplete="address-level1" /></Field>
                 <Field label={s.postalCode}><Input value={form.postalCode} onChange={set('postalCode')} autoComplete="postal-code" /></Field>
             </FieldRow>
-            <div className="inprow" style={{ justifyContent: 'flex-start' }}>
-                {initial?.isDefault
-                    ? <label><input type="checkbox" checked disabled /> {b.makeDefault}</label>
-                    : <Checkbox checked={makeDefault} onChange={setMakeDefault}>{b.makeDefault}</Checkbox>}
-            </div>
+            {!orderMode && (
+                <div className="inprow" style={{ justifyContent: 'flex-start' }}>
+                    {initial?.isDefault
+                        ? <label><input type="checkbox" checked disabled /> {b.makeDefault}</label>
+                        : <Checkbox checked={makeDefault} onChange={setMakeDefault}>{b.makeDefault}</Checkbox>}
+                </div>
+            )}
             {err && <Banner tone="wa" style={{ marginTop: 12 }}>{err}</Banner>}
         </Modal>
     )

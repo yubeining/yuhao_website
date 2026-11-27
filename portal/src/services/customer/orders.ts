@@ -38,11 +38,12 @@ export interface OrderSummaryView {
 export interface OrderLineView {
     id: string
     partId: string
-    /** 图号 */
-    code: string
-    /** 这一行上的零件名称快照 */
-    partName: string
-    quantity: number
+    /** 图号。草稿里可以没填（2026-11-27） */
+    code?: string | null
+    /** 这一行上的零件名称快照。草稿里可以没填 */
+    partName?: string | null
+    /** 草稿里可以没填；提交前必须有 */
+    quantity?: number | null
     material?: string | null
     surfaceTreatment?: string | null
     /** 进度：待安排 / 进行中 / 已完成 */
@@ -97,19 +98,32 @@ export interface OrderDocumentView {
     completedAt?: string | null
 }
 
-export interface OrderDraftInput {
+/** 整张保存里的一行。id 为空 = 新行；带 id = 已有行，整体替换。草稿里图号 / 名称 / 数量都可以空着。 */
+export interface LineInput {
+    id: string | null
+    code: string | null
+    name: string | null
+    quantity: number | null
+    material: string | null
+    surfaceTreatment: string | null
+    customerRev: string | null
+    /** 这一行要删的图纸，随这次保存一起删 */
+    removeFileIds: string[]
+}
+
+/** 整张订单（2026-11-27：订单页整页编辑，一次保存）。整体替换：没带的已有行会被删掉。 */
+export interface SaveOrderInput {
     title: string | null
     /** yyyy-MM-dd；null = 客户没填 */
     wantedDate: string | null
+    shipTo: ShipTo | null
+    lines: LineInput[]
 }
 
-export interface LineInput {
-    code: string
-    name: string
-    quantity: number
-    material: string | null
-    surfaceTreatment: string | null
-    customerRev?: string | null
+/** 保存后的订单 + 这次新建的行 id（顺序和请求里新行的顺序一致），用来把还没传的图纸对到新行上。 */
+export interface SavedOrderView {
+    order: OrderView
+    createdLineIds: string[]
 }
 
 export function listOrders(page = 1, pageSize = 20): Promise<PagedResponse<OrderSummaryView>> {
@@ -120,23 +134,29 @@ export function getOrder(orderId: string): Promise<OrderView> {
     return http.get<OrderView>(`/customer/orders/${orderId}`)
 }
 
-export function createOrder(input: OrderDraftInput): Promise<OrderView> {
-    return http.post<OrderView>('/customer/orders', input)
+/** 新建：第一次保存才建单，名称、交期、地址、零件一个事务。 */
+export function createOrder(input: SaveOrderInput): Promise<SavedOrderView> {
+    return http.post<SavedOrderView>('/customer/orders', input)
 }
 
-export function updateOrder(orderId: string, input: OrderDraftInput): Promise<OrderView> {
-    return http.patch<OrderView>(`/customer/orders/${orderId}`, input)
+/** 保存草稿：整张替换，一个事务。不是草稿 409 order.not_draft。 */
+export function saveOrder(orderId: string, input: SaveOrderInput): Promise<SavedOrderView> {
+    return http.put<SavedOrderView>(`/customer/orders/${orderId}`, input)
 }
 
 /**
- * 换成地址簿里的一条（2026-11-26）：后端把这条地址复制进订单（快照）。
- * 草稿到已确认都能换；就绪 / 已取消 409 order.ship_to_locked；不是自己的地址 404 address.not_found。
+ * 提交以后单独改收货地址（订单自己的一份，不连地址簿）。就绪 / 已取消 409 order.ship_to_locked。
+ * 草稿的地址走整张保存。
  */
-export function updateShipTo(orderId: string, addressId: string): Promise<OrderView> {
-    return http.put<OrderView>(`/customer/orders/${orderId}/ship-to`, { addressId })
+export function updateShipTo(orderId: string, shipTo: ShipTo): Promise<OrderView> {
+    return http.put<OrderView>(`/customer/orders/${orderId}/ship-to`, shipTo)
 }
 
-/** 每行都要有传完的图纸，否则 409 order.line_missing_drawing。提交时锁定各行图纸版本。 */
+/**
+ * 提交时锁定各行图纸版本。拦截：没有行 409 order.no_lines、公司名没填 400 organization.name_required、
+ * 没交期 400 order.wanted_date_required、没地址 400 order.ship_to_required、
+ * 行没填齐 400 order.line_incomplete（data = 行 id）、缺图纸 409 order.line_missing_drawing（data = 行 id）。
+ */
 export function submitOrder(orderId: string): Promise<OrderView> {
     return http.post<OrderView>(`/customer/orders/${orderId}/submit`)
 }
@@ -145,30 +165,6 @@ export function submitOrder(orderId: string): Promise<OrderView> {
 /** 删除草稿：真删，不可恢复（后端只允许 DRAFT）。 */
 export function deleteOrder(orderId: string): Promise<void> {
     return http.delete<void>(`/customer/orders/${orderId}`)
-}
-
-/** 每次都新建零件和第 1 版：图号不唯一，不沿用已有零件（2026-11-26）。 */
-export function addLine(orderId: string, input: LineInput): Promise<OrderLineView> {
-    return http.post<OrderLineView>(`/customer/orders/${orderId}/lines`, input)
-}
-
-/** 批量添加：整批一个事务，任何一行不合法整批都不落库。返回的行和传入顺序一致。 */
-export function addLines(orderId: string, lines: LineInput[]): Promise<OrderLineView[]> {
-    return http.post<OrderLineView[]>(`/customer/orders/${orderId}/lines/batch`, { lines })
-}
-
-export function updateLine(orderId: string, lineId: string, input: Omit<LineInput, 'code' | 'customerRev'>): Promise<OrderLineView> {
-    return http.patch<OrderLineView>(`/customer/orders/${orderId}/lines/${lineId}`, input)
-}
-
-/** 返回删除后的订单。 */
-export function removeLine(orderId: string, lineId: string): Promise<OrderView> {
-    return http.delete<OrderView>(`/customer/orders/${orderId}/lines/${lineId}`)
-}
-
-/** 「换图纸」：当前版本已锁定时开一个新版本，并把这一行改挂到新版本。 */
-export function startNewRevision(orderId: string, lineId: string, customerRev: string | null): Promise<OrderLineView> {
-    return http.post<OrderLineView>(`/customer/orders/${orderId}/lines/${lineId}/new-revision`, { customerRev })
 }
 
 /** 在订单里看图：后端校验这一行确实锁的是这个文件的版本，并按订单记审计。 */

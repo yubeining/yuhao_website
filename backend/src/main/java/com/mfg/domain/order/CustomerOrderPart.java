@@ -61,20 +61,20 @@ class CustomerOrderPart extends BaseEntity {
     @Column(name = "part_revision_id", columnDefinition = "uuid", nullable = false)
     private UUID partRevisionId;
 
-    @Column(name = "part_no", nullable = false)
+    @Column(name = "part_no")
     private String partNo;
 
-    @Column(name = "part_name", nullable = false)
+    @Column(name = "part_name")
     private String partName;
 
     /**
      * 这一行要做多少件 —— 一行零件是<b>一批</b>,不是一个物理件(设计文档 12 §1)。
      *
-     * <p>库里这一列<b>没有默认值</b>,是刻意的:忘了填会当场报错,而不是静默变成 1 ——
-     * 数量要拿去算钱和排产,静默默认值是最难查的那种错。
+     * <p>库里这一列<b>没有默认值</b>,是刻意的:没填就是空,而不是静默变成 1 ——
+     * 数量要拿去算钱和排产,静默默认值是最难查的那种错。草稿里可以空着(2026-11-27),提交时检查。
      */
-    @Column(name = "quantity", nullable = false)
-    private int quantity;
+    @Column(name = "quantity")
+    private Integer quantity;
 
     @Column(name = "material")
     private String material;
@@ -90,7 +90,7 @@ class CustomerOrderPart extends BaseEntity {
     }
 
     CustomerOrderPart(UUID customerOrderId, UUID customerOrgId, UUID partDesignId, UUID partRevisionId,
-                      String partNo, String partName, int quantity, String material, String surfaceTreatment) {
+                      String partNo, String partName, Integer quantity, String material, String surfaceTreatment) {
         this.customerOrderId = customerOrderId;
         this.customerOrgId = customerOrgId;
         this.partDesignId = partDesignId;
@@ -102,7 +102,7 @@ class CustomerOrderPart extends BaseEntity {
         this.surfaceTreatment = surfaceTreatment;
     }
 
-    void updateDraft(String partName, int quantity, String material, String surfaceTreatment) {
+    void updateDraft(String partName, Integer quantity, String material, String surfaceTreatment) {
         this.partName = partName;
         this.quantity = quantity;
         this.material = material;
@@ -141,7 +141,7 @@ class CustomerOrderPart extends BaseEntity {
         return partName;
     }
 
-    int getQuantity() {
+    Integer getQuantity() {
         return quantity;
     }
 

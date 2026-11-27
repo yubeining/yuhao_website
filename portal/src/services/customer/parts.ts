@@ -51,11 +51,6 @@ export interface ViewUrl {
     expiresAt: string
 }
 
-/** 按图号查本客户已有的零件。没有时后端回 404 part.not_found。 */
-export function findPartByCode(code: string): Promise<PartView> {
-    return http.get<PartView>(`/customer/parts?code=${encodeURIComponent(code)}`)
-}
-
 export function getPart(partId: string): Promise<PartView> {
     return http.get<PartView>(`/customer/parts/${partId}`)
 }
