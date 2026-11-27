@@ -18,6 +18,7 @@ import { useCountdown } from '../../components/useCountdown'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { BrandSide } from '../../components/brand'
 import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
+import { Banner } from '../../components/ui'
 import { LangButton } from '../../components/LangButton'
 import { useI18n } from '../../i18n/I18nProvider'
 import { externalLogin, sendOtp, verifyOtp } from '../../services/auth'
@@ -33,8 +34,10 @@ export function SignInPage() {
     const location = useLocation()
     const c = t.login
 
+    /** 刚在设置页改完密码被登出跳过来的（2026-11-27）：说一句为什么要重新登录，并直接给密码登录 */
+    const passwordChanged = !!(location.state as { passwordChanged?: boolean } | null)?.passwordChanged
     // ★ 默认验证码（2026-11-17 需求方定）：自助注册的客户账号没有密码，默认密码模式等于让他们先撞一次错
-    const [mode, setMode] = useState<Mode>('code')
+    const [mode, setMode] = useState<Mode>(passwordChanged ? 'password' : 'code')
     const [mail, setMail] = useState('')
     const [pw, setPw] = useState('')
     const [code, setCode] = useState('')
@@ -133,6 +136,7 @@ export function SignInPage() {
                     <div className="fsub">
                         {c.sub}<Link to="/auth/register">{c.subA}</Link>
                     </div>
+                    {passwordChanged && <Banner tone="ok" style={{ marginBottom: 16 }}>{t.profile.passwordChanged}</Banner>}
 
                     {/* 每种状态包一层 <form>：回车提交，密码管理器也能认出这是登录表单 */}
                     {mode === 'password' ? (

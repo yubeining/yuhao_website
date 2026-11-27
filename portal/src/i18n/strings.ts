@@ -252,7 +252,7 @@ export interface Strings {
         joined: string; edit: string; save: string; cancel: string; saved: string
         company: string; country: string; companyMissing: string; companyFill: string
         /** 改密码（2026-11-23）：邮件验证码 + 新密码，成功后所有设备都要重新登录 */
-        password: string; changePassword: string; passwordHint: string
+        password: string; changePassword: string; passwordChanged: string
         sendCode: string; resend: string; resendIn: (seconds: number) => string
         codeSentTo: (email: string) => string
         code: string; newPw: string; confirmPw: string; mismatch: string; passwordRule: string
@@ -743,7 +743,7 @@ export const STRINGS: Record<Lang, Strings> = {
         companyMissing: '公司信息未完善，提交订单前需要填写', companyFill: '去填写',
         email: '邮箱', role: '身份',
         joined: '注册时间', edit: '编辑', save: '保存', cancel: '取消', saved: '已保存',
-        password: '登录密码', changePassword: '修改密码', passwordHint: '修改后所有设备都要重新登录。',
+        password: '登录密码', changePassword: '修改密码', passwordChanged: '密码已修改，请用新密码登录。',
         sendCode: '发送验证码', resend: '重新发送',
         resendIn: (sec) => `${sec}s 后可重发`,
         codeSentTo: (email) => `验证码已发送至 ${email}，5 分钟内有效。`,
@@ -1376,7 +1376,7 @@ export const STRINGS: Record<Lang, Strings> = {
         email: 'Email', role: 'Role',
         joined: 'Joined', edit: 'Edit', save: 'Save', cancel: 'Cancel', saved: 'Saved',
         password: 'Sign-in password', changePassword: 'Change password',
-        passwordHint: 'After the change, every device has to sign in again.',
+        passwordChanged: 'Password changed. Please sign in with your new password.',
         sendCode: 'Send code', resend: 'Resend',
         resendIn: (sec) => `Resend in ${sec}s`,
         codeSentTo: (email) => `Code sent to ${email}. It is valid for 5 minutes.`,

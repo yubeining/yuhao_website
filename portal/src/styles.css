@@ -192,6 +192,8 @@ select.inp{appearance:none;-webkit-appearance:none;cursor:pointer;
 .chead h2{margin:0;font-size:12px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-2);}
 .chead .rid{font-family:var(--mono);font-size:12px;color:var(--muted);}
 .chead .sp{flex:1;}
+/* 只有标题行的卡（比如设置页的登录密码）：底线和卡片边框叠成两道，去掉 */
+.chead:last-child{border-bottom:0;}
 .cbody{padding:16px;}
 .cbody.flush{padding:0;}
 .cfoot{padding:11px 16px;border-top:1px solid var(--line);
@@ -523,7 +525,6 @@ td .t2{font-size:12px;color:var(--faint);margin-top:1px;}
 .idmenu .ir{display:block;font-size:13px;font-weight:600;line-height:1.35;}
 .idmenu .ip{display:block;font-size:11.5px;color:var(--muted);margin-top:1px;}
 .idmenu .ick{margin-left:auto;color:var(--acc);font-weight:700;flex:none;}
-.idmenu .imd{height:1px;background:var(--line);margin:5px 0;}
 .idmenu .out{color:var(--muted);font-size:12.5px;}
 
 /* 设置页 · 外观选项 */

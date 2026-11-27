@@ -95,15 +95,15 @@ export function AppShell({ children, nav, settingsTo, badge, areas, currentPath,
 }
 
 /**
- * 用户菜单 —— 账号设置 + 退出。在侧栏底部，菜单向上展开。
+ * 用户菜单 —— 只有退出登录。在侧栏底部，菜单向上展开。
  *
- * ★ 设置入口在侧栏底部也有一个导航项；菜单里保留一份，和 2026-11 定的「账号设置 / 退出登录」一致。
+ * ★ 设置入口只在侧栏底部的导航项里，菜单里不再放一份（2026-11-27 需求方：底下已经有设置了）。
  *
  * ★ 身份切换（一个账号多身份）是原型演示专属功能，2026-11-02 随 mock 层一起删掉：
  *   真实登录下一个账号只属于一个端，不存在「切换」。原来那段代码在空种子下
  *   本来也恒为假 —— 留着只是让人以为这里有功能。
  */
-function UserMenu({ sub, settingsTo }: { sub: string; settingsTo?: string }) {
+function UserMenu({ sub }: { sub: string }) {
     const { t } = useI18n()
     const session = useSession()
     const navigate = useNavigate()
@@ -133,14 +133,6 @@ function UserMenu({ sub, settingsTo }: { sub: string; settingsTo?: string }) {
             </button>
             {open && (
                 <div className="idmenu">
-                    {settingsTo && (
-                        <>
-                            <button type="button" onClick={() => { setOpen(false); navigate(settingsTo) }}>
-                                {t.nav.settings}
-                            </button>
-                            <div className="imd" />
-                        </>
-                    )}
                     <button className="out" type="button" onClick={signOut}>
                         {t.nav.signOut}
                     </button>
@@ -204,7 +196,7 @@ function SideNav({ items, settingsTo, badge, areas, currentPath, sub }: {
                         <span className="ic">⚙</span><span className="lb">{t.nav.settings}</span>
                     </NavLink>
                 )}
-                <UserMenu sub={sub} settingsTo={settingsTo} />
+                <UserMenu sub={sub} />
             </div>
         </nav>
     )

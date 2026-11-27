@@ -8,6 +8,7 @@
 
 import { useState } from 'react'
 import { BigButton, ErrMsg, Field, Form, Input } from '../../components/form'
+import { Banner } from '../../components/ui'
 import { opsLogin } from '../../services/auth'
 import { ApiError } from '../../services/core/http'
 import { landingAfterSignIn, setSession } from '../../auth/session'
@@ -57,6 +58,10 @@ export function OpsSignInPage() {
                         {t.opsLogin.brand}
                     </div>
                     <h1 className="fh">{t.opsLogin.h}</h1>
+                    {/* 刚在设置页改完密码被登出跳过来的（2026-11-27）：说一句为什么要重新登录 */}
+                    {(location.state as { passwordChanged?: boolean } | null)?.passwordChanged && (
+                        <Banner tone="ok" style={{ marginBottom: 16 }}>{t.profile.passwordChanged}</Banner>
+                    )}
 
                     <Form onSubmit={() => void submit()}>
                         <Field label={t.opsLogin.email}>

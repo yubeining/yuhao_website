@@ -16,7 +16,14 @@ import { createPortal } from 'react-dom'
 import { useI18n } from '../i18n/I18nProvider'
 
 const pad = (n: number) => String(n).padStart(2, '0')
-const toISO = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`
+/**
+ * 年 / 月（0 起）/ 日 → `YYYY-MM-DD`。月份可以越界：日历上补的上月 / 下月格子会传 -1、12 进来，
+ * 先经本地 `Date` 进位成真实日期 —— 以前直接拼字符串，12 月点下月 1 号得到 2026-13-01（2026-11-27 修）。
+ */
+const toISO = (y: number, m: number, d: number) => {
+    const dt = new Date(y, m, d)
+    return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`
+}
 
 function parse(iso: string): { y: number; m: number; d: number } | null {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
@@ -37,6 +44,27 @@ export function localTodayISO(): string {
 const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
 /** 0 = 周一（表头从周一开始） */
 const firstWeekday = (y: number, m: number) => (new Date(y, m, 1).getDay() + 6) % 7
+
+/** 某月日历的 42 格（6 周）：前后补上月 / 下月的日子（out = 不是本月，灰色显示，也能点） */
+export function monthCells(y: number, m: number): { iso: string; day: number; out: boolean }[] {
+    const lead = firstWeekday(y, m)
+    const total = daysInMonth(y, m)
+    const prevTotal = daysInMonth(y, m - 1)
+    const out: { iso: string; day: number; out: boolean }[] = []
+    for (let i = 0; i < 42; i++) {
+        const n = i - lead + 1
+        if (n < 1) {
+            const d = prevTotal + n
+            out.push({ iso: toISO(y, m - 1, d), day: d, out: true })
+        } else if (n > total) {
+            const d = n - total
+            out.push({ iso: toISO(y, m + 1, d), day: d, out: true })
+        } else {
+            out.push({ iso: toISO(y, m, n), day: n, out: false })
+        }
+    }
+    return out
+}
 
 export function DatePicker({ value, onChange, placeholder, min }: {
     value: string
@@ -129,27 +157,7 @@ export function DatePicker({ value, onChange, placeholder, min }: {
         return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(2024, 0, 1 + i)))
     }, [lang])
 
-    const cells = useMemo(() => {
-        const lead = firstWeekday(view.y, view.m)
-        const total = daysInMonth(view.y, view.m)
-        const prevTotal = daysInMonth(view.y, view.m - 1)
-        const out: { iso: string; day: number; out: boolean }[] = []
-        for (let i = 0; i < 42; i++) {
-            const n = i - lead + 1
-            if (n < 1) {
-                const d = prevTotal + n
-                const m = view.m - 1
-                out.push({ iso: toISO(view.y, m, d), day: d, out: true })
-            } else if (n > total) {
-                const d = n - total
-                const m = view.m + 1
-                out.push({ iso: toISO(view.y, m, d), day: d, out: true })
-            } else {
-                out.push({ iso: toISO(view.y, view.m, n), day: n, out: false })
-            }
-        }
-        return out
-    }, [view])
+    const cells = useMemo(() => monthCells(view.y, view.m), [view])
 
     const now = today()
     const todayISO = toISO(now.y, now.m, now.d)

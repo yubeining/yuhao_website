@@ -193,7 +193,7 @@ export function AccountSettingsPage() {
             // 后端已吊销该账号全部会话（含当前设备），本地登录态也要清掉
             const signIn = SIGNIN_BY_TYPE[session.partyType]
             clearSession()
-            navigate(signIn, { replace: true })
+            navigate(signIn, { replace: true, state: { passwordChanged: true } })
         } catch (e) {
             setPwErr(errorText(t, e))
             setPwBusy(false)
@@ -262,14 +262,12 @@ export function AccountSettingsPage() {
             {/* 收货地址簿（2026-11-26）：只有客户下单要用 */}
             {isCustomer && <AddressBookCard />}
 
+            {/* 只有一行：「所有设备要重新登录」不常驻页面，改完跳到登录页时再说（2026-11-27 需求方） */}
             <Card style={{ maxWidth: 720, marginTop: 18 }}>
                 <CardHead
                     title={p.password}
                     right={<button className="btn sm" type="button" onClick={openPassword}>{p.changePassword}</button>}
                 />
-                <CardBody>
-                    <div className="fnote">{p.passwordHint}</div>
-                </CardBody>
             </Card>
 
             {pwOpen && (
