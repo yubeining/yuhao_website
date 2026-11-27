@@ -64,6 +64,23 @@ public final class CacheKeys {
         return partyScoped(partyId, "order", "*");
     }
 
+    // ---------- 图纸上传凭证（2026-11-27：申请上传不落库，凭证放这里，过期自动消失）----------
+
+    /** 一张还没 complete 的上传凭证。 */
+    public static String drawingUpload(UUID partyId, UUID uploadId) {
+        return partyScoped(partyId, "upload", uploadId.toString());
+    }
+
+    /** 凭证已经 complete 过：值是建出来的文件 id，给超时重试的 complete 返回同一份。 */
+    public static String drawingUploadDone(UUID partyId, UUID uploadId) {
+        return partyScoped(partyId, "upload-done", uploadId.toString());
+    }
+
+    /** 同一张凭证的 complete 互斥（并发重试时只有一个真的去建记录）。 */
+    public static String drawingUploadLock(UUID partyId, UUID uploadId) {
+        return partyScoped(partyId, "upload-lock", uploadId.toString());
+    }
+
     // ---------- 汇率（全局，非租户范围）----------
 
     public static String fxRate(String base, String quote) {

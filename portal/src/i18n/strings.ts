@@ -66,7 +66,7 @@ export interface Strings {
             submittedBanner: string
             quotedBanner: string; cancelledBanner: string
             statusSubmitted: string; statusQuoted: (amount: string, commitDate: string) => string
-            statusConfirmed: string; statusReady: string
+            statusConfirmed: string
             statusViewQuotes: string; statusConfirmQuote: string; statusQuoteDetail: string
             infoTitle: string; fldName: string; fldLead: string
             fldParts: string; fldTotalQty: string; fldCreated: string; fldSubmitted: string
@@ -528,7 +528,6 @@ export const STRINGS: Record<Lang, Strings> = {
             statusSubmitted: '运营正在核价，报价出来后可在「我的报价」确认。',
             statusQuoted: (amount, commitDate) => `报价已出 ${amount}（按确认当日汇率锁价）· 承诺交期 ${commitDate}`,
             statusConfirmed: '已确认报价。',
-            statusReady: '全部零件已完工。',
             statusViewQuotes: '我的报价 →', statusConfirmQuote: '查看并确认报价', statusQuoteDetail: '报价明细 →',
             infoTitle: '订单信息',
             fldName: '名称', fldLead: '期望交货日期',
@@ -1026,6 +1025,8 @@ export const STRINGS: Record<Lang, Strings> = {
             'part.file_type_not_allowed': '文件类型不支持，或文件内容和扩展名对不上',
             'part.file_not_pending': '这个文件的上传已经结束了',
             'part.file_object_missing': '文件没有传上去，请重新上传',
+            'part.upload_not_found': '上传已过期，请重新上传',
+            'part.upload_in_progress': '这个文件正在处理，请稍后再试',
             'part.file_not_completed': '文件还没传完或已被删除，暂时不能查看',
             'part.file_not_found': '文件不存在',
             'order.not_found': '订单不存在',
@@ -1155,7 +1156,6 @@ export const STRINGS: Record<Lang, Strings> = {
             statusSubmitted: 'We are pricing your order. The quote will appear in "My quotes" for you to confirm.',
             statusQuoted: (amount, commitDate) => `Quote ready: ${amount} (locked at the rate on the day you confirm) · delivery ${commitDate}`,
             statusConfirmed: 'Quote confirmed.',
-            statusReady: 'All parts are finished.',
             statusViewQuotes: 'My quotes →', statusConfirmQuote: 'Review and confirm', statusQuoteDetail: 'Quote details →',
             infoTitle: 'Order details',
             fldName: 'Name', fldLead: 'Requested delivery date',
@@ -1659,6 +1659,8 @@ export const STRINGS: Record<Lang, Strings> = {
             'part.file_type_not_allowed': 'File type not supported, or the content does not match the extension',
             'part.file_not_pending': 'This upload has already finished',
             'part.file_object_missing': 'The file did not arrive. Please upload it again',
+            'part.upload_not_found': 'This upload has expired. Please upload it again',
+            'part.upload_in_progress': 'This file is still being processed. Try again in a moment',
             'part.file_not_completed': 'The file is not uploaded yet or was removed',
             'part.file_not_found': 'File not found',
             'order.not_found': 'Order not found',

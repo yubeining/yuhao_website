@@ -54,24 +54,4 @@ interface PartFileRepository extends JpaRepository<PartFile, UUID> {
                                      @Param("sizeBytes") Long sizeBytes,
                                      @Param("completedAt") Instant completedAt,
                                      @Param("now") Instant now);
-
-    /**
-     * 上传完成：PENDING → COMPLETED，同时把 {@code storageKey} 换成服务端挪过去的新地址。
-     * 条件和 {@link #transitionIfRevisionUnlocked} 一样（状态 + 版本未锁定写在同一条 SQL 里）。
-     */
-    @Transactional
-    @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("update PartFile f set f.uploadStatus = com.mfg.domain.order.PartFile$UploadStatus.COMPLETED,"
-            + " f.storageKey = :storageKey, f.detectedType = :detectedType, f.sizeBytes = :sizeBytes,"
-            + " f.completedAt = :completedAt, f.updatedAt = :now, f.version = f.version + 1"
-            + " where f.id = :id and f.customerOrgId = :orgId"
-            + " and f.uploadStatus = com.mfg.domain.order.PartFile$UploadStatus.PENDING"
-            + " and not exists (select r.id from PartRevision r where r.id = f.partRevisionId and r.lockedAt is not null)")
-    int completeIfRevisionUnlocked(@Param("id") UUID id,
-                                   @Param("orgId") UUID customerOrgId,
-                                   @Param("storageKey") String storageKey,
-                                   @Param("detectedType") String detectedType,
-                                   @Param("sizeBytes") Long sizeBytes,
-                                   @Param("completedAt") Instant completedAt,
-                                   @Param("now") Instant now);
 }

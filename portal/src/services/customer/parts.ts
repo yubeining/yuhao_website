@@ -46,6 +46,16 @@ export interface UploadTicket {
     expiresAt: string
 }
 
+/** 图纸的上传回执（后端 DrawingUploadTicket）。 */
+export interface DrawingUploadTicket {
+    /** 上传凭证，不是文件 id：传完 complete 校验通过才建文件记录，传失败什么都不留 */
+    uploadId: string
+    uploadUrl: string
+    /** PUT 时必须带的 Content-Type，一字不差 */
+    contentType: string
+    expiresAt: string
+}
+
 export interface ViewUrl {
     url: string
     expiresAt: string
@@ -69,10 +79,10 @@ export async function uploadDrawing(
     file: File,
     onProgress?: (loaded: number, total: number) => void,
 ): Promise<FileView> {
-    const ticket = await http.post<UploadTicket>(
+    const ticket = await http.post<DrawingUploadTicket>(
         `/customer/parts/${partId}/revisions/${revisionId}/files`,
         { filename: file.name, contentType: file.type },
     )
     await putToSignedUrl(ticket.uploadUrl, file, ticket.contentType, onProgress)
-    return http.post<FileView>(`/customer/files/${ticket.fileId}/complete`)
+    return http.post<FileView>(`/customer/uploads/${ticket.uploadId}/complete`)
 }

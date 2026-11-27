@@ -8,7 +8,6 @@ import com.mfg.platform.identity.OpsUserRepository;
 import com.mfg.platform.identity.Organization;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.identity.dto.RegisterRequest;
-import com.mfg.platform.storage.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +28,6 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -77,9 +75,6 @@ class DispatchFlowIT {
 
     @Autowired
     private JdbcTemplate jdbc;
-
-    @Autowired
-    private StorageService storage;
 
     @Autowired
     private StringRedisTemplate redis;
@@ -740,10 +735,9 @@ class DispatchFlowIT {
         JsonNode ticket = post("/customer/parts/" + line.path("partId").asText() + "/revisions/"
                 + line.path("revision").path("id").asText() + "/files", new UploadBody("drawing.pdf", "application/pdf"),
                 c.token());
-        UUID fileId = UUID.fromString(ticket.path("fileId").asText());
-        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
-        storage.put(key, new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        ok(rawPost("/customer/files/" + fileId + "/complete", null, c.token()));
+        putToUploadUrl(ticket.path("uploadUrl").asText(), PDF);
+        UUID fileId = UUID.fromString(post("/customer/uploads/" + ticket.path("uploadId").asText() + "/complete", null, c.token())
+                .path("id").asText());
         return fileId;
     }
 
@@ -811,5 +805,13 @@ class DispatchFlowIT {
             headers.setBearerAuth(bearer);
         }
         return rest.exchange("http://localhost:" + port + path, method, new HttpEntity<>(body, headers), String.class);
+    }
+
+    /** 模拟浏览器直传：PUT 到签名地址（测试用的 memory 存储由 DevStorageController 接住）。 */
+    private void putToUploadUrl(String uploadUrl, byte[] bytes) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        assertThat(rest.exchange("http://localhost:" + port + uploadUrl, HttpMethod.PUT,
+                new HttpEntity<>(bytes, headers), String.class).getStatusCode().value()).isEqualTo(200);
     }
 }

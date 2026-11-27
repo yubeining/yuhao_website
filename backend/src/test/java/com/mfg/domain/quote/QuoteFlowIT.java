@@ -8,7 +8,6 @@ import com.mfg.platform.identity.OpsUserRepository;
 import com.mfg.platform.identity.Organization;
 import com.mfg.platform.identity.OrganizationRepository;
 import com.mfg.platform.identity.dto.RegisterRequest;
-import com.mfg.platform.storage.StorageService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,7 +28,6 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.io.ByteArrayInputStream;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
@@ -83,9 +81,6 @@ class QuoteFlowIT {
 
     @Autowired
     private PriceEstimateRepository priceEstimates;
-
-    @Autowired
-    private StorageService storage;
 
     @Autowired
     private StringRedisTemplate redis;
@@ -901,11 +896,10 @@ class QuoteFlowIT {
         String revId = line.path("revision").path("id").asText();
         JsonNode ticket = post("/customer/parts/" + partId + "/revisions/" + revId + "/files",
                 new UploadBody("drawing.pdf", "application/pdf"), c.token());
-        UUID fileId = UUID.fromString(ticket.path("data").path("fileId").asText());
-        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
-        storage.put(key, new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        assertThat(post("/customer/files/" + fileId + "/complete", null, c.token())
-                .path("data").path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        putToUploadUrl(ticket.path("data").path("uploadUrl").asText(), PDF);
+        JsonNode done = post("/customer/uploads/" + ticket.path("data").path("uploadId").asText() + "/complete", null, c.token()).path("data");
+        assertThat(done.path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        UUID fileId = UUID.fromString(done.path("id").asText());
         return fileId;
     }
 
@@ -1035,5 +1029,13 @@ class QuoteFlowIT {
 
     private String url(String path) {
         return "http://localhost:" + port + path;
+    }
+
+    /** 模拟浏览器直传：PUT 到签名地址（测试用的 memory 存储由 DevStorageController 接住）。 */
+    private void putToUploadUrl(String uploadUrl, byte[] bytes) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        assertThat(rest.exchange("http://localhost:" + port + uploadUrl, HttpMethod.PUT,
+                new HttpEntity<>(bytes, headers), String.class).getStatusCode().value()).isEqualTo(200);
     }
 }

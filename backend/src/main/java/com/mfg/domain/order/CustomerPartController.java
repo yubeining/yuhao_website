@@ -54,15 +54,16 @@ class CustomerPartController {
     }
 
     @PostMapping("/customer/parts/{partId}/revisions/{revisionId}/files")
-    UploadTicket requestUpload(@CurrentUser UserPrincipal user, @PathVariable UUID partId,
-                               @PathVariable UUID revisionId, @Valid @RequestBody RequestUploadRequest request) {
+    DrawingUploadTicket requestUpload(@CurrentUser UserPrincipal user, @PathVariable UUID partId,
+                                      @PathVariable UUID revisionId, @Valid @RequestBody RequestUploadRequest request) {
         return service.requestUpload(user.partyId(), user.id(), partId, revisionId,
                 request.filename(), request.contentType());
     }
 
-    @PostMapping("/customer/files/{fileId}/complete")
-    FileView complete(@CurrentUser UserPrincipal user, @PathVariable UUID fileId) {
-        return service.complete(user.partyId(), fileId);
+    /** 传完之后调：{@code uploadId} 是申请上传时发的凭证，校验通过才建文件记录（2026-11-27）。 */
+    @PostMapping("/customer/uploads/{uploadId}/complete")
+    FileView complete(@CurrentUser UserPrincipal user, @PathVariable UUID uploadId) {
+        return service.complete(user.partyId(), uploadId);
     }
 
     @DeleteMapping("/customer/files/{fileId}")

@@ -360,7 +360,6 @@ export function OrderDetailPage() {
                     </span>
                 </Banner>
             )}
-            {status === 'READY' && <Banner tone="ok" style={{ marginBottom: 14 }}>{d.statusReady}</Banner>}
             {status === 'SHIPPED' && (
                 <Banner tone="in" style={{ marginBottom: 14 }}>
                     <span className="bnr-row">

@@ -23,7 +23,6 @@ import org.springframework.test.context.ActiveProfiles;
 import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
-import java.io.ByteArrayInputStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
@@ -148,31 +147,79 @@ class PartDrawingFlowIT {
     void uploadedPdfCompletesWithTheRealSize() throws Exception {
         Customer c = register("pdf");
         UUID revId = createRevision(c, createPart(c));
-        UUID fileId = requestUpload(c, revId, "drawing.pdf", "application/pdf");
+        Upload up = requestUpload(c, revId, "drawing.pdf", "application/pdf");
 
-        storage.put(storageKeyOf(fileId), new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        JsonNode done = post(completePath(fileId), null, c.token());
+        putBytes(up, PDF, "application/pdf");
+        JsonNode done = post(completePath(up), null, c.token());
 
         assertThat(done.path("data").path("uploadStatus").asText()).isEqualTo("COMPLETED");
         assertThat(done.path("data").path("sizeBytes").asLong()).isEqualTo(PDF.length);
+        assertThat(fileRows(revId)).isEqualTo(1);
     }
 
-    /** 扩展名说是 DWG，字节是 PDF：拒，并且把桶里的对象删掉 —— 不合规的内容不留在存储里。 */
+    /** 2026-11-27：申请上传不落库，传完校验通过才建记录 —— 传失败（断网、关页面）什么都不留。 */
+    @Test
+    void requestingAnUploadLeavesNoRecord() throws Exception {
+        Customer c = register("norow");
+        UUID revId = createRevision(c, createPart(c));
+
+        requestUpload(c, revId, "drawing.pdf", "application/pdf");
+
+        assertThat(fileRows(revId)).isZero();
+    }
+
+    /** 字节还没进存储就 complete：409，不建记录；之后真传上去再 complete 照样成功（同一张凭证可重试）。 */
+    @Test
+    void completingBeforeTheBytesArriveFailsAndCanBeRetried() throws Exception {
+        Customer c = register("early");
+        UUID revId = createRevision(c, createPart(c));
+        Upload up = requestUpload(c, revId, "drawing.pdf", "application/pdf");
+
+        ResponseEntity<String> early = rawPost(completePath(up), null, c.token());
+        assertThat(early.getStatusCode().value()).isEqualTo(409);
+        assertThat(messageOf(early)).isEqualTo("part.file_object_missing");
+        assertThat(fileRows(revId)).isZero();
+
+        putBytes(up, PDF, "application/pdf");
+        assertThat(post(completePath(up), null, c.token()).path("data").path("uploadStatus").asText())
+                .isEqualTo("COMPLETED");
+    }
+
+    /** 扩展名说是 DWG，字节是 PDF：拒，不建记录，桶里的对象删掉 —— 不合规的内容不留在存储里。 */
     @Test
     void contentThatDoesNotMatchItsExtensionIsRejectedAndDeleted() throws Exception {
         Customer c = register("fake");
         UUID revId = createRevision(c, createPart(c));
-        UUID fileId = requestUpload(c, revId, "drawing.dwg", "application/acad");
-        String key = storageKeyOf(fileId);
+        Upload up = requestUpload(c, revId, "drawing.dwg", "application/acad");
+        String key = uploadKeyOf(c, up);
 
-        storage.put(key, new ByteArrayInputStream(PDF), PDF.length, "application/acad");
-        ResponseEntity<String> res = rawPost(completePath(fileId), null, c.token());
+        putBytes(up, PDF, "application/acad");
+        ResponseEntity<String> res = rawPost(completePath(up), null, c.token());
 
         assertThat(res.getStatusCode().value()).isEqualTo(400);
         assertThat(messageOf(res)).isEqualTo("part.file_type_not_allowed");
-        assertThat(jdbc.queryForObject("select upload_status from part_file where id = ?", String.class, fileId))
-                .isEqualTo("REJECTED");
+        assertThat(fileRows(revId)).isZero();
         assertThat(storage.exists(key)).isFalse();
+    }
+
+    /** 别人的上传凭证、过期（Redis 里已经没了）的凭证：一律 404，不建记录。 */
+    @Test
+    void someoneElsesOrExpiredUploadIsNotFound() throws Exception {
+        Customer owner = register("upowner");
+        Customer other = register("upother");
+        UUID revId = createRevision(owner, createPart(owner));
+        Upload up = requestUpload(owner, revId, "drawing.pdf", "application/pdf");
+        putBytes(up, PDF, "application/pdf");
+
+        ResponseEntity<String> stolen = rawPost(completePath(up), null, other.token());
+        assertThat(stolen.getStatusCode().value()).isEqualTo(404);
+        assertThat(messageOf(stolen)).isEqualTo("part.upload_not_found");
+
+        redis.delete(ticketRedisKey(owner, up));
+        ResponseEntity<String> expired = rawPost(completePath(up), null, owner.token());
+        assertThat(expired.getStatusCode().value()).isEqualTo(404);
+        assertThat(messageOf(expired)).isEqualTo("part.upload_not_found");
+        assertThat(fileRows(revId)).isZero();
     }
 
     // ---------- 查看 + 审计（红线 1） ----------
@@ -213,10 +260,16 @@ class PartDrawingFlowIT {
         assertThat(auditRows(fileId)).isZero();
     }
 
+    /** 2026-11-27 之前的流程会留下 PENDING 行（库里还有），它们照旧不能看。 */
     @Test
-    void pendingFileCannotBeViewedAndNothingIsAudited() throws Exception {
+    void legacyPendingFileCannotBeViewedAndNothingIsAudited() throws Exception {
         Customer c = register("pending");
-        UUID fileId = requestUpload(c, createRevision(c, createPart(c)), "drawing.pdf", "application/pdf");
+        UUID revId = createRevision(c, createPart(c));
+        UUID fileId = UUID.randomUUID();
+        jdbc.update("insert into part_file (id, part_revision_id, customer_org_id, storage_key, original_filename,"
+                + " upload_status, uploaded_by_user_id, created_at, updated_at, version)"
+                + " values (?, ?, ?, ?, 'drawing.pdf', 'PENDING', ?, now(), now(), 0)",
+                fileId, revId, c.orgId(), "drawing/" + UUID.randomUUID(), c.userId());
 
         ResponseEntity<String> res = rawGet(viewUrlPath(fileId), c.token());
         assertThat(res.getStatusCode().value()).isEqualTo(409);
@@ -234,8 +287,8 @@ class PartDrawingFlowIT {
         UUID revId = createRevision(c, partId);
         UUID done = completedPdf(c, revId);
         requestUpload(c, revId, "pending.pdf", "application/pdf");
-        UUID rejected = requestUpload(c, revId, "fake.dwg", "application/acad");
-        storage.put(storageKeyOf(rejected), new ByteArrayInputStream(PDF), PDF.length, "application/acad");
+        Upload rejected = requestUpload(c, revId, "fake.dwg", "application/acad");
+        putBytes(rejected, PDF, "application/acad");
         rawPost(completePath(rejected), null, c.token());
 
         JsonNode files = get("/customer/parts/" + partId, c.token())
@@ -259,29 +312,36 @@ class PartDrawingFlowIT {
         assertThat(pdf.path("data").path("contentType").asText()).isEqualTo("application/pdf");
     }
 
-    /** A4：前端直传后网络超时重试 complete，第二次也应该是成功，而不是 409。 */
+    /** A4：前端直传后网络超时重试 complete，第二次也应该是成功、返回同一份文件，而且只有一条记录。 */
     @Test
     void completingTwiceIsIdempotent() throws Exception {
         Customer c = register("twice");
-        UUID fileId = completedPdf(c, createRevision(c, createPart(c)));
+        UUID revId = createRevision(c, createPart(c));
+        Upload up = requestUpload(c, revId, "drawing.pdf", "application/pdf");
+        putBytes(up, PDF, "application/pdf");
+        String first = post(completePath(up), null, c.token()).path("data").path("id").asText();
 
-        ResponseEntity<String> again = rawPost(completePath(fileId), null, c.token());
+        ResponseEntity<String> again = rawPost(completePath(up), null, c.token());
         assertThat(again.getStatusCode().value()).isEqualTo(200);
-        assertThat(json.readTree(again.getBody()).path("data").path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        JsonNode data = json.readTree(again.getBody()).path("data");
+        assertThat(data.path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        assertThat(data.path("id").asText()).isEqualTo(first);
+        assertThat(fileRows(revId)).isEqualTo(1);
     }
 
-    /** A4：并发 complete 同一个文件，任何一个请求都不能是 500。 */
+    /** A4：并发 complete 同一张凭证，任何一个请求都不能是 500，最后只有一条记录。 */
     @Test
     void concurrentCompletesNeverFailWithServerError() throws Exception {
         Customer c = register("race");
-        UUID fileId = requestUpload(c, createRevision(c, createPart(c)), "drawing.pdf", "application/pdf");
-        storage.put(storageKeyOf(fileId), new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
+        UUID revId = createRevision(c, createPart(c));
+        Upload up = requestUpload(c, revId, "drawing.pdf", "application/pdf");
+        putBytes(up, PDF, "application/pdf");
 
         ExecutorService pool = Executors.newFixedThreadPool(4);
         try {
             List<Future<ResponseEntity<String>>> calls = new ArrayList<>();
             for (int i = 0; i < 4; i++) {
-                Callable<ResponseEntity<String>> call = () -> rawPost(completePath(fileId), null, c.token());
+                Callable<ResponseEntity<String>> call = () -> rawPost(completePath(up), null, c.token());
                 calls.add(pool.submit(call));
             }
             for (Future<ResponseEntity<String>> f : calls) {
@@ -290,8 +350,9 @@ class PartDrawingFlowIT {
         } finally {
             pool.shutdownNow();
         }
-        assertThat(jdbc.queryForObject("select upload_status from part_file where id = ?", String.class, fileId))
-                .isEqualTo("COMPLETED");
+        assertThat(fileRows(revId)).isEqualTo(1);
+        assertThat(jdbc.queryForObject("select upload_status from part_file where part_revision_id = ?",
+                String.class, revId)).isEqualTo("COMPLETED");
     }
 
     /** A2：版本被提交的订单锁定后，这一版不能再加文件、complete、删文件。 */
@@ -300,8 +361,8 @@ class PartDrawingFlowIT {
         Customer c = register("locked");
         UUID revId = createRevision(c, createPart(c));
         UUID done = completedPdf(c, revId);
-        UUID pending = requestUpload(c, revId, "late.pdf", "application/pdf");
-        storage.put(storageKeyOf(pending), new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
+        Upload pending = requestUpload(c, revId, "late.pdf", "application/pdf");
+        putBytes(pending, PDF, "application/pdf");
         jdbc.update("update part_revision set locked_at = now() where id = ?", revId);
 
         ResponseEntity<String> upload = rawPost(filesPath(c, revId),
@@ -312,6 +373,7 @@ class PartDrawingFlowIT {
         ResponseEntity<String> complete = rawPost(completePath(pending), null, c.token());
         assertThat(complete.getStatusCode().value()).isEqualTo(409);
         assertThat(messageOf(complete)).isEqualTo("part.revision_locked");
+        assertThat(fileRows(revId)).isEqualTo(1);
 
         ResponseEntity<String> remove = rawDelete("/customer/files/" + done, c.token());
         assertThat(remove.getStatusCode().value()).isEqualTo(409);
@@ -364,19 +426,47 @@ class PartDrawingFlowIT {
         return UUID.fromString(rev.path("data").path("id").asText());
     }
 
-    private UUID requestUpload(Customer c, UUID revId, String filename, String contentType) throws Exception {
+    /** 一张上传凭证：{@code id} 用来 complete，{@code url} 是浏览器直传的签名地址。 */
+    private record Upload(UUID id, String url) {
+    }
+
+    private Upload requestUpload(Customer c, UUID revId, String filename, String contentType) throws Exception {
         JsonNode ticket = post(filesPath(c, revId),
                 new CustomerPartController.RequestUploadRequest(filename, contentType), c.token());
         assertThat(ticket.path("data").path("uploadUrl").asText()).isNotBlank();
-        return UUID.fromString(ticket.path("data").path("fileId").asText());
+        return new Upload(UUID.fromString(ticket.path("data").path("uploadId").asText()),
+                ticket.path("data").path("uploadUrl").asText());
+    }
+
+    /** 模拟浏览器直传：PUT 到签名地址（测试用的 memory 存储由 DevStorageController 接住）。 */
+    private void putBytes(Upload up, byte[] bytes, String contentType) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.parseMediaType(contentType));
+        ResponseEntity<String> res = rest.exchange(url(up.url()), HttpMethod.PUT, new HttpEntity<>(bytes, headers),
+                String.class);
+        assertThat(res.getStatusCode().value()).isEqualTo(200);
     }
 
     private UUID completedPdf(Customer c, UUID revId) throws Exception {
-        UUID fileId = requestUpload(c, revId, "drawing.pdf", "application/pdf");
-        storage.put(storageKeyOf(fileId), new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        assertThat(post(completePath(fileId), null, c.token()).path("data").path("uploadStatus").asText())
-                .isEqualTo("COMPLETED");
-        return fileId;
+        Upload up = requestUpload(c, revId, "drawing.pdf", "application/pdf");
+        putBytes(up, PDF, "application/pdf");
+        JsonNode done = post(completePath(up), null, c.token());
+        assertThat(done.path("data").path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        return UUID.fromString(done.path("data").path("id").asText());
+    }
+
+    private long fileRows(UUID revId) {
+        return jdbc.queryForObject("select count(*) from part_file where part_revision_id = ?", Long.class, revId);
+    }
+
+    /** 凭证在 Redis 里的 key —— 服务端内部细节，测试为了模拟过期、查上传地址才直接碰。 */
+    private String ticketRedisKey(Customer c, Upload up) {
+        return "mfg:party:" + c.orgId() + ":upload:" + up.id();
+    }
+
+    /** 凭证里记的上传地址（对象 key）。 */
+    private String uploadKeyOf(Customer c, Upload up) throws Exception {
+        return json.readTree(redis.opsForValue().get(ticketRedisKey(c, up))).path("uploadKey").asText();
     }
 
     /** 存储 key 是服务端内部细节，接口不返回 —— 测试直接从库里读。 */
@@ -401,8 +491,8 @@ class PartDrawingFlowIT {
         return "/customer/parts/" + partId + "/revisions/" + revId + "/files";
     }
 
-    private String completePath(UUID fileId) {
-        return "/customer/files/" + fileId + "/complete";
+    private String completePath(Upload up) {
+        return "/customer/uploads/" + up.id() + "/complete";
     }
 
     private String viewUrlPath(UUID fileId) {

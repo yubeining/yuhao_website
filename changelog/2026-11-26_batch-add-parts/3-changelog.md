@@ -105,13 +105,30 @@
 ## 遗留
 - `domain/address/AddressBook` 接口现在没有调用方了（订单服务不再用它），实现类和 `ShippingAddressFlowIT` 还在。没删，等你决定。
 - 前端 `services/customer/parts.ts` 的 `getPart`、订单详情文案里 `needDrawings / missingDrawingPill / customerRev / submittedBanner` 在本分支之前就没人用，没删。
-- 先导图纸、后导清单仍会出现同图号两行（第一轮遗留，没改）。
+- 先导图纸、后导清单仍会出现同图号两行 —— 2026-11-27 需求方确认接受现状（「重复就重复」），不改。
 - 保存时新文件是按顺序一个个传的，文件多时慢；失败的文件留在编辑状态等重试。
 - 本地测试容器里多了一个空的检查库 `mfg_mig_check`（加上第一轮的 `mfg_batch_dev`），没删 —— 删库要你确认。
-- 上传失败那一次，服务端会留下一条 PENDING 状态的图纸记录（客户看不到，不影响提交判断），没有清理机制。
+- ~~上传失败那一次，服务端会留下一条 PENDING 状态的图纸记录~~ → 已改，见下面「上传失败不留记录」。
 
 ## 补测（2026-11-27，用例矩阵见 `docs/test-cases/order-whole-page-edit.md`）
 - 矩阵 61 条，原有 25 条缺口全部补上：`CustomerOrderFlowIT` 新增 12 个（共 41 个，全部通过），`orderDraft.test.ts` 新增 5 个（共 47 个，全部通过），
   页面 5 条人工测过（上传失败重传、只缺公司名跳设置、就绪后地址锁定、CAD 文件点名下载、数量不合法拦保存）。
 - 删图纸回滚的测试做过一次反向验证：临时把删对象改成立即删，这条测试变红。
 - 修了一个问题：保存时有数量不合法，原来会把整张表所有空格子一起标红（草稿里提示必填，违反拍板），改成只标不合法的数量格。
+
+## 上传失败不留记录 + 删「全部零件已完工」（2026-11-27）
+
+需求方原话：「上传失败就不要留记录」「全部零件已完工。这个废话删掉」。方案选 B（传完才建记录），凭证放 Redis，只改图纸。
+
+- **图纸上传改成传完才建记录**：申请上传只校验、发一张凭证（Redis，和签名链接同样 30 分钟有效期，到期自动消失），不写库；
+  complete 拿凭证核对归属、版本未锁，类型对得上才建一条 COMPLETED 记录。类型不对删对象、不建记录；凭证过期 / 别人的一律 404 `part.upload_not_found`。
+  - 接口：申请上传回执 `fileId` 改成 `uploadId`（新 record `DrawingUploadTicket`），complete 从 `POST /customer/files/{fileId}/complete` 改成 `POST /customer/uploads/{uploadId}/complete`。
+  - 重试幂等：complete 成功后在 Redis 记一笔「这张凭证建的是哪份文件」，超时重发返回同一份；并发 complete 用凭证上的 Redis 锁排开，抢不到锁回 409 `part.upload_in_progress`。
+  - 删掉不再用的 `PartFileRepository#completeIfRevisionUnlocked`、`completeLockingRevision`、`settledOutcome`。PENDING / REJECTED 状态保留（库里有旧行）。
+  - 运营上传的随货单据是同一套两步上传，**这次没改**（需求方同意），它仍会在上传失败时留 PENDING 行。
+  - 库里已有的 PENDING 旧行不动（客户看不到，不影响流程）。
+- **订单就绪横幅删掉**：「全部零件已完工。」连同中英文案、类型字段一起删。
+- 测试：`PartDrawingFlowIT` 18 个（新增：申请不留记录、字节没到先 complete 可重试、别人的 / 过期凭证 404；改：类型不对不建记录、重复 complete 返回同一份、并发只建一条、旧 PENDING 行仍不能看），
+  其余用到上传的 5 个集成测试改成走凭证 + 真 PUT 到签名地址。
+- 部署：不改表结构，没有迁移。发布 / 回滚那一刻正在传的图纸会失败一次，重新保存即可（凭证新旧版本不认）。
+- 遗留：文件已传进存储但 complete 没发出（传完马上关页面）时，存储里会留一个没人引用的对象 —— 以前也一样，清理要在存储桶上配过期规则，属运维配置。

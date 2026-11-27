@@ -394,10 +394,13 @@ class CustomerOrderFlowIT {
         JsonNode ticket = post("/customer/parts/" + line.path("partId").asText() + "/revisions/"
                         + line.path("revision").path("id").asText() + "/files",
                 new CustomerPartController.RequestUploadRequest("drawing.pdf", "application/pdf"), c.token());
-        UUID fileId = UUID.fromString(ticket.path("data").path("fileId").asText());
-        String uploadKey = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
+        String uploadId = ticket.path("data").path("uploadId").asText();
+        // 上传地址是服务端内部细节，接口不返回 —— 测试从凭证里读
+        String uploadKey = json.readTree(redis.opsForValue().get("mfg:party:" + c.orgId() + ":upload:" + uploadId))
+                .path("uploadKey").asText();
         storage.put(uploadKey, new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        post("/customer/files/" + fileId + "/complete", null, c.token());
+        UUID fileId = UUID.fromString(post("/customer/uploads/" + uploadId + "/complete", null, c.token())
+                .path("data").path("id").asText());
         post("/customer/orders/" + orderId + "/submit", null, c.token());
 
         // 客户拿着还没过期的上传链接再传一次
@@ -1094,12 +1097,14 @@ class CustomerOrderFlowIT {
         String revId = line.path("revision").path("id").asText();
         JsonNode ticket = post("/customer/parts/" + partId + "/revisions/" + revId + "/files",
                 new CustomerPartController.RequestUploadRequest("drawing.pdf", "application/pdf"), c.token());
-        UUID fileId = UUID.fromString(ticket.path("data").path("fileId").asText());
-        String key = jdbc.queryForObject("select storage_key from part_file where id = ?", String.class, fileId);
-        storage.put(key, new ByteArrayInputStream(PDF), PDF.length, "application/pdf");
-        assertThat(post("/customer/files/" + fileId + "/complete", null, c.token())
-                .path("data").path("uploadStatus").asText()).isEqualTo("COMPLETED");
-        return fileId;
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        assertThat(rest.exchange(url(ticket.path("data").path("uploadUrl").asText()), HttpMethod.PUT,
+                new HttpEntity<>(PDF, headers), String.class).getStatusCode().value()).isEqualTo(200);
+        JsonNode done = post("/customer/uploads/" + ticket.path("data").path("uploadId").asText() + "/complete",
+                null, c.token()).path("data");
+        assertThat(done.path("uploadStatus").asText()).isEqualTo("COMPLETED");
+        return UUID.fromString(done.path("id").asText());
     }
 
     private String orderStatus(String orderId) {

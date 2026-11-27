@@ -17,11 +17,12 @@ import java.util.UUID;
  *
  * <h3>上传是两段式</h3>
  * <ol>
- *   <li>申请:建一行 {@code PENDING},给浏览器一个预签名 PUT —— 字节直传桶,不经过应用。</li>
- *   <li>complete:服务端去存储读文件头判真实类型。对得上 → {@code COMPLETED};
- *       对不上 → {@code REJECTED},并删掉桶里的对象。</li>
+ *   <li>申请:<b>不建行</b>,只发一张上传凭证(存 Redis)和一个预签名 PUT —— 字节直传桶,不经过应用。</li>
+ *   <li>complete:服务端去存储读文件头判真实类型。对得上 → 这时才建行,直接是 {@code COMPLETED};
+ *       对不上 → 不建行,删掉桶里的对象。</li>
  * </ol>
- * 只有 {@code COMPLETED} 的文件才能签发查看 URL。
+ * 所以上传失败什么都不留(2026-11-27)。在那之前的流程申请时就建 {@code PENDING} 行、被拒时留
+ * {@code REJECTED} 行,库里还有这样的旧行,两个状态因此保留。只有 {@code COMPLETED} 的文件才能签发查看 URL。
  *
  * <p>{@code storageKey} 由服务端生成,不含客户文件名(设计文档 2 §5.1);
  * {@code declaredContentType} 是客户端声称的类型,不可信,只做记录。
@@ -44,7 +45,7 @@ class PartFile extends BaseEntity {
     @Column(name = "customer_org_id", columnDefinition = "uuid", nullable = false, updatable = false)
     private UUID customerOrgId;
 
-    // 上传完成时会换成服务端挪过去的新地址（PartFileRepository#completeIfRevisionUnlocked），所以不是只写一次
+    // 建行时已经是服务端挪过去的新地址（PartDrawingService#complete）
     @Column(name = "storage_key", nullable = false)
     private String storageKey;
 

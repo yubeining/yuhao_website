@@ -1,7 +1,9 @@
 package com.mfg.domain.order;
 
+import com.mfg.common.cache.CacheKeys;
 import com.mfg.common.exception.BusinessException;
 import com.mfg.common.security.PartyType;
+import com.mfg.common.service.RedisService;
 import com.mfg.common.web.RequestContext;
 import com.mfg.platform.storage.StorageService;
 import org.slf4j.Logger;
@@ -36,8 +38,11 @@ import java.util.stream.Collectors;
  * 不回 403，免得泄露「这个 id 是存在的」。
  *
  * <p><b>版本锁定</b>（2026-09-14）：订单提交时锁定各行引用的版本，此后这一版不许加 / 删文件。
- * 三个改文件的入口（申请上传、complete、删文件）都要拦，而且 complete 和删文件的状态更新
- * 在同一条 SQL 里带上「版本未锁定」的条件 —— 否则「锁定前申请、锁定后 complete」能钻过去。
+ * 三个改文件的入口（申请上传、complete、删文件）都要拦：complete 建记录前在同一个事务里锁住版本行再判，
+ * 删文件的状态更新在同一条 SQL 里带上「版本未锁定」的条件 —— 否则「锁定前申请、锁定后 complete」能钻过去。
+ *
+ * <p><b>上传凭证</b>（2026-11-27）：申请上传不建文件记录，凭证存 Redis；complete 校验通过才建记录。
+ * 上传失败（断网、关页面、类型不对）库里什么都不留。
  *
  * <p>配置用 {@code @Value} 读而不是 {@code AppProperties}：ArchUnit 禁止 domain 依赖 {@code com.mfg.config}。
  */
@@ -49,6 +54,8 @@ class PartDrawingService {
     /** complete 时读文件开头多少字节来判类型 —— 各格式签名都在开头几十字节内，8KB 绰绰有余。 */
     private static final int HEAD_BYTES = 8192;
     private static final String DEFAULT_CONTENT_TYPE = "application/octet-stream";
+    /** 同一张凭证 complete 的互斥锁：够覆盖一次挪对象 + 读文件头，进程挂了也会自己过期。 */
+    private static final int COMPLETE_LOCK_SECONDS = 120;
 
     private final PartDesignRepository parts;
     private final PartRevisionRepository revisions;
@@ -59,9 +66,10 @@ class PartDrawingService {
     private final DrawingTypeGuard typeGuard;
     /** complete / 删文件不能整体包在事务里（中间有存储网络 IO），只把「锁版本 + 改状态」这一小段放进事务。 */
     private final TransactionTemplate tx;
+    private final RedisService redis;
 
     PartDrawingService(PartDesignRepository parts, PartRevisionRepository revisions, PartFileRepository files,
-                       PartFileAccessLogRepository accessLog, StorageService storage,
+                       PartFileAccessLogRepository accessLog, StorageService storage, RedisService redis,
                        PlatformTransactionManager transactionManager,
                        @Value("${app.storage.signed-url-ttl-seconds}") long signedUrlTtlSeconds,
                        @Value("${app.storage.allowed-drawing-types}") String allowedDrawingTypes) {
@@ -71,6 +79,7 @@ class PartDrawingService {
         this.files = files;
         this.accessLog = accessLog;
         this.storage = storage;
+        this.redis = redis;
         this.signedUrlTtl = Duration.ofSeconds(signedUrlTtlSeconds);
         this.typeGuard = new DrawingTypeGuard(Set.copyOf(Arrays.asList(allowedDrawingTypes.split(","))));
     }
@@ -98,11 +107,14 @@ class PartDrawingService {
 
     // ---------- 上传（两段式） ----------
 
-    @Transactional
-    public UploadTicket requestUpload(UUID customerOrgId, UUID userId, UUID partId, UUID revisionId,
-                                      String filename, String contentType) {
-        // 带锁取：和订单提交锁版本互斥，提交锁定之后不会再有新文件挂上来
-        PartRevision revision = revisions.lockByIdAndCustomerOrgId(revisionId, customerOrgId)
+    /**
+     * 申请上传：只校验、发凭证，<b>不建文件记录</b>（2026-11-27）—— 传失败（断网、关页面）什么都不留。
+     * 凭证存 Redis，和签名 PUT 链接同样的有效期，到期自动消失。
+     */
+    @Transactional(readOnly = true)
+    public DrawingUploadTicket requestUpload(UUID customerOrgId, UUID userId, UUID partId, UUID revisionId,
+                                             String filename, String contentType) {
+        PartRevision revision = revisions.findByIdAndCustomerOrgId(revisionId, customerOrgId)
                 .filter(r -> r.getPartDesignId().equals(partId))
                 .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
         if (revision.isLocked()) {
@@ -118,83 +130,119 @@ class PartDrawingService {
                 : contentType.trim();
         // 对象名服务端生成，不含客户文件名（设计文档 2 §5.1）
         String key = "drawing/" + UUID.randomUUID();
-        PartFile file = files.save(new PartFile(revision.getId(), customerOrgId, key, filename, signedType, userId));
+        UUID uploadId = UUID.randomUUID();
+        redis.set(CacheKeys.drawingUpload(customerOrgId, uploadId),
+                new PendingDrawingUpload(partId, revision.getId(), userId, key, filename, signedType),
+                ticketTtlSeconds());
         // ★ 埋点：上传是从浏览器直传对象存储的，服务端只看到"开始"和"完成"两个点。
         //   这两个点之间的间隔就是真实的传输耗时，排障时不用再让用户开 DevTools。
-        log.info("part.file.presign fileId={} ttlSeconds={}", file.getId(), signedUrlTtl.getSeconds());
-        return new UploadTicket(file.getId(),
+        log.info("part.file.presign uploadId={} ttlSeconds={}", uploadId, signedUrlTtl.getSeconds());
+        return new DrawingUploadTicket(uploadId,
                 storage.presignedPut(key, signedUrlTtl, signedType).toString(),
                 signedType,
                 Instant.now().plus(signedUrlTtl));
     }
 
     /**
-     * 字节已经进桶之后调。读文件头判真实类型：对得上 COMPLETED；对不上 REJECTED + 删对象 + 400。
+     * 字节已经进桶之后调。凭证对得上、读文件头判真实类型也对得上，<b>这时才建文件记录</b>（直接是 COMPLETED）；
+     * 类型对不上：删对象 + 400，不建记录。凭证不存在（过期 / 别人的 / 编的）一律 404。
      *
      * <p>★ <b>故意不加 {@code @Transactional}</b>：中间要 head 对象、读文件头，这些是网络 IO，
-     * 不能占着数据库连接等。状态更新是一条带条件的 SQL（只改仍是 PENDING、且版本未锁定的行），
-     * 并发 / 重试时只有一个请求真正改到行，其余的重新读一遍状态再决定返回什么 —— 不会 500。
+     * 不能占着数据库连接等。只有「锁版本 + 建行」那一小段在事务里（和订单提交锁版本互斥）。
      *
-     * <p>幂等：已经 COMPLETED 的直接返回（前端直传后网络超时重试，不该看到失败）。
+     * <p>幂等：同一张凭证 complete 过，再调返回同一份文件（前端直传后网络超时重试，不该看到失败）。
+     * 并发的 complete 靠凭证上的 Redis 锁排开，抢不到锁的回 409，不会 500，也不会建出两条记录。
      */
-    public FileView complete(UUID customerOrgId, UUID fileId) {
-        PartFile file = requireFile(customerOrgId, fileId);
-        if (file.getUploadStatus() == PartFile.UploadStatus.COMPLETED) {
-            return FileView.of(file);
+    public FileView complete(UUID customerOrgId, UUID uploadId) {
+        FileView done = alreadyCompleted(customerOrgId, uploadId);
+        if (done != null) {
+            return done;
         }
-        if (file.getUploadStatus() != PartFile.UploadStatus.PENDING) {
-            throw BusinessException.conflict("part.file_not_pending");
+        String lockKey = CacheKeys.drawingUploadLock(customerOrgId, uploadId);
+        String fence = UUID.randomUUID().toString();
+        if (!redis.tryLock(lockKey, fence, COMPLETE_LOCK_SECONDS)) {
+            throw BusinessException.conflict("part.upload_in_progress");
         }
-        requireUnlocked(customerOrgId, file.getPartRevisionId());
+        try {
+            // 拿到锁之后再看一次：等锁的这段时间里另一个请求可能已经建好了
+            done = alreadyCompleted(customerOrgId, uploadId);
+            if (done != null) {
+                return done;
+            }
+            PendingDrawingUpload upload = redis.get(CacheKeys.drawingUpload(customerOrgId, uploadId),
+                    PendingDrawingUpload.class);
+            if (upload == null) {
+                throw BusinessException.notFound("part.upload_not_found");
+            }
+            return completeLocked(customerOrgId, uploadId, upload);
+        } finally {
+            redis.releaseLock(lockKey, fence);
+        }
+    }
 
-        if (storage.head(file.getStorageKey()).isEmpty()) {
+    private FileView completeLocked(UUID customerOrgId, UUID uploadId, PendingDrawingUpload upload) {
+        requireUnlocked(customerOrgId, upload.revisionId());
+        String uploadKey = upload.uploadKey();
+        if (storage.head(uploadKey).isEmpty()) {
+            // 凭证留着：字节真传上去之后可以再 complete
             throw BusinessException.conflict("part.file_object_missing");
         }
-        // ★ 先把对象挪到客户不知道的新地址，后面的类型校验、大小、状态都以这份为准。
+        // ★ 先把对象挪到客户不知道的新地址，后面的类型校验、大小、记录都以这份为准。
         //   签名 PUT 链接在有效期内可以反复用：不挪走的话，客户 complete、提交锁定之后还能往原地址再传一份，
         //   运营报价、供应商加工用的「已锁定图纸」就被悄悄换掉了，类型校验也跟着被绕过（2026-11-18 review）。
-        String uploadKey = file.getStorageKey();
         String pinnedKey = "drawing/" + UUID.randomUUID();
         storage.copy(uploadKey, pinnedKey);
         long size = storage.head(pinnedKey)
                 .orElseThrow(() -> BusinessException.conflict("part.file_object_missing"))
                 .sizeBytes();
-        DrawingTypeGuard.Verdict verdict = typeGuard.inspect(file.getOriginalFilename(),
+        DrawingTypeGuard.Verdict verdict = typeGuard.inspect(upload.filename(),
                 storage.readRange(pinnedKey, 0, HEAD_BYTES));
-
         if (!verdict.accepted()) {
+            redis.delete(CacheKeys.drawingUpload(customerOrgId, uploadId));
             storage.delete(pinnedKey);
-            // 先把 REJECTED 落库、再删对象：反过来的话，删完对象而状态没写进去，这一行会永远卡在 PENDING
-            int changed = transitionLockingRevision(customerOrgId, file.getPartRevisionId(), fileId,
-                    List.of(PartFile.UploadStatus.PENDING), PartFile.UploadStatus.REJECTED,
-                    verdict.detectedType(), size, null);
-            if (changed == 1) {
-                storage.delete(uploadKey);
-                throw BusinessException.badRequest("part.file_type_not_allowed");
-            }
-            return settledOutcome(customerOrgId, fileId);
+            deleteQuietly(uploadKey);
+            throw BusinessException.badRequest("part.file_type_not_allowed");
         }
-        int changed;
+        PartFile file;
         try {
-            changed = completeLockingRevision(customerOrgId, file.getPartRevisionId(), fileId, pinnedKey,
-                    verdict.detectedType(), size, Instant.now());
+            file = insertCompleted(customerOrgId, upload, pinnedKey, verdict.detectedType(), size);
         } catch (RuntimeException e) {
             // 版本已锁定 / 不存在：这份副本没人会引用了
             storage.delete(pinnedKey);
             throw e;
         }
-        if (changed == 1) {
-            // 行已经指向新地址，上传地址上的那份不再需要；删不掉只留一个没人引用的对象，不影响正确性
-            deleteQuietly(uploadKey);
-        } else {
-            // 并发的另一次 complete 抢先了：它挪的那份才是这一行指向的，我们这份丢掉
-            storage.delete(pinnedKey);
-        }
-        // 从建 PENDING 行（= 发签名 URL 那一刻）到完成校验的间隔 ≈ 浏览器上传耗时
-        long elapsedMs = Math.max(1, java.time.Duration.between(file.getCreatedAt(), Instant.now()).toMillis());
-        log.info("part.file.upload_completed fileId={} sizeBytes={} elapsedMs={} throughputKBps={}",
-                fileId, size, elapsedMs, Math.round(size / 1024.0 / (elapsedMs / 1000.0)));
-        return changed == 1 ? FileView.of(requireFile(customerOrgId, fileId)) : settledOutcome(customerOrgId, fileId);
+        redis.set(CacheKeys.drawingUploadDone(customerOrgId, uploadId), file.getId().toString(), ticketTtlSeconds());
+        redis.delete(CacheKeys.drawingUpload(customerOrgId, uploadId));
+        // 记录已经指向新地址，上传地址上的那份不再需要；删不掉只留一个没人引用的对象，不影响正确性
+        deleteQuietly(uploadKey);
+        log.info("part.file.upload_completed fileId={} uploadId={} sizeBytes={}", file.getId(), uploadId, size);
+        return FileView.of(file);
+    }
+
+    /** 这张凭证 complete 过就返回那份文件，没有返回 null。 */
+    private FileView alreadyCompleted(UUID customerOrgId, UUID uploadId) {
+        String fileId = redis.get(CacheKeys.drawingUploadDone(customerOrgId, uploadId), String.class);
+        return fileId == null ? null : FileView.of(requireFile(customerOrgId, UUID.fromString(fileId)));
+    }
+
+    /** 短事务：锁住版本行（和订单提交互斥）→ 已锁定就 409 → 建一条 COMPLETED 记录。 */
+    private PartFile insertCompleted(UUID customerOrgId, PendingDrawingUpload upload, String storageKey,
+                                     String detectedType, long sizeBytes) {
+        return tx.execute(status -> {
+            PartRevision revision = revisions.lockByIdAndCustomerOrgId(upload.revisionId(), customerOrgId)
+                    .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
+            if (revision.isLocked()) {
+                throw BusinessException.conflict("part.revision_locked");
+            }
+            PartFile file = new PartFile(revision.getId(), customerOrgId, storageKey, upload.filename(),
+                    upload.contentType(), upload.userId());
+            file.markCompleted(detectedType, sizeBytes, Instant.now());
+            return files.saveAndFlush(file);
+        });
+    }
+
+    private int ticketTtlSeconds() {
+        return Math.toIntExact(signedUrlTtl.getSeconds());
     }
 
     /**
@@ -354,24 +402,6 @@ class PartDrawingService {
 
     // ---------- helpers ----------
 
-    /**
-     * 在一个短事务里：锁住版本行 → 已锁定就 409 → 条件更新文件状态。
-     * 锁版本是为了和订单提交互斥（提交会先锁同一批版本再检查图纸），条件更新是为了并发 / 重试只有一个生效。
-     */
-    private int completeLockingRevision(UUID customerOrgId, UUID revisionId, UUID fileId, String storageKey,
-                                        String detectedType, Long sizeBytes, Instant completedAt) {
-        Integer changed = tx.execute(status -> {
-            PartRevision revision = revisions.lockByIdAndCustomerOrgId(revisionId, customerOrgId)
-                    .orElseThrow(() -> BusinessException.notFound("part.revision_not_found"));
-            if (revision.isLocked()) {
-                throw BusinessException.conflict("part.revision_locked");
-            }
-            return files.completeIfRevisionUnlocked(fileId, customerOrgId, storageKey, detectedType, sizeBytes,
-                    completedAt, Instant.now());
-        });
-        return changed == null ? 0 : changed;
-    }
-
     private void deleteQuietly(String key) {
         try {
             storage.delete(key);
@@ -402,19 +432,6 @@ class PartDrawingService {
         return PartView.of(part, revs.stream()
                 .map(r -> RevisionView.of(r, byRevision.getOrDefault(r.getId(), List.of())))
                 .toList());
-    }
-
-    /** 条件更新没改到行：别的请求先一步改了。按现在的真实状态给结论。 */
-    private FileView settledOutcome(UUID customerOrgId, UUID fileId) {
-        PartFile now = requireFile(customerOrgId, fileId);
-        if (now.getUploadStatus() == PartFile.UploadStatus.COMPLETED) {
-            return FileView.of(now);
-        }
-        requireUnlocked(customerOrgId, now.getPartRevisionId());
-        if (now.getUploadStatus() == PartFile.UploadStatus.REJECTED) {
-            throw BusinessException.badRequest("part.file_type_not_allowed");
-        }
-        throw BusinessException.conflict("part.file_not_pending");
     }
 
     private void requireUnlocked(UUID customerOrgId, UUID revisionId) {
