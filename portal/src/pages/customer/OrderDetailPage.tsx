@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, useBlocker, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { ConfirmDialog } from '../../components/ConfirmDialog'
-import { DatePicker } from '../../components/DatePicker'
+import { DatePicker, localTodayISO } from '../../components/DatePicker'
 import { FilePreviewModal, previewKindOf, type PreviewKind } from '../../components/FilePreviewModal'
 import { Field, FieldRow, Input } from '../../components/form'
 import { Modal } from '../../components/Modal'
@@ -450,7 +450,7 @@ export function OrderDetailPage() {
                             <Field label={d.fldLead}>
                                 {edit
                                     ? <div className={showMissing && !edit.wantedDate ? 'bad' : undefined} tabIndex={-1}>
-                                        <DatePicker value={edit.wantedDate} onChange={(v) => setEdit({ ...edit, wantedDate: v })} />
+                                        <DatePicker value={edit.wantedDate} min={localTodayISO()} onChange={(v) => setEdit({ ...edit, wantedDate: v })} />
                                     </div>
                                     : <div className="ro">{view.wantedDate || X}</div>}
                             </Field>

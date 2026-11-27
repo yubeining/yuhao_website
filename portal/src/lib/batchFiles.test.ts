@@ -14,8 +14,8 @@ const SAMPLE = [
     [2, 'LB8.034.60696', '端盖', 12],
 ]
 const EXPECTED_ROWS = [
-    { code: 'LB8.605.63529', name: '支架', qty: '4' },
-    { code: 'LB8.034.60696', name: '端盖', qty: '12' },
+    { code: 'LB8.605.63529', name: '支架', qty: '4', material: '', surface: '' },
+    { code: 'LB8.034.60696', name: '端盖', qty: '12', material: '', surface: '' },
 ]
 /** 「垫圈」的 GBK 编码 */
 const GBK_DIANQUAN = [0xb5, 0xe6, 0xc8, 0xa6]
@@ -67,7 +67,7 @@ describe('readSheets', () => {
             ...new TextEncoder().encode('1,LB1.234.56789,'), ...GBK_DIANQUAN, ...new TextEncoder().encode(',7\n'),
         ]
         const [sheet] = await readSheets(new File([new Uint8Array(bytes)], 'gbk.csv'))
-        expect(parse(sheet.rows)).toEqual([{ code: 'LB1.234.56789', name: '垫圈', qty: '7' }]) // i18n-exempt
+        expect(parse(sheet.rows)).toEqual([{ code: 'LB1.234.56789', name: '垫圈', qty: '7', material: '', surface: '' }]) // i18n-exempt
     })
 })
 

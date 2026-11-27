@@ -3,8 +3,8 @@
  *
  * ★ 为什么不用 `<input type="date">`：它的弹层由浏览器绘制，CSS 完全改不了，
  *   在深色/浅色两套主题下和页面其他控件完全不搭。
- * ★ 为什么不用现成库：这里只需要「选一个日期」——没有区间、没有时间、
- *   没有禁用规则。库自带样式覆盖的工作量不比自绘小，还要多一个依赖。
+ * ★ 为什么不用现成库：这里只需要「选一个日期」——没有区间、没有时间，
+ *   禁用规则只有一条可选的「不早于 min」。库自带样式覆盖的工作量不比自绘小，还要多一个依赖。
  *
  * ★★ 日期一律按「本地日历日」处理，绝不经 `Date` 的 UTC 转换：
  *   `new Date('2026-12-01')` 是 UTC 零点，在东八区之外会显示成前一天。
@@ -28,14 +28,22 @@ function today(): { y: number; m: number; d: number } {
     return { y: now.getFullYear(), m: now.getMonth(), d: now.getDate() }
 }
 
+/** 本地日历的今天，`YYYY-MM-DD`。给 `min` 用：期望交货日期不能选今天以前（2026-11-27 需求方） */
+export function localTodayISO(): string {
+    const t = today()
+    return toISO(t.y, t.m, t.d)
+}
+
 const daysInMonth = (y: number, m: number) => new Date(y, m + 1, 0).getDate()
 /** 0 = 周一（表头从周一开始） */
 const firstWeekday = (y: number, m: number) => (new Date(y, m, 1).getDay() + 6) % 7
 
-export function DatePicker({ value, onChange, placeholder }: {
+export function DatePicker({ value, onChange, placeholder, min }: {
     value: string
     onChange: (v: string) => void
     placeholder?: string
+    /** 最早能选哪天（`YYYY-MM-DD`，含当天）。更早的日子置灰点不了，方向键也走不过去 */
+    min?: string
 }) {
     const { lang, t } = useI18n()
     const [open, setOpen] = useState(false)
@@ -164,6 +172,7 @@ export function DatePicker({ value, onChange, placeholder }: {
             e.preventDefault()
             base.setDate(base.getDate() + days)
             const iso = toISO(base.getFullYear(), base.getMonth(), base.getDate())
+            if (min && iso < min) return
             onChange(iso)
             setView({ y: base.getFullYear(), m: base.getMonth() })
         }
@@ -204,6 +213,7 @@ export function DatePicker({ value, onChange, placeholder }: {
                                 key={c.iso}
                                 type="button"
                                 className={`dp-d${c.out ? ' out' : ''}${c.iso === value ? ' sel' : ''}${c.iso === todayISO ? ' today' : ''}`}
+                                disabled={!!min && c.iso < min}
                                 onClick={() => pick(c.iso)}
                             >
                                 {c.day}
@@ -213,7 +223,8 @@ export function DatePicker({ value, onChange, placeholder }: {
 
                     <div className="dp-foot">
                         <button type="button" className="dp-link" onClick={() => pick('')}>{t.datePicker.clear}</button>
-                        <button type="button" className="dp-link" onClick={() => pick(todayISO)}>{t.datePicker.today}</button>
+                        <button type="button" className="dp-link" disabled={!!min && todayISO < min}
+                            onClick={() => pick(todayISO)}>{t.datePicker.today}</button>
                     </div>
                 </div>,
                 document.body,

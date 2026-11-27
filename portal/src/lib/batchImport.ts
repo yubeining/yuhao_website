@@ -7,6 +7,7 @@
  * 规则来源（2026-11-26 逐条拍板）：
  *   - 同一批里同图号的文件合成一行；认不出图号的文件一个一行
  *   - 清单表头先只认「序号 / 图号 / 名称 / 数量」四个词，客户可以改列
+ *   - 2026-11-27 加读「材料」「表面处理」两列（需求方原话：清单导入要读这两列）
  *   - 清单里两行同图号：各算一行，这个图号的文件每行都挂一份
  *   - 图号不唯一，不和客户已有零件比对
  */
@@ -21,12 +22,17 @@ export interface SheetColumns {
     code?: number
     name?: number
     qty?: number
+    material?: number
+    surface?: number
 }
 
 export interface SheetRow {
     code: string
     name: string
     qty: string
+    /** 清单里没有这一列、或者没对上时为空 */
+    material?: string
+    surface?: string
 }
 
 export interface DraftRow<F extends { name: string; size: number }> {
@@ -43,7 +49,7 @@ export interface DraftRow<F extends { name: string; size: number }> {
 
 /**
  * 表头词 → 字段。序号只用来认表头行，不落任何字段。
- * 这是拿来匹配客户清单表头的数据，不是界面文案，所以不进 i18n 字典（2026-11-26：先只认这四个中文词）。
+ * 这是拿来匹配客户清单表头的数据，不是界面文案，所以不进 i18n 字典（2026-11-26：先只认这四个中文词；11-27 加材料、表面处理）。
  */
 // i18n-exempt-start
 const HEADER_WORDS: Record<string, keyof SheetColumns | null> = {
@@ -51,6 +57,8 @@ const HEADER_WORDS: Record<string, keyof SheetColumns | null> = {
     图号: 'code',
     名称: 'name',
     数量: 'qty',
+    材料: 'material',
+    表面处理: 'surface',
 }
 // i18n-exempt-end
 
@@ -80,7 +88,10 @@ export function findHeader(sheet: unknown[][]): { row: number; columns: SheetCol
 export function rowsFromSheet(sheet: unknown[][], headerRow: number, columns: SheetColumns): SheetRow[] {
     const pick = (row: unknown[], c: number | undefined) => (c === undefined ? '' : cell(row[c]))
     return sheet.slice(headerRow + 1)
-        .map((row) => ({ code: pick(row, columns.code), name: pick(row, columns.name), qty: pick(row, columns.qty) }))
+        .map((row) => ({
+            code: pick(row, columns.code), name: pick(row, columns.name), qty: pick(row, columns.qty),
+            material: pick(row, columns.material), surface: pick(row, columns.surface),
+        }))
         .filter((r) => r.code || r.name || r.qty)
 }
 
@@ -134,7 +145,10 @@ export function buildDraftRows<F extends { name: string; size: number }>(sheetRo
         const digits = normalizePartNo(s.code)
         const g = digits ? groups.get(digits) : undefined
         if (g) g.used = true
-        return { key: nextKey(), ...s, ...empty, customerRev: g?.rev ?? '', files: g ? [...g.files] : [] }
+        return {
+            key: nextKey(), code: s.code, name: s.name, qty: s.qty, material: s.material ?? '', surface: s.surface ?? '',
+            customerRev: g?.rev ?? '', files: g ? [...g.files] : [],
+        }
     })
     for (const g of groups.values()) {
         if (g.used) continue

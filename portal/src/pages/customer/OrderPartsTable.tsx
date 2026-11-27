@@ -377,6 +377,10 @@ function ListColumns({ list, onChange, onUse }: {
                 {columnSelect('name', t.common.table.name)}
                 {columnSelect('qty', t.customer.orderDetail.colQty)}
             </FieldRow>
+            <FieldRow cols={3}>
+                {columnSelect('material', t.customer.orderDetail.colMaterial)}
+                {columnSelect('surface', e.colSurface)}
+            </FieldRow>
             <div className="fnote">{e.listRows(count)}</div>
         </Modal>
     )

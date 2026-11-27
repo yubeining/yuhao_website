@@ -724,6 +724,8 @@ tr.trow td{background:var(--panel-2);font-weight:600;border-bottom:1px solid var
 .dp-d.today{box-shadow:inset 0 0 0 1px var(--acc-line);color:var(--acc-ink);font-weight:600;}
 .dp-d.sel{background:var(--acc);color:#fff;font-weight:600;}
 .dp-d.sel:hover{background:var(--acc-hi);}
+.dp-d:disabled{color:var(--faint);opacity:.45;cursor:not-allowed;background:transparent;}
+.dp-link:disabled{color:var(--faint);cursor:not-allowed;}
 .dp-foot{display:flex;justify-content:space-between;margin-top:10px;padding-top:10px;
   border-top:1px solid var(--line);}
 .dp-link{background:none;border:0;color:var(--acc-ink);font-size:12.5px;cursor:pointer;padding:4px;font:inherit;}

@@ -24,6 +24,12 @@ describe('findHeader', () => {
     it('returns null when no row looks like a header', () => {
         expect(findHeader([['a', 'b'], ['1', '2']])).toBeNull()
     })
+
+    // 2026-11-27 需求方：清单导入要读「材料」「表面处理」两列
+    it('also maps the material and surface treatment headers', () => {
+        expect(findHeader([['图号', '名称', '数量', '材料', '表面处理']])?.columns)
+            .toEqual({ code: 0, name: 1, qty: 2, material: 3, surface: 4 })
+    })
 })
 
 describe('rowsFromSheet', () => {
@@ -37,14 +43,21 @@ describe('rowsFromSheet', () => {
             ['3', 'LB8.034.60696', ' 端盖 ', '2'],
         ]
         expect(rowsFromSheet(sheet, 0, { code: 1, name: 2, qty: 3 })).toEqual([
-            { code: 'LB8.605.63529', name: '支架', qty: '4' },
-            { code: 'LB8.034.60696', name: '端盖', qty: '2' },
+            { code: 'LB8.605.63529', name: '支架', qty: '4', material: '', surface: '' },
+            { code: 'LB8.034.60696', name: '端盖', qty: '2', material: '', surface: '' },
         ])
     })
 
     it('leaves a field empty when its column is not mapped', () => {
         expect(rowsFromSheet([['图号'], ['LB1.234.56789']], 0, { code: 0 })).toEqual([
-            { code: 'LB1.234.56789', name: '', qty: '' },
+            { code: 'LB1.234.56789', name: '', qty: '', material: '', surface: '' },
+        ])
+    })
+
+    it('reads material and surface treatment when mapped', () => {
+        const sheet = [['图号', '名称', '数量', '材料', '表面处理'], ['LB8.605.63529', '支架', '4', ' AL6061 ', '阳极氧化']]
+        expect(rowsFromSheet(sheet, 0, { code: 0, name: 1, qty: 2, material: 3, surface: 4 })).toEqual([
+            { code: 'LB8.605.63529', name: '支架', qty: '4', material: 'AL6061', surface: '阳极氧化' },
         ])
     })
 })
@@ -62,6 +75,11 @@ describe('nameFromFileName', () => {
 })
 
 describe('buildDraftRows', () => {
+    it('carries material and surface treatment from the list into the row', () => {
+        const [row] = buildDraftRows([{ code: 'LB8.605.63529', name: '支架', qty: '4', material: 'AL6061', surface: '阳极氧化' }], [])
+        expect(row).toMatchObject({ material: 'AL6061', surface: '阳极氧化' })
+    })
+
     it('groups files with the same drawing number into one row', () => {
         const rows = buildDraftRows([], [
             file('模型_4_1_LB8.605.63529_A_(密级为空)_860563529.par'),
