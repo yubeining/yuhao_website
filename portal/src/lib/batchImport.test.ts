@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { buildDraftRows, findHeader, nameFromFileName, rowsFromSheet, MAX_FILE_BYTES } from './batchImport'
+import { attachToRows, buildDraftRows, findHeader, nameFromFileName, pickSheet, rowsFromSheet, MAX_FILE_BYTES } from './batchImport'
 
 const file = (name: string, size = 10) => ({ name, size })
 
@@ -122,6 +122,43 @@ describe('buildDraftRows', () => {
 describe('MAX_FILE_BYTES', () => {
     it('matches the 20MB single file limit of the backend', () => {
         expect(MAX_FILE_BYTES).toBe(20 * 1024 * 1024)
+    })
+})
+
+describe('pickSheet', () => {
+    it('picks the first sheet that has a recognisable header, not a cover sheet before it', () => {
+        expect(pickSheet([{ rows: [['报价请求']] }, { rows: [['图号', '名称', '数量']] }])).toBe(1)
+    })
+
+    it('falls back to the first non-empty sheet when no header is found anywhere', () => {
+        expect(pickSheet([{ rows: [] }, { rows: [['a']] }, { rows: [['b']] }])).toBe(1)
+        expect(pickSheet([{ rows: [] }])).toBe(0)
+    })
+})
+
+describe('attachToRows', () => {
+    const row = (code: string) => buildDraftRows([{ code, name: 'x', qty: '1' }], [])[0]
+
+    it('attaches later files to every existing row with the same drawing number and returns the rest', () => {
+        const rows = [row('LB8.605.63529'), row('LB8.605.63529'), row('LB8.034.60696')]
+        const { rows: next, rest } = attachToRows(rows, [file('860563529.par'), file('LB9.999.99999.pdf'), file('readme.txt')])
+        expect(next[0].files.map((f) => f.name)).toEqual(['860563529.par'])
+        expect(next[1].files.map((f) => f.name)).toEqual(['860563529.par'])
+        expect(next[2].files).toEqual([])
+        expect(rest.map((f) => f.name)).toEqual(['LB9.999.99999.pdf', 'readme.txt'])
+    })
+
+    it('fills an empty revision from the file name but keeps one already there', () => {
+        const blank = row('LB8.605.63529')
+        const set = { ...row('LB8.605.63529'), customerRev: 'C' }
+        const { rows: next } = attachToRows([blank, set], [file('LB8.605.63529_B_(非密).pdf')])
+        expect(next.map((r) => r.customerRev)).toEqual(['B', 'C'])
+    })
+
+    it('does not touch rows without a drawing number', () => {
+        const { rows: next, rest } = attachToRows([row('')], [file('860563529.par')])
+        expect(next[0].files).toEqual([])
+        expect(rest).toHaveLength(1)
     })
 })
 // i18n-exempt-end

@@ -145,3 +145,29 @@ export function buildDraftRows<F extends { name: string; size: number }>(sheetRo
     }
     return rows
 }
+
+/** 默认用哪张工作表：第一张认得出表头的；都认不出就第一张非空的（前面常有封面页）。 */
+export function pickSheet(sheets: { rows: unknown[][] }[]): number {
+    const withHeader = sheets.findIndex((s) => findHeader(s.rows))
+    if (withHeader >= 0) return withHeader
+    return Math.max(0, sheets.findIndex((s) => s.rows.length > 0))
+}
+
+/**
+ * 后导入的文件先按图号配到已有的行上：同图号的每一行都挂一份（和清单里同图号两行的规则一致），
+ * 行上没填客户版本的顺手从文件名补上。配不上的文件原样返回，交给 buildDraftRows 另开行。
+ */
+export function attachToRows<F extends { name: string; size: number }>(rows: DraftRow<F>[], files: F[]): { rows: DraftRow<F>[]; rest: F[] } {
+    const rest: F[] = []
+    let next = rows
+    for (const f of files) {
+        const { partDigits, rev } = parseDrawingName(f.name)
+        const hit = (r: DraftRow<F>) => !!partDigits && normalizePartNo(r.code) === partDigits
+        if (!next.some(hit)) {
+            rest.push(f)
+            continue
+        }
+        next = next.map((r) => (hit(r) ? { ...r, files: [...r.files, f], customerRev: r.customerRev || rev } : r))
+    }
+    return { rows: next, rest }
+}

@@ -18,7 +18,9 @@ import { Banner, Bar, Card, CardBody, CardFoot, CardHead, Empty, Hello, Page, Ta
 import { errorText } from '../../i18n/errorText'
 import { useI18n } from '../../i18n/I18nProvider'
 import { collectFiles, filesFromDrop, isSpreadsheet, readSheets, type Sheet } from '../../lib/batchFiles'
-import { buildDraftRows, findHeader, rowsFromSheet, type DraftRow, type SheetColumns } from '../../lib/batchImport'
+import {
+    attachToRows, buildDraftRows, findHeader, pickSheet, rowsFromSheet, type DraftRow, type SheetColumns, type SheetRow,
+} from '../../lib/batchImport'
 import { humanSize } from '../../lib/drawing'
 import { X } from '../../lib/format'
 import { addLines, ApiError, getOrder, uploadDrawing, type OrderView } from '../../services'
@@ -51,6 +53,15 @@ const colName = (n: number) => {
 
 const complete = (r: Row) => !!r.code.trim() && !!r.name.trim() && /^\d+$/.test(r.qty.trim()) && Number(r.qty) >= 1
 
+/**
+ * 把一次导入并进已有的行：清单行先接在后面，文件再按图号配到所有同图号的行上（包括之前导入的），
+ * 配不上的文件按图号归组另开行。这样先导清单、后导图纸也能配上。
+ */
+function merge(prev: Row[], sheetRows: SheetRow[], files: File[]): Row[] {
+    const { rows, rest } = attachToRows([...prev, ...buildDraftRows(sheetRows, [])], files)
+    return [...rows, ...buildDraftRows([], rest)]
+}
+
 function locate(sheets: Sheet[], sheet: number) {
     const found = findHeader(sheets[sheet]?.rows ?? [])
     return { header: found?.row ?? 0, columns: found?.columns ?? {}, found: !!found }
@@ -71,7 +82,7 @@ export function BatchPartsPage() {
     const [rows, setRows] = useState<Row[]>([])
     const [notes, setNotes] = useState<string[]>([])
     const [list, setList] = useState<PendingList | null>(null)
-    const [editing, setEditing] = useState<{ row: Row; isNew: boolean } | null>(null)
+    const [editing, setEditing] = useState<Row | null>(null)
     const [dragOver, setDragOver] = useState(false)
     const [busy, setBusy] = useState(false)
     const [err, setErr] = useState<string | null>(null)
@@ -118,14 +129,14 @@ export function BatchPartsPage() {
                     unreadable.push(candidate.name)
                     continue
                 }
-                const sheet = Math.max(0, sheets.findIndex((s) => s.rows.length > 0))
+                const sheet = pickSheet(sheets)
                 files = files.filter((f) => f !== candidate)
                 setList({ file: candidate, sheets, sheet, ...locate(sheets, sheet), files })
                 noteSkipped(got.tooLarge, unreadable)
                 return
             }
             noteSkipped(got.tooLarge, unreadable)
-            setRows((prev) => [...prev, ...buildDraftRows([], files)])
+            setRows((prev) => merge(prev, [], files))
         } finally {
             setBusy(false)
         }
@@ -135,7 +146,7 @@ export function BatchPartsPage() {
         if (!list) return
         const sheetRows = asList ? rowsFromSheet(list.sheets[list.sheet].rows, list.header, list.columns) : []
         const files = asList ? list.files : [list.file, ...list.files]
-        setRows((prev) => [...prev, ...buildDraftRows(sheetRows, files)])
+        setRows((prev) => merge(prev, sheetRows, files))
         setList(null)
     }
 
@@ -146,14 +157,12 @@ export function BatchPartsPage() {
         await importFiles(await filesFromDrop(e.dataTransfer))
     }
 
-    const addRow = () => setEditing({
-        isNew: true,
-        // 数量默认 1：和单个「添加零件」一样
-        row: { key: `manual-${++manualSeq}`, code: '', name: '', qty: '1', customerRev: '', material: '', surface: '', files: [] },
-    })
+    // 数量默认 1：和单个「添加零件」一样
+    const addRow = () => setEditing({ key: `manual-${++manualSeq}`, code: '', name: '', qty: '1', customerRev: '', material: '', surface: '', files: [] })
 
     const saveEdit = (row: Row) => {
-        setRows((prev) => (editing?.isNew ? [...prev, row] : prev.map((r) => (r.key === row.key ? row : r))))
+        // 按 key 判断而不是看「是不是新加的」：连点两下保存也只会有一行
+        setRows((prev) => (prev.some((r) => r.key === row.key) ? prev.map((r) => (r.key === row.key ? row : r)) : [...prev, row]))
         setEditing(null)
     }
 
@@ -259,7 +268,7 @@ export function BatchPartsPage() {
                                 <tbody>
                                     {rows.map((r, i) => (
                                         <tr key={r.key} className={canEdit ? 'clk' : undefined}
-                                            onClick={canEdit ? () => setEditing({ row: { ...r, files: [...r.files] }, isNew: false }) : undefined}>
+                                            onClick={canEdit ? () => setEditing({ ...r, files: [...r.files] }) : undefined}>
                                             <td className="n">{i + 1}</td>
                                             <td>{r.code ? <span className="m">{r.code}</span> : X}</td>
                                             <td className="t1">{r.name || X}</td>
@@ -318,7 +327,7 @@ export function BatchPartsPage() {
             </div>
 
             {list && <ListColumns list={list} onChange={setList} onUse={applyList} />}
-            {editing && <RowEditor row={editing.row} onCancel={() => setEditing(null)} onSave={saveEdit} />}
+            {editing && <RowEditor row={editing} onCancel={() => setEditing(null)} onSave={saveEdit} />}
             {confirmDialog}
         </Page>
     )

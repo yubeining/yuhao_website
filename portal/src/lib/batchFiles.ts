@@ -52,15 +52,15 @@ export async function collectFiles(input: File[]): Promise<Collected> {
         }
         let zip: JSZip
         try {
-            zip = await JSZip.loadAsync(f, { decodeFileName: decodeZipName })
+            // 喂 ArrayBuffer 而不是 File：JSZip 读 Blob 要用 FileReader，只有浏览器有
+            zip = await JSZip.loadAsync(await f.arrayBuffer(), { decodeFileName: decodeZipName })
         } catch {
             out.unreadable.push(f.name)
             continue
         }
         for (const entry of Object.values(zip.files)) {
             if (entry.dir || isJunk(entry.name)) continue
-            const blob = await entry.async('blob')
-            take(new File([blob], baseName(entry.name)))
+            take(new File([await entry.async('arraybuffer')], baseName(entry.name)))
         }
     }
     return out
